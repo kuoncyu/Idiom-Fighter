@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>成語戰機：音效與過場升級版</title>
+    <title>成語戰機：星際觸控版</title>
     <style>
         :root {
             --neon-blue: #00f2ff;
@@ -20,6 +20,8 @@
             font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
             overflow: hidden;
             touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
         }
         #game-container {
             position: relative;
@@ -33,6 +35,7 @@
             background: black;
             display: block;
             box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+            touch-action: none;
         }
         #ui-layer {
             position: absolute;
@@ -54,114 +57,56 @@
             border-radius: 15px;
             text-align: center;
             pointer-events: auto;
-            min-width: 350px;
+            min-width: 320px;
             box-shadow: 0 0 30px rgba(0, 242, 255, 0.3);
             max-height: 80vh;
             overflow-y: auto;
         }
-        h1, h2 {
-            color: var(--neon-blue);
-            text-shadow: 0 0 10px var(--neon-blue);
-            margin-bottom: 20px;
-        }
+        h1, h2 { color: var(--neon-blue); text-shadow: 0 0 10px var(--neon-blue); margin-bottom: 20px; }
         .shop-title { color: var(--neon-purple); text-shadow: 0 0 10px var(--neon-purple); margin-top: 0; }
         .btn {
-            background: rgba(0, 242, 255, 0.1);
-            border: 1px solid var(--neon-blue);
-            color: var(--neon-blue);
-            padding: 12px 20px;
-            margin: 10px auto;
-            cursor: pointer;
-            font-size: 1.1rem;
-            transition: all 0.3s;
-            border-radius: 5px;
-            display: block;
-            width: 90%;
-            text-transform: uppercase;
-            font-weight: bold;
+            background: rgba(0, 242, 255, 0.1); border: 1px solid var(--neon-blue);
+            color: var(--neon-blue); padding: 12px 20px; margin: 10px auto; cursor: pointer;
+            font-size: 1.1rem; transition: all 0.3s; border-radius: 5px; display: block;
+            width: 90%; text-transform: uppercase; font-weight: bold;
         }
-        .btn:hover:not(:disabled) {
-            background: var(--neon-blue);
-            color: black;
-            box-shadow: 0 0 15px var(--neon-blue);
-        }
+        .btn:hover:not(:disabled) { background: var(--neon-blue); color: black; box-shadow: 0 0 15px var(--neon-blue); }
         .btn:disabled { border-color: #555; color: #555; cursor: not-allowed; background: transparent; }
         .btn-shop { border-color: var(--neon-purple); color: var(--neon-purple); }
         .btn-shop:hover:not(:disabled) { background: var(--neon-purple); color: white; box-shadow: 0 0 15px var(--neon-purple); }
         .btn-start { background: rgba(0, 242, 255, 0.2); font-size: 1.3rem; padding: 15px; margin-top: 20px; }
         
         #hud {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            display: flex;
-            justify-content: space-between;
-            pointer-events: none;
-            font-family: 'Courier New', monospace;
-            font-size: 1rem;
-            color: var(--neon-blue);
-            background: rgba(0,0,0,0.6);
-            padding: 10px 15px;
-            border-radius: 10px;
-            border: 1px solid rgba(0,242,255,0.3);
-            z-index: 5;
+            position: absolute; top: 10px; left: 10px; right: 10px; display: flex;
+            justify-content: space-between; pointer-events: none; font-family: 'Courier New', monospace;
+            font-size: 1rem; color: var(--neon-blue); background: rgba(0,0,0,0.6);
+            padding: 10px 15px; border-radius: 10px; border: 1px solid rgba(0,242,255,0.3); z-index: 5;
         }
         .hud-item { margin: 0 5px; }
         .hud-dm { color: var(--neon-purple); font-weight: bold; text-shadow: 0 0 5px var(--neon-purple); }
         
         #stage-info {
-            position: absolute;
-            top: 60px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: var(--neon-gold);
-            font-weight: bold;
-            font-size: 1.2rem;
-            text-shadow: 0 0 5px black;
+            position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+            color: var(--neon-gold); font-weight: bold; font-size: 1.2rem; text-shadow: 0 0 5px black;
         }
-        .boss-hp-bar {
-            position: absolute;
-            top: 90px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80%;
-            height: 10px;
-            background: #333;
-            border: 1px solid white;
-            display: none;
-        }
+        .boss-hp-bar { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); width: 80%; height: 10px; background: #333; border: 1px solid white; display: none; }
         .boss-hp-fill { width: 100%; height: 100%; background: linear-gradient(to right, #f00, #ff0); transition: width 0.2s; }
         
         .idiom-slots {
-            position: absolute;
-            bottom: 25px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 10px;
-            align-items: flex-end;
-            z-index: 5;
-            flex-wrap: wrap;
-            justify-content: center;
-            width: 90%;
+            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 10px; align-items: flex-end; z-index: 5; flex-wrap: wrap; justify-content: center; width: 90%; pointer-events: none;
         }
         .slot {
-            width: 65px;
-            height: 65px;
-            border: 2px solid #444;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.85rem;
-            border-radius: 8px;
-            color: #ccc;
-            transition: all 0.3s;
+            width: 65px; height: 65px; border: 2px solid #444; background: rgba(0,0,0,0.8);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 0.85rem; border-radius: 8px; color: #ccc; transition: all 0.3s; pointer-events: none;
         }
         .slot.collecting { border-color: var(--neon-blue); color: var(--neon-blue); box-shadow: 0 0 5px var(--neon-blue); }
-        .slot.ready { border-color: var(--neon-pink); color: var(--neon-pink); box-shadow: 0 0 15px var(--neon-pink); cursor: pointer; pointer-events: auto; font-weight: bold;}
+        .slot.ready { 
+            border-color: var(--neon-pink); color: var(--neon-pink); box-shadow: 0 0 15px var(--neon-pink); 
+            cursor: pointer; pointer-events: auto; font-weight: bold; animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse { from { box-shadow: 0 0 10px var(--neon-pink); } to { box-shadow: 0 0 25px var(--neon-pink), inset 0 0 10px var(--neon-pink); } }
     </style>
 </head>
 <body>
@@ -182,23 +127,29 @@
 <script>
 "use strict";
 
-// --- 音效系統 (Web Audio API) ---
+// --- 宇宙沉浸音效系統 ---
 class RetroAudio {
-    constructor() { this.ctx = null; this.bgmOsc = null; this.lastShootTime = 0; }
+    constructor() { this.ctx = null; this.lastShootTime = 0; }
     init() {
         if(this.ctx) return;
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AudioContext();
-        this.startBGM();
+        this.delayNode = this.ctx.createDelay(); this.delayNode.delayTime.value = 0.45; 
+        this.feedbackNode = this.ctx.createGain(); this.feedbackNode.gain.value = 0.35; 
+        this.delayNode.connect(this.feedbackNode); this.feedbackNode.connect(this.delayNode);
+        this.mainGain = this.ctx.createGain(); this.mainGain.gain.value = 0.8;
+        this.delayNode.connect(this.mainGain); this.mainGain.connect(this.ctx.destination);
+        this.startSpaceBGM();
     }
-    playTone(freq, type, duration, vol=0.1) {
+    playTone(freq, type, duration, vol=0.1, useEcho=false) {
         if(!this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
+        const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
         osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+        osc.connect(gain); gain.connect(this.mainGain);
+        if (useEcho) gain.connect(this.delayNode);
+        gain.gain.setValueAtTime(0, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
         osc.start(); osc.stop(this.ctx.currentTime + duration);
     }
     playNoise(duration, vol=0.1) {
@@ -207,35 +158,42 @@ class RetroAudio {
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
         const data = buffer.getChannelData(0);
         for(let i=0; i<bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        const noise = this.ctx.createBufferSource();
-        noise.buffer = buffer;
+        const noise = this.ctx.createBufferSource(); noise.buffer = buffer;
         const gain = this.ctx.createGain();
         gain.gain.setValueAtTime(vol, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-        noise.connect(gain); gain.connect(this.ctx.destination);
-        noise.start();
+        noise.connect(gain); gain.connect(this.mainGain); noise.start();
     }
     playShoot() { 
         if(!this.ctx) return;
         const now = this.ctx.currentTime;
-        if(now - this.lastShootTime < 0.05) return; 
+        if(now - this.lastShootTime < 0.08) return; 
         this.lastShootTime = now;
-        this.playTone(600, 'square', 0.1, 0.02); 
+        const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+        osc.type = 'square'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+        osc.connect(gain); gain.connect(this.mainGain);
+        gain.gain.setValueAtTime(0.03, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc.start(now); osc.stop(now + 0.1);
     }
+    playEnemyShoot() { this.playTone(600, 'triangle', 0.1, 0.02); }
     playHit() { this.playNoise(0.1, 0.05); }
-    playExplosion() { this.playNoise(0.4, 0.2); }
-    playCollect() { this.playTone(800, 'sine', 0.1, 0.05); setTimeout(()=>this.playTone(1200, 'sine', 0.1, 0.05), 50); }
-    playReady() { this.playTone(400, 'square', 0.1, 0.05); setTimeout(()=>this.playTone(600, 'square', 0.1, 0.05), 100); setTimeout(()=>this.playTone(800, 'square', 0.2, 0.05), 200); }
-    playUse() { this.playTone(200, 'sawtooth', 0.4, 0.1); }
-    playTransition() { this.playTone(300, 'sine', 1.0, 0.05); }
-    startBGM() {
+    playExplosion() { this.playNoise(0.5, 0.3); }
+    playCollect() { this.playTone(800, 'sine', 0.1, 0.05); setTimeout(()=>this.playTone(1200, 'sine', 0.1, 0.05, true), 50); }
+    playReady() { this.playTone(400, 'square', 0.1, 0.05); setTimeout(()=>this.playTone(600, 'square', 0.1, 0.05), 100); setTimeout(()=>this.playTone(800, 'square', 0.3, 0.08, true), 200); }
+    playUse() { this.playTone(150, 'sawtooth', 0.6, 0.15, true); }
+    playTransition() { this.playTone(300, 'sine', 1.5, 0.05, true); this.playTone(600, 'sine', 1.5, 0.03, true); }
+    
+    startSpaceBGM() {
         if(this.bgmInterval) return;
+        const chords = [[164.81, 196.00, 246.94, 293.66], [130.81, 164.81, 196.00, 246.94], [220.00, 261.63, 329.63, 392.00], [246.94, 293.66, 369.99, 440.00]];
+        let step = 0; let chordIdx = 0;
         this.bgmInterval = setInterval(() => {
             if(!this.ctx || this.ctx.state !== 'running') return;
-            const notes = [220, 220, 330, 293]; 
-            const note = notes[Math.floor(Date.now() / 300) % notes.length];
-            this.playTone(note, 'square', 0.1, 0.015);
-        }, 300);
+            if (step % 16 === 0) { chordIdx = Math.floor(step / 16) % chords.length; this.playTone(chords[chordIdx][0] / 2, 'triangle', 2.0, 0.12, true); }
+            const note = chords[chordIdx][step % 4]; const finalNote = (step % 8 >= 4) ? note * 2 : note;
+            this.playTone(finalNote, 'sine', 0.25, 0.04, true);
+            step++;
+        }, 150);
     }
 }
 const sfx = new RetroAudio();
@@ -249,8 +207,7 @@ const CONFIG = {
         { word: "百步穿楊", effect: "LASER_BEAM", desc: "發射貫穿雷射" },
         { word: "星火燎原", effect: "SPREAD_FIRE", desc: "散彈射擊增強" }
     ],
-    MAX_STAGES: 8,
-    STAGE_DURATION: 20, 
+    MAX_STAGES: 8
 };
 
 class Vec2 { constructor(x, y) { this.x = x; this.y = y; } }
@@ -292,7 +249,8 @@ class Boss extends Entity {
     constructor(stage) {
         super();
         this.stage = stage;
-        this.maxHp = stage === 9 ? 4000 : 500 + stage * 300;
+        // 難度曲線：BOSS血量隨關卡平滑上升 (第1關 300，第8關 2750，最終BOSS 5000)
+        this.maxHp = stage === 9 ? 5000 : 300 + (stage - 1) * 350;
         this.hp = this.maxHp;
         this.radius = 45;
         this.color = stage === 9 ? "#ff00ff" : "#ff3333";
@@ -310,7 +268,8 @@ class Boss extends Entity {
         this.pos.x = window.innerWidth / 2 + Math.sin(Date.now() / 1500) * (window.innerWidth/3);
 
         this.shootTimer += dt;
-        const fireRate = this.stage === 9 ? 0.15 : Math.max(0.12, 0.6 - this.stage * 0.05);
+        // 難度曲線：BOSS發射頻率 (第1關較慢 0.9秒，第8關極快 0.2秒)
+        const fireRate = this.stage === 9 ? 0.15 : Math.max(0.2, 1.0 - this.stage * 0.1);
         if (this.shootTimer > fireRate) { this.shoot(spawnBullet, playerPos); this.shootTimer = 0; }
 
         this.meteorTimer += dt;
@@ -319,31 +278,33 @@ class Boss extends Entity {
 
     shoot(spawnBullet, playerPos) {
         this.angle += 0.15;
+        // 難度曲線：BOSS子彈速度隨關卡提升
+        const speedBase = 120 + this.stage * 15;
+        
         switch(this.pattern) {
             case 0:
                 for(let i=0; i<6; i++) {
                     const b = spawnBullet(); b.pos = new Vec2(this.pos.x, this.pos.y);
                     const a = (i / 6) * Math.PI * 2 + this.angle;
-                    b.vel = new Vec2(Math.cos(a) * 250, Math.sin(a) * 250); b.color = "#ff33aa"; b.isPlayer = false;
+                    b.vel = new Vec2(Math.cos(a) * speedBase, Math.sin(a) * speedBase); b.color = "#ff33aa"; b.isPlayer = false;
                 } break;
             case 1:
                 const b = spawnBullet(); b.pos = new Vec2(this.pos.x, this.pos.y);
                 const angleToPlayer = Math.atan2(playerPos.y - this.pos.y, playerPos.x - this.pos.x);
-                b.vel = new Vec2(Math.cos(angleToPlayer) * 350, Math.sin(angleToPlayer) * 350); b.color = "#ffcc00"; b.isPlayer = false; break;
+                b.vel = new Vec2(Math.cos(angleToPlayer) * (speedBase * 1.3), Math.sin(angleToPlayer) * (speedBase * 1.3)); b.color = "#ffcc00"; b.isPlayer = false; break;
             case 2:
                 for(let i=0; i<4; i++) {
                     const b2 = spawnBullet(); b2.pos = new Vec2(this.pos.x, this.pos.y);
-                    b2.vel = new Vec2((Math.random()-0.5)*500, 300 + Math.random()*100); b2.color = "#00ff00"; b2.isPlayer = false;
+                    b2.vel = new Vec2((Math.random()-0.5) * speedBase * 1.5, speedBase + Math.random()*50); b2.color = "#00ff00"; b2.isPlayer = false;
                 } break;
             case 3:
                 for(let i=0; i<3; i++) {
                     const b3 = spawnBullet(); b3.pos = new Vec2(this.pos.x, this.pos.y);
                     const a = this.angle + (i * Math.PI * 2 / 3);
-                    b3.vel = new Vec2(Math.cos(a) * 300, Math.sin(a) * 300); b3.color = "#00ccff"; b3.isPlayer = false;
+                    b3.vel = new Vec2(Math.cos(a) * speedBase, Math.sin(a) * speedBase); b3.color = "#00ccff"; b3.isPlayer = false;
                 } break;
         }
     }
-
     draw(ctx) {
         ctx.save(); ctx.shadowBlur = 20; ctx.shadowColor = this.color; ctx.fillStyle = this.color;
         ctx.beginPath();
@@ -367,19 +328,27 @@ class Game {
         this.gameState = 'INIT';
         this.lastTime = 0;
         
-        // 跨局繼承的資源
+        this.pointerActive = false;
+        this.lastPointerX = 0;
+        this.lastPointerY = 0;
+
         this.darkMatter = 0;
         this.maxSlots = 3;   
         this.maxHp = 100;    
         this.weaponLvl = 1;  
 
-        this.currentStage = 1; this.currentSub = 1; this.stageTimer = 0;
+        this.currentStage = 1; this.currentSub = 1;
         this.score = 0; this.hp = this.maxHp;
         this.boss = null;
         this.transitionTimer = 0;
         this.isNextStage = false;
 
-        this.player = { pos: new Vec2(0, 0), radius: 12, speed: 400, lastShoot: 0, rapidFire: 0, spreadFire: 0 };
+        this.waveQuota = 0;
+        this.enemiesSpawned = 0;
+        this.enemySpawnTimer = 0;
+        this.meteorTimer = 0;
+
+        this.player = { pos: new Vec2(0, 0), radius: 12, speed: 450, lastShoot: 0, rapidFire: 0, spreadFire: 0 };
         this.keys = {};
         this.bullets = new ObjectPool(() => new Bullet(), 400);
         this.texts = new ObjectPool(() => new FloatingText(), 20);
@@ -394,11 +363,24 @@ class Game {
         this.resize(); window.addEventListener('resize', () => this.resize());
         window.addEventListener('keydown', (e) => {
             this.keys[e.code] = true;
-            if (e.code.startsWith('Digit') && this.gameState === 'PLAYING') {
-                this.useIdiom(parseInt(e.code.slice(-1)) - 1);
-            }
+            if (e.code.startsWith('Digit') && this.gameState === 'PLAYING') this.useIdiom(parseInt(e.code.slice(-1)) - 1);
         });
         window.addEventListener('keyup', (e) => this.keys[e.code] = false);
+
+        this.canvas.addEventListener('pointerdown', (e) => {
+            if (this.gameState !== 'PLAYING') return;
+            this.pointerActive = true; this.lastPointerX = e.clientX; this.lastPointerY = e.clientY;
+            this.canvas.setPointerCapture(e.pointerId);
+        });
+        this.canvas.addEventListener('pointermove', (e) => {
+            if (!this.pointerActive || this.gameState !== 'PLAYING') return;
+            const dx = e.clientX - this.lastPointerX; const dy = e.clientY - this.lastPointerY;
+            this.player.pos.x += dx * 1.3; this.player.pos.y += dy * 1.3;
+            this.lastPointerX = e.clientX; this.lastPointerY = e.clientY;
+        });
+        this.canvas.addEventListener('pointerup', (e) => { this.pointerActive = false; this.canvas.releasePointerCapture(e.pointerId); });
+        this.canvas.addEventListener('pointercancel', (e) => { this.pointerActive = false; });
+
         this.setState('INIT'); requestAnimationFrame((t) => this.loop(t));
     }
 
@@ -413,7 +395,7 @@ class Game {
             document.getElementById('boss-bar').style.display = 'none';
             this.renderLobby();
         } else if (state === 'INIT') {
-            this.uiLayer.innerHTML = `<div class="menu-overlay"><h1>成語戰機</h1><button class="btn btn-start" id="boot-btn">系統啟動</button></div>`;
+            this.uiLayer.innerHTML = `<div class="menu-overlay"><h1>成語戰機</h1><p style="color:#aaa; font-size:0.9rem;">支援觸控/拖曳與全自動開火</p><button class="btn btn-start" id="boot-btn">連線星際網路 (啟動音效)</button></div>`;
             document.getElementById('boot-btn').onclick = () => { sfx.init(); this.setState('LOBBY'); };
         } else if (state === 'PLAYING') {
             document.getElementById('hud').style.display = 'flex'; 
@@ -427,9 +409,7 @@ class Game {
     }
 
     renderLobby() {
-        const costSlot = this.maxSlots * 50;
-        const costWeapon = this.weaponLvl * 100;
-        
+        const costSlot = this.maxSlots * 50; const costWeapon = this.weaponLvl * 100;
         this.uiLayer.innerHTML = `
             <div class="menu-overlay">
                 <h1 style="margin-bottom:5px;">成語戰機</h1>
@@ -438,17 +418,10 @@ class Game {
                     持有暗物質: <b>${this.darkMatter} DM</b>
                 </p>
                 <hr style="border-color:#333; margin:20px 0;">
-                
                 <button class="btn btn-shop" ${this.darkMatter < costSlot || this.maxSlots >= 10 ? 'disabled' : ''} 
-                    onclick="game.buyItem('SLOT', ${costSlot})">
-                    擴充成語倉 (Lv.${this.maxSlots}/10) - ${this.maxSlots >= 10 ? '已滿級' : costSlot + ' DM'}
-                </button>
-                
+                    onclick="game.buyItem('SLOT', ${costSlot})">擴充成語倉 (Lv.${this.maxSlots}/10) - ${this.maxSlots >= 10 ? '已滿級' : costSlot + ' DM'}</button>
                 <button class="btn btn-shop" ${this.darkMatter < costWeapon || this.weaponLvl >= 10 ? 'disabled' : ''} 
-                    onclick="game.buyItem('WEAPON', ${costWeapon})">
-                    升級火力 (Lv.${this.weaponLvl}/10) - ${this.weaponLvl >= 10 ? '已滿級' : costWeapon + ' DM'}
-                </button>
-                
+                    onclick="game.buyItem('WEAPON', ${costWeapon})">升級火力 (Lv.${this.weaponLvl}/10) - ${this.weaponLvl >= 10 ? '已滿級' : costWeapon + ' DM'}</button>
                 <hr style="border-color:#333; margin:20px 0;">
                 <button class="btn btn-start" onclick="game.startNewGame()">開始出擊</button>
             </div>
@@ -457,8 +430,7 @@ class Game {
 
     buyItem(type, cost) {
         if (this.darkMatter >= cost) {
-            this.darkMatter -= cost;
-            sfx.playReady();
+            this.darkMatter -= cost; sfx.playReady();
             if (type === 'SLOT' && this.maxSlots < 10) this.maxSlots++;
             if (type === 'WEAPON' && this.weaponLvl < 10) this.weaponLvl++;
             this.renderLobby(); 
@@ -466,71 +438,60 @@ class Game {
     }
 
     startNewGame() {
-        sfx.init(); // 確保音效初始化
-        this.currentStage = 1; this.currentSub = 1; this.score = 0; 
-        this.hp = this.maxHp; 
-        this.slots = []; 
-        this.resetStage(); 
-        this.setState('PLAYING');
+        sfx.init(); this.currentStage = 1; this.currentSub = 1; this.score = 0; 
+        this.hp = this.maxHp; this.slots = []; this.resetStage(); this.setState('PLAYING');
     }
 
     resetStage() {
-        this.stageTimer = 0; this.boss = null;
+        this.boss = null;
         this.enemies = []; this.meteors = []; this.charItems = [];
-        this.player.pos = new Vec2(window.innerWidth / 2, window.innerHeight - 100);
+        this.player.pos = new Vec2(window.innerWidth / 2, window.innerHeight - 150);
         this.bullets.pool.forEach(b => b.active = false);
+        this.pointerActive = false; 
         document.getElementById('boss-bar').style.display = 'none';
-        this.showFloatText(`關卡 ${this.currentStage}-${this.currentSub}`, window.innerWidth/2, window.innerHeight/2, "#ffea00");
+        
+        if (this.currentSub < 3) {
+            // 難度曲線：敵人總量隨關卡平滑上升 (1-1 只有 2 隻，8-2 會有 25 隻)
+            this.waveQuota = 2 + (this.currentStage - 1) * 3 + (this.currentSub - 1) * 2;
+            this.enemiesSpawned = 0;
+            this.enemySpawnTimer = 0;
+        } else {
+            this.waveQuota = 0; // 第3子關卡直接打王
+        }
+        this.meteorTimer = 0;
+
+        this.showFloatText(this.currentSub === 3 ? "WARNING: BOSS" : `區塊 ${this.currentStage}-${this.currentSub} 開始`, window.innerWidth/2, window.innerHeight/2, "#ffea00");
     }
 
     startTransition(isNextStage) {
-        this.gameState = 'TRANSITION';
-        this.transitionTimer = 0;
-        this.isNextStage = isNextStage;
-        this.bullets.pool.forEach(b => b.active = false);
-        this.enemies = []; 
-        this.meteors = [];
-        this.charItems = [];
+        this.gameState = 'TRANSITION'; this.transitionTimer = 0; this.isNextStage = isNextStage;
+        this.bullets.pool.forEach(b => b.active = false); this.enemies = []; this.meteors = []; this.charItems = [];
         sfx.playTransition();
-        this.showFloatText(isNextStage ? "STAGE CLEAR" : "PHASE COMPLETE", window.innerWidth/2, window.innerHeight/2 - 50, "#00f2ff");
+        this.showFloatText(isNextStage ? "STAGE CLEAR" : "WAVE CLEARED", window.innerWidth/2, window.innerHeight/2 - 50, "#00f2ff");
     }
 
     renderIdiomSlots() {
         if(this.gameState !== 'PLAYING' && this.gameState !== 'TRANSITION') return;
-        const container = document.getElementById('idiom-ui');
-        container.innerHTML = '';
-        
+        const container = document.getElementById('idiom-ui'); container.innerHTML = '';
         for (let i = 0; i < this.maxSlots; i++) {
-            const slot = this.slots[i];
-            const div = document.createElement('div');
-            
+            const slot = this.slots[i]; const div = document.createElement('div');
             if (slot) {
                 if (slot.type === 'READY') {
-                    div.className = 'slot ready';
-                    div.innerHTML = `<span>${slot.word}</span><div style="font-size:0.6rem; color:#aaa;">按 ${i+1}</div>`;
-                    if (i < 9) div.onclick = () => this.useIdiom(i);
+                    div.className = 'slot ready'; div.innerHTML = `<span>${slot.word}</span><div style="font-size:0.5rem; color:#fff;">點擊/按${i+1}</div>`;
+                    if (i < 9) div.onpointerdown = (e) => { e.stopPropagation(); this.useIdiom(i); };
                 } else if (slot.type === 'COLLECTING') {
                     div.className = 'slot collecting';
-                    // 顯示收集進度 (已收集顯示字元，未收集顯示下劃線)
                     let displayStr = slot.word.split('').map(c => slot.chars.includes(c) ? c : '_').join('');
                     div.innerHTML = `<span style="letter-spacing:2px; font-weight:bold;">${displayStr}</span><div style="font-size:0.5rem; color:#888;">收集中</div>`;
                 }
-            } else {
-                div.className = 'slot';
-                div.innerHTML = `<div style="opacity:0.3;">空槽位</div>`;
-            }
+            } else { div.className = 'slot'; div.innerHTML = `<div style="opacity:0.3;">空</div>`; }
             container.appendChild(div);
         }
     }
 
     useIdiom(index) {
-        const idiom = this.slots[index];
-        if (!idiom || idiom.type !== 'READY') return;
-        
-        this.slots.splice(index, 1);
-        this.renderIdiomSlots();
-        sfx.playUse();
-        
+        const idiom = this.slots[index]; if (!idiom || idiom.type !== 'READY') return;
+        this.slots.splice(index, 1); this.renderIdiomSlots(); sfx.playUse();
         if (idiom.effect === 'BOMB_BOOST') this.triggerBomb();
         if (idiom.effect === 'INVINCIBLE') this.invincibleTimer = 10;
         if (idiom.effect === 'RAPID_FIRE') this.player.rapidFire = 6;
@@ -542,21 +503,12 @@ class Game {
         this.bullets.pool.forEach(b => { if(!b.isPlayer) b.active = false; });
         if (this.boss) this.boss.hp -= 200;
         this.enemies.forEach(e => { this.dropDarkMatter(e.pos.x, e.pos.y, e.hp * 2); sfx.playExplosion(); });
-        this.enemies = [];
-        this.showFloatText("全螢幕爆破!", this.player.pos.x, this.player.pos.y-30, "#ff00ff");
+        this.enemies = []; this.showFloatText("全螢幕爆破!", this.player.pos.x, this.player.pos.y-30, "#ff00ff");
     }
-
     triggerLaser() { this.laserTimer = 0.5; if(this.boss) this.boss.hp -= 150; }
 
-    showFloatText(text, x, y, color = "#fff") {
-        const t = this.texts.get(); t.pos = new Vec2(x, y); t.text = text; t.color = color; t.life = 1.5;
-    }
-
-    dropDarkMatter(x, y, amount) {
-        this.darkMatter += amount;
-        this.showFloatText(`+${amount} DM`, x, y, "#b026ff");
-        this.updateHUD();
-    }
+    showFloatText(text, x, y, color = "#fff") { const t = this.texts.get(); t.pos = new Vec2(x, y); t.text = text; t.color = color; t.life = 1.5; }
+    dropDarkMatter(x, y, amount) { this.darkMatter += amount; this.showFloatText(`+${amount} DM`, x, y, "#b026ff"); this.updateHUD(); }
 
     updateHUD() {
         if(this.gameState !== 'PLAYING' && this.gameState !== 'TRANSITION') return;
@@ -566,139 +518,132 @@ class Game {
     }
 
     loop(timestamp) {
-        const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1);
-        this.lastTime = timestamp;
-        
-        if (this.gameState === 'PLAYING') this.update(dt);
-        else if (this.gameState === 'TRANSITION') this.updateTransition(dt);
-        
-        this.draw();
-        requestAnimationFrame((t) => this.loop(t));
+        const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1); this.lastTime = timestamp;
+        if (this.gameState === 'PLAYING') this.update(dt); else if (this.gameState === 'TRANSITION') this.updateTransition(dt);
+        this.draw(); requestAnimationFrame((t) => this.loop(t));
     }
 
     updateTransition(dt) {
         this.transitionTimer += dt;
-        
-        // 階段 1: 停頓 (0 ~ 1秒)，僅維持畫面不動作
-        // 階段 2: 戰機加速往前衝 (1 ~ 2秒)
-        if (this.transitionTimer > 1.0 && this.transitionTimer <= 2.0) {
-            this.player.pos.y -= 800 * dt; // 往上飛出螢幕
-        }
-        
-        // 階段 3: 重置關卡並開始
+        if (this.transitionTimer > 1.0 && this.transitionTimer <= 2.0) this.player.pos.y -= 1000 * dt; 
         if (this.transitionTimer > 2.0) {
             if (this.isNextStage) {
-                if (this.currentStage < CONFIG.MAX_STAGES) {
-                    this.currentStage++; this.currentSub = 1;
-                } else if (this.currentStage === 8) {
-                    this.currentStage = 9; this.currentSub = 1;
-                } else { 
-                    this.setState('VICTORY'); return; 
-                }
-            } else {
-                this.currentSub++;
-            }
-            this.resetStage();
-            this.setState('PLAYING');
-            this.updateHUD();
+                if (this.currentStage < CONFIG.MAX_STAGES) { this.currentStage++; this.currentSub = 1; } 
+                else if (this.currentStage === 8) { this.currentStage = 9; this.currentSub = 1; } 
+                else { this.setState('VICTORY'); return; }
+            } else { this.currentSub++; }
+            this.resetStage(); this.setState('PLAYING'); this.updateHUD();
         }
-        
-        // 更新漂浮文字
         this.texts.pool.forEach(t => { if(t.active) t.update(dt); });
     }
 
+    spawnEnemy() {
+        const diff = this.currentStage + this.currentSub;
+        const angle = Math.random() * Math.PI * 2; 
+        // 難度曲線：雜魚速度、血量、發射間隔
+        const speed = 80 + this.currentStage * 12; 
+        const hp = 2 + this.currentStage * 1.5; // 初期血少，打幾下就爆
+        
+        this.enemies.push({ 
+            pos: new Vec2(Math.random() * (window.innerWidth - 60) + 30, -30), 
+            vel: new Vec2(Math.cos(angle)*speed, Math.sin(angle)*speed), 
+            hp: hp, 
+            radius: 18, 
+            color: "#f0f", 
+            diff: diff,
+            shootTimer: Math.random() * 2,
+            shootInterval: Math.max(1.5, 4.5 - this.currentStage * 0.35) // 第1關 4.15秒，第8關 1.7秒
+        });
+    }
+
     update(dt) {
-        // 控制
         if (this.keys['KeyW'] || this.keys['ArrowUp']) this.player.pos.y -= this.player.speed * dt;
         if (this.keys['KeyS'] || this.keys['ArrowDown']) this.player.pos.y += this.player.speed * dt;
         if (this.keys['KeyA'] || this.keys['ArrowLeft']) this.player.pos.x -= this.player.speed * dt;
         if (this.keys['KeyD'] || this.keys['ArrowRight']) this.player.pos.x += this.player.speed * dt;
+        
         this.player.pos.x = Math.max(15, Math.min(window.innerWidth - 15, this.player.pos.x));
         this.player.pos.y = Math.max(15, Math.min(window.innerHeight - 15, this.player.pos.y));
 
-        // 射擊邏輯
-        const fireRate = this.player.rapidFire > 0 ? 60 : Math.max(80, 200 - this.weaponLvl * 10);
-        if (this.keys['Space'] && Date.now() - this.player.lastShoot > fireRate) {
+        const fireRate = this.player.rapidFire > 0 ? 50 : Math.max(80, 200 - this.weaponLvl * 10);
+        if (Date.now() - this.player.lastShoot > fireRate) {
             const dmg = 1 + (this.weaponLvl * 0.5);
             const shootBullet = (offset, angle) => {
                 const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + offset, this.player.pos.y - 15);
-                b.vel = new Vec2(Math.sin(angle)*600, -Math.cos(angle)*600); 
+                b.vel = new Vec2(Math.sin(angle)*800, -Math.cos(angle)*800);
                 b.color = "#00f2ff"; b.isPlayer = true; b.radius = 4 + (this.weaponLvl * 0.5); b.damage = dmg;
             };
-            
             shootBullet(0, 0); 
             if (this.weaponLvl >= 3 || this.player.spreadFire > 0) { shootBullet(-15, -0.15); shootBullet(15, 0.15); }
             if (this.weaponLvl >= 6 || this.player.spreadFire > 0) { shootBullet(-25, -0.3); shootBullet(25, 0.3); }
-            this.player.lastShoot = Date.now();
-            sfx.playShoot();
+            this.player.lastShoot = Date.now(); sfx.playShoot();
         }
 
-        // 階段邏輯
         if (!this.boss) {
-            this.stageTimer += dt;
-            if (this.stageTimer > CONFIG.STAGE_DURATION) {
-                if (this.currentSub < 3) {
-                    this.startTransition(false);
-                } else {
-                    this.boss = new Boss(this.currentStage);
-                    document.getElementById('boss-bar').style.display = 'block';
-                    sfx.playReady(); // Boss 警告音
+            if (this.currentSub < 3) {
+                if (this.enemiesSpawned < this.waveQuota) {
+                    this.enemySpawnTimer -= dt;
+                    // 難度曲線：控制畫面最大敵人數量 (第1關最多 2 隻，第8關最多 6 隻)
+                    const maxOnScreen = Math.min(8, 2 + Math.floor(this.currentStage * 0.6));
+                    
+                    if (this.enemySpawnTimer <= 0 && this.enemies.length < maxOnScreen) {
+                        this.spawnEnemy();
+                        this.enemiesSpawned++;
+                        // 初期生成間隔較慢，隨關卡變快
+                        this.enemySpawnTimer = Math.max(0.4, 1.5 - this.currentStage * 0.1); 
+                    }
+                } 
+                else if (this.enemies.length === 0) {
+                    this.startTransition(false); 
                 }
+            } else {
+                this.boss = new Boss(this.currentStage);
+                document.getElementById('boss-bar').style.display = 'block';
+                sfx.playReady();
             }
         }
 
-        // 生成敵人 (嚴格限制數量)
-        const maxEnemies = 2 + Math.floor(this.currentStage * 0.8);
-        if (!this.boss && this.enemies.length < maxEnemies && Math.random() < 0.015) {
-            const diff = this.currentStage + this.currentSub;
-            const angle = Math.random() * Math.PI * 2; // 隨機全方位角度
-            const speed = 120 + diff * 15; // 速度恆定
-            this.enemies.push({ 
-                pos: new Vec2(Math.random() * window.innerWidth, -30), 
-                vel: new Vec2(Math.cos(angle)*speed, Math.sin(angle)*speed), 
-                hp: diff * 2.5, 
-                radius: 18, 
-                color: "#f0f", 
-                diff: diff 
-            });
+        // 為了確保初期關卡(敵人少)玩家還是能搜集到成語，加快一點隕石掉落率
+        this.meteorTimer += dt;
+        if (this.meteorTimer > 1.2) {
+            if (Math.random() < 0.6) this.spawnMeteor(Math.random() * (window.innerWidth-40) + 20, -50);
+            this.meteorTimer = 0;
         }
 
-        if (Math.random() < 0.01) this.spawnMeteor(Math.random()*window.innerWidth, -50);
-
-        // Boss 邏輯
         if (this.boss) {
             this.boss.update(dt, this.player.pos, () => this.bullets.get(), (x,y) => this.spawnMeteor(x,y));
             document.getElementById('boss-hp-fill').style.width = (this.boss.hp / this.boss.maxHp * 100) + "%";
             if (this.boss.hp <= 0) {
                 this.dropDarkMatter(this.boss.pos.x, this.boss.pos.y, this.boss.dmReward);
-                sfx.playExplosion();
-                this.boss = null;
-                this.startTransition(true);
+                sfx.playExplosion(); this.boss = null; this.startTransition(true);
             }
         }
 
-        // 敵人行動與反彈邏輯 (真實直線運動反彈)
         this.enemies.forEach((e, i) => {
-            e.pos.x += e.vel.x * dt;
-            e.pos.y += e.vel.y * dt;
-            
-            // 碰壁完美反彈
+            e.pos.x += e.vel.x * dt; e.pos.y += e.vel.y * dt;
             if (e.pos.x < e.radius) { e.pos.x = e.radius; e.vel.x = Math.abs(e.vel.x); }
             if (e.pos.x > window.innerWidth - e.radius) { e.pos.x = window.innerWidth - e.radius; e.vel.x = -Math.abs(e.vel.x); }
             if (e.pos.y < e.radius) { e.pos.y = e.radius; e.vel.y = Math.abs(e.vel.y); }
             if (e.pos.y > window.innerHeight - e.radius) { e.pos.y = window.innerHeight - e.radius; e.vel.y = -Math.abs(e.vel.y); }
 
-            // 撞擊玩家
+            e.shootTimer += dt;
+            if (e.shootTimer > e.shootInterval) {
+                e.shootTimer = 0;
+                const b = this.bullets.get();
+                b.pos = new Vec2(e.pos.x, e.pos.y);
+                const angleToPlayer = Math.atan2(this.player.pos.y - e.pos.y, this.player.pos.x - e.pos.x);
+                // 難度曲線：雜魚子彈速度隨關卡提升 (第1關 110 很慢，第8關 180)
+                const bulletSpeed = 100 + this.currentStage * 10;
+                b.vel = new Vec2(Math.cos(angleToPlayer) * bulletSpeed, Math.sin(angleToPlayer) * bulletSpeed); 
+                b.color = "#ff3333"; b.isPlayer = false; b.radius = 5; b.damage = 1;
+                sfx.playEnemyShoot();
+            }
+
             if (Math.hypot(e.pos.x - this.player.pos.x, e.pos.y - this.player.pos.y) < e.radius + this.player.radius && this.invincibleTimer <= 0) {
-                this.hp -= 15; 
-                this.invincibleTimer = 1.0; 
-                sfx.playHit();
-                this.updateHUD(); 
-                if(this.hp<=0) this.setState('GAMEOVER');
+                this.hp -= 15; this.invincibleTimer = 1.0; sfx.playHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
             }
         });
 
-        // 子彈碰撞
         this.bullets.pool.forEach(b => {
             if (b.active) {
                 b.update(dt);
@@ -712,8 +657,7 @@ class Game {
                         if (Math.hypot(b.pos.x - e.pos.x, b.pos.y - e.pos.y) < e.radius) {
                             e.hp -= b.damage; b.active = false; sfx.playHit();
                             if(e.hp<=0) { 
-                                this.dropDarkMatter(e.pos.x, e.pos.y, e.diff * 3); 
-                                sfx.playExplosion();
+                                this.dropDarkMatter(e.pos.x, e.pos.y, e.diff * 3); sfx.playExplosion();
                                 this.enemies.splice(i, 1); 
                             }
                         }
@@ -723,8 +667,7 @@ class Game {
                             m.hp -= b.damage; b.active = false; sfx.playHit();
                             if(m.hp<=0) {
                                 this.charItems.push({ pos: new Vec2(m.pos.x, m.pos.y), char: m.char, idiomWord: m.idiomWord });
-                                sfx.playExplosion();
-                                this.meteors.splice(i, 1);
+                                sfx.playExplosion(); this.meteors.splice(i, 1);
                             }
                         }
                     });
@@ -747,8 +690,7 @@ class Game {
         this.charItems.forEach((c, i) => {
             c.pos.y += 120 * dt;
             if (Math.hypot(c.pos.x - this.player.pos.x, c.pos.y - this.player.pos.y) < 40) {
-                this.collectChar(c.char, c.idiomWord);
-                this.charItems.splice(i, 1);
+                this.collectChar(c.char, c.idiomWord); this.charItems.splice(i, 1);
             }
         });
 
@@ -761,44 +703,28 @@ class Game {
     }
 
     spawnMeteor(x, y) {
-        // 隨機選一個成語，並掉落該成語的其中一個字
         const idiomObj = CONFIG.IDIOMS[Math.floor(Math.random() * CONFIG.IDIOMS.length)];
         const char = idiomObj.word[Math.floor(Math.random() * 4)];
         this.meteors.push({ pos: new Vec2(x, y), radius: 28, hp: 3, char: char, idiomWord: idiomObj.word, color: "#888" });
     }
 
     collectChar(char, idiomWord) {
-        // 檢查是否已有正在收集該成語的槽位
         let slot = this.slots.find(s => s.type === 'COLLECTING' && s.word === idiomWord);
-        
         if (slot) {
             if (!slot.chars.includes(char)) {
-                slot.chars.push(char);
-                sfx.playCollect();
+                slot.chars.push(char); sfx.playCollect();
                 if (slot.chars.length === 4) {
-                    slot.type = 'READY';
-                    sfx.playReady();
-                    this.showFloatText(`${idiomWord} 就緒!`, this.player.pos.x, this.player.pos.y - 20, '#ff00ff');
-                } else {
-                    this.showFloatText(char, this.player.pos.x, this.player.pos.y - 20, '#00f2ff');
-                }
-            } else {
-                // 已有重複的字元，轉化為暗物質獎勵
-                this.dropDarkMatter(this.player.pos.x, this.player.pos.y, 5);
-                sfx.playHit();
-            }
+                    slot.type = 'READY'; sfx.playReady(); this.showFloatText(`${idiomWord} 就緒!`, this.player.pos.x, this.player.pos.y - 20, '#ff00ff');
+                } else { this.showFloatText(char, this.player.pos.x, this.player.pos.y - 20, '#00f2ff'); }
+            } else { this.dropDarkMatter(this.player.pos.x, this.player.pos.y, 5); sfx.playHit(); }
         } else {
-            // 開啟新槽位
             if (this.slots.length < this.maxSlots) {
                 const idiomData = CONFIG.IDIOMS.find(i => i.word === idiomWord);
                 this.slots.push({ type: 'COLLECTING', word: idiomWord, chars: [char], effect: idiomData.effect });
-                sfx.playCollect();
-                this.showFloatText(char, this.player.pos.x, this.player.pos.y - 20, '#00f2ff');
+                sfx.playCollect(); this.showFloatText(char, this.player.pos.x, this.player.pos.y - 20, '#00f2ff');
             } else {
-                // 槽位已滿
                 this.dropDarkMatter(this.player.pos.x, this.player.pos.y, 5);
-                this.showFloatText("槽位已滿", this.player.pos.x, this.player.pos.y - 20, '#ff3333');
-                sfx.playHit();
+                this.showFloatText("滿載", this.player.pos.x, this.player.pos.y - 20, '#ff3333'); sfx.playHit();
             }
         }
         this.renderIdiomSlots();
@@ -808,7 +734,6 @@ class Game {
         const ctx = this.ctx;
         ctx.fillStyle = "#050510"; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // 星空背景 (加速過場時星空移動更快)
         const starSpeed = this.gameState === 'TRANSITION' && this.transitionTimer > 1.0 ? 200 : 20;
         ctx.fillStyle = "rgba(255,255,255,0.5)";
         for(let i=0; i<40; i++) {
@@ -823,21 +748,15 @@ class Game {
                 ctx.fillRect(this.player.pos.x - 20, 0, 40, this.player.pos.y); ctx.shadowBlur = 0;
             }
 
-            // 畫玩家戰機 (閃爍效果表示無敵)
             if (this.invincibleTimer <= 0 || Math.floor(Date.now() / 100) % 2 === 0) {
                 ctx.fillStyle = this.invincibleTimer > 0 ? "#ffea00" : "#00f2ff";
                 ctx.shadowBlur = 15; ctx.shadowColor = ctx.fillStyle;
                 ctx.beginPath(); ctx.moveTo(this.player.pos.x, this.player.pos.y-18);
                 ctx.lineTo(this.player.pos.x-16, this.player.pos.y+12); ctx.lineTo(this.player.pos.x+16, this.player.pos.y+12);
                 ctx.fill(); ctx.shadowBlur = 0;
-                
-                // 加速過場的尾焰特效
                 if (this.gameState === 'TRANSITION' && this.transitionTimer > 1.0) {
-                    ctx.fillStyle = "#ffaa00";
-                    ctx.beginPath(); ctx.moveTo(this.player.pos.x-8, this.player.pos.y+12);
-                    ctx.lineTo(this.player.pos.x+8, this.player.pos.y+12);
-                    ctx.lineTo(this.player.pos.x, this.player.pos.y+30 + Math.random()*20);
-                    ctx.fill();
+                    ctx.fillStyle = "#ffaa00"; ctx.beginPath(); ctx.moveTo(this.player.pos.x-8, this.player.pos.y+12);
+                    ctx.lineTo(this.player.pos.x+8, this.player.pos.y+12); ctx.lineTo(this.player.pos.x, this.player.pos.y+30 + Math.random()*20); ctx.fill();
                 }
             }
 
