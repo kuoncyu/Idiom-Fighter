@@ -10,6 +10,9 @@
             --neon-pink: #ff00ff;
             --neon-gold: #ffea00;
             --neon-purple: #b026ff;
+            --neon-green: #00ffcc;
+            --neon-orange: #ffaa00;
+            --neon-red: #ff3366;
             --bg-dark: #050510;
         }
         body {
@@ -32,7 +35,7 @@
             align-items: center;
         }
         canvas {
-            background: black;
+            background: #020205;
             display: block;
             box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
             touch-action: none;
@@ -93,20 +96,34 @@
         .boss-hp-fill { width: 100%; height: 100%; background: linear-gradient(to right, #f00, #ff0); transition: width 0.2s; }
         
         .idiom-slots {
-            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 10px; align-items: flex-end; z-index: 20; flex-wrap: wrap; justify-content: center; width: 90%; pointer-events: none;
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 10px; align-items: flex-end; z-index: 20; flex-wrap: nowrap; justify-content: center; width: 98%; pointer-events: none;
         }
         .slot {
-            width: 65px; height: 65px; border: 2px solid #444; background: rgba(0,0,0,0.8);
+            flex: 1; max-width: 120px; height: 80px; border: 2px solid #444; background: rgba(0,0,0,0.8);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-size: 0.85rem; border-radius: 8px; color: #ccc; transition: all 0.3s; pointer-events: none;
+            border-radius: 8px; transition: all 0.3s; pointer-events: none; position: relative;
         }
-        .slot.collecting { border-color: var(--neon-blue); color: var(--neon-blue); box-shadow: 0 0 5px var(--neon-blue); }
+        .slot.collecting { border-color: var(--neon-blue); box-shadow: 0 0 8px rgba(0, 242, 255, 0.3); }
         .slot.ready { 
-            border-color: var(--neon-pink); color: var(--neon-pink); box-shadow: 0 0 15px var(--neon-pink); 
-            cursor: pointer; pointer-events: auto; font-weight: bold; animation: pulse 1s infinite alternate;
+            border-color: var(--neon-gold); box-shadow: 0 0 20px var(--neon-gold); 
+            cursor: pointer; pointer-events: auto; animation: pulseReady 0.8s infinite alternate;
+            background: rgba(255, 234, 0, 0.15);
         }
-        @keyframes pulse { from { box-shadow: 0 0 10px var(--neon-pink); } to { box-shadow: 0 0 25px var(--neon-pink), inset 0 0 10px var(--neon-pink); } }
+        
+        .slot-title { font-size: 1.2rem; margin-bottom: 5px; white-space: nowrap; display: flex; gap: 2px; }
+        .char { display: inline-block; transition: all 0.3s; font-weight: bold; }
+        .char.collected { color: var(--neon-blue); text-shadow: 0 0 8px var(--neon-blue); transform: scale(1.1); }
+        .char.uncollected { color: rgba(255,255,255,0.2); }
+        
+        .slot-subtitle { font-size: 0.7rem; color: #aaa; text-align: center; }
+        .ready .char.collected { color: var(--neon-gold); text-shadow: 0 0 10px var(--neon-gold); }
+        .ready .slot-subtitle { color: var(--neon-gold); font-weight: bold; font-size: 0.8rem; text-shadow: 0 0 5px var(--neon-gold); }
+        
+        @keyframes pulseReady { 
+            from { box-shadow: 0 0 10px var(--neon-gold); border-color: var(--neon-gold); transform: scale(1); } 
+            to { box-shadow: 0 0 30px var(--neon-gold), inset 0 0 15px var(--neon-gold); border-color: #fff; transform: scale(1.05); } 
+        }
     </style>
 </head>
 <body>
@@ -199,11 +216,11 @@ const sfx = new RetroAudio();
 
 const CONFIG = {
     IDIOMS: [
-        { word: "破釜沉舟", effect: "BOMB_BOOST", desc: "清空彈幕並造成大傷" },
-        { word: "金蟬脫殼", effect: "INVINCIBLE", desc: "獲得10秒無敵狀態" },
-        { word: "勢如破竹", effect: "RAPID_FIRE", desc: "火力強化5秒" },
-        { word: "百步穿楊", effect: "LASER_BEAM", desc: "發射貫穿雷射" },
-        { word: "星火燎原", effect: "SPREAD_FIRE", desc: "散彈射擊增強" }
+        { word: "破釜沉舟", effect: "BOMB_BOOST", desc: "清空彈幕" },
+        { word: "金蟬脫殼", effect: "INVINCIBLE", desc: "10秒無敵" },
+        { word: "勢如破竹", effect: "RAPID_FIRE", desc: "極速開火" },
+        { word: "百步穿楊", effect: "LASER_BEAM", desc: "貫穿雷射" },
+        { word: "星火燎原", effect: "SPREAD_FIRE", desc: "超級散彈" }
     ],
     MAX_STAGES: 8
 };
@@ -227,8 +244,7 @@ class Entity {
     update(dt) { this.pos.x += this.vel.x * dt; this.pos.y += this.vel.y * dt; }
     draw(ctx) {
         ctx.save(); ctx.shadowBlur = 10; ctx.shadowColor = this.color; ctx.fillStyle = this.color;
-        ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
+        ctx.beginPath(); ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     }
 }
 
@@ -243,6 +259,7 @@ class FloatingText {
     }
 }
 
+// Boss 程式碼保持一致
 class Boss extends Entity {
     constructor(stage) {
         super();
@@ -301,14 +318,9 @@ class Boss extends Entity {
     }
     
     draw(ctx) {
-        ctx.save();
-        ctx.translate(this.pos.x, this.pos.y);
-        ctx.rotate(this.angle * 0.5); 
-        ctx.shadowBlur = 25; ctx.shadowColor = this.color;
-        
-        ctx.strokeStyle = this.color; ctx.lineWidth = 3;
+        ctx.save(); ctx.translate(this.pos.x, this.pos.y); ctx.rotate(this.angle * 0.5); 
+        ctx.shadowBlur = 25; ctx.shadowColor = this.color; ctx.strokeStyle = this.color; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.arc(0, 0, this.radius * 1.3, 0, Math.PI * 2); ctx.setLineDash([10, 15]); ctx.stroke(); ctx.setLineDash([]);
-
         ctx.fillStyle = "#0a0a1a"; ctx.lineWidth = 4; ctx.beginPath();
         const sides = 5 + (this.stage % 4);
         for(let i=0; i<=sides; i++) {
@@ -317,7 +329,6 @@ class Boss extends Entity {
             if(i===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.closePath(); ctx.fill(); ctx.stroke();
-
         ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 30; ctx.beginPath();
         for(let i=0; i<=sides; i++) {
             const a = (i / sides) * Math.PI * 2 + (Math.PI / sides);
@@ -325,7 +336,6 @@ class Boss extends Entity {
             if(i===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.closePath(); ctx.fill(); ctx.restore();
-
         ctx.save(); ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 10; ctx.shadowColor = this.color;
         ctx.textAlign = "center"; ctx.font = "bold 20px Arial"; ctx.fillText("BOSS", this.pos.x, this.pos.y + this.radius + 30);
         ctx.restore();
@@ -358,14 +368,19 @@ class Game {
         this.waveQuota = 0;
         this.enemiesSpawned = 0;
         this.enemySpawnTimer = 0;
-        this.meteorTimer = 0;
+        this.idiomBlockTimer = 0; 
 
-        this.player = { pos: new Vec2(0, 0), radius: 12, speed: 450, lastShoot: 0, rapidFire: 0, spreadFire: 0 };
+        // 碰撞半徑設定為15，但視覺戰機會畫得更大更華麗
+        this.player = { pos: new Vec2(0, 0), radius: 15, speed: 450, lastShoot: 0, rapidFire: 0, spreadFire: 0 };
         this.keys = {};
         this.bullets = new ObjectPool(() => new Bullet(), 400);
         this.texts = new ObjectPool(() => new FloatingText(), 20);
-        this.enemies = []; this.meteors = []; this.charItems = [];
-        this.slots = []; 
+        
+        this.enemies = []; 
+        this.idiomBlocks = []; 
+        this.charItems = [];   
+        this.slots = [];       
+        
         this.laserTimer = 0; this.invincibleTimer = 0;
 
         this.init();
@@ -379,7 +394,6 @@ class Game {
         });
         window.addEventListener('keyup', (e) => this.keys[e.code] = false);
 
-        // 【修正 1：移除 setPointerCapture，改回穩定觸控事件，解決「不能操縱戰機」Bug】
         this.canvas.addEventListener('touchstart', (e) => {
             if (this.gameState !== 'PLAYING') return;
             this.pointerActive = true;
@@ -401,7 +415,6 @@ class Game {
         this.canvas.addEventListener('touchend', () => { this.pointerActive = false; });
         this.canvas.addEventListener('touchcancel', () => { this.pointerActive = false; });
 
-        // 保留滑鼠事件作為電腦版備用
         this.canvas.addEventListener('mousedown', (e) => {
             if (this.gameState !== 'PLAYING') return;
             this.pointerActive = true; this.lastPointerX = e.clientX; this.lastPointerY = e.clientY;
@@ -452,8 +465,8 @@ class Game {
                     持有暗物質: <b>${this.darkMatter} DM</b>
                 </p>
                 <hr style="border-color:#333; margin:20px 0;">
-                <button class="btn btn-shop" ${this.darkMatter < costSlot || this.maxSlots >= 10 ? 'disabled' : ''} 
-                    onclick="game.buyItem('SLOT', ${costSlot})">擴充成語倉 (Lv.${this.maxSlots}/10) - ${this.maxSlots >= 10 ? '已滿級' : costSlot + ' DM'}</button>
+                <button class="btn btn-shop" ${this.darkMatter < costSlot || this.maxSlots >= 6 ? 'disabled' : ''} 
+                    onclick="game.buyItem('SLOT', ${costSlot})">擴充成語列 (Lv.${this.maxSlots}/6) - ${this.maxSlots >= 6 ? '已滿級' : costSlot + ' DM'}</button>
                 <button class="btn btn-shop" ${this.darkMatter < costWeapon || this.weaponLvl >= 10 ? 'disabled' : ''} 
                     onclick="game.buyItem('WEAPON', ${costWeapon})">升級火力 (Lv.${this.weaponLvl}/10) - ${this.weaponLvl >= 10 ? '已滿級' : costWeapon + ' DM'}</button>
                 <hr style="border-color:#333; margin:20px 0;">
@@ -465,7 +478,7 @@ class Game {
     buyItem(type, cost) {
         if (this.darkMatter >= cost) {
             this.darkMatter -= cost; sfx.playReady();
-            if (type === 'SLOT' && this.maxSlots < 10) this.maxSlots++;
+            if (type === 'SLOT' && this.maxSlots < 6) { this.maxSlots++; this.fillEmptySlots(); }
             if (type === 'WEAPON' && this.weaponLvl < 10) this.weaponLvl++;
             this.renderLobby(); 
         }
@@ -473,32 +486,40 @@ class Game {
 
     startNewGame() {
         sfx.init(); this.currentStage = 1; this.currentSub = 1; this.score = 0; 
-        this.hp = this.maxHp; this.slots = []; this.resetStage(); this.setState('PLAYING');
+        this.hp = this.maxHp; this.slots = []; 
+        this.fillEmptySlots(); // 遊戲開始時塞滿隨機成語任務
+        this.resetStage(); this.setState('PLAYING');
+    }
+
+    fillEmptySlots() {
+        while (this.slots.length < this.maxSlots) {
+            const rand = CONFIG.IDIOMS[Math.floor(Math.random() * CONFIG.IDIOMS.length)];
+            this.slots.push({ type: 'COLLECTING', word: rand.word, chars: [], effect: rand.effect, effectDesc: rand.desc });
+        }
     }
 
     resetStage() {
         this.boss = null;
-        this.enemies = []; this.meteors = []; this.charItems = [];
+        this.enemies = []; this.idiomBlocks = []; this.charItems = [];
         this.player.pos = new Vec2(window.innerWidth / 2, window.innerHeight - 150);
         this.bullets.pool.forEach(b => b.active = false);
         this.pointerActive = false; 
         document.getElementById('boss-bar').style.display = 'none';
         
         if (this.currentSub < 3) {
-            this.waveQuota = 2 + (this.currentStage - 1) * 3 + (this.currentSub - 1) * 2;
+            this.waveQuota = 3 + (this.currentStage - 1) * 3 + (this.currentSub - 1) * 2;
             this.enemiesSpawned = 0;
             this.enemySpawnTimer = 0;
         } else {
             this.waveQuota = 0;
         }
-        this.meteorTimer = 0;
-
+        this.idiomBlockTimer = 0;
         this.showFloatText(this.currentSub === 3 ? "WARNING: BOSS" : `區塊 ${this.currentStage}-${this.currentSub} 開始`, window.innerWidth/2, window.innerHeight/2, "#ffea00");
     }
 
     startTransition(isNextStage) {
         this.gameState = 'TRANSITION'; this.transitionTimer = 0; this.isNextStage = isNextStage;
-        this.bullets.pool.forEach(b => b.active = false); this.enemies = []; this.meteors = []; this.charItems = [];
+        this.bullets.pool.forEach(b => b.active = false); this.enemies = []; this.idiomBlocks = []; this.charItems = [];
         sfx.playTransition();
         this.showFloatText(isNextStage ? "STAGE CLEAR" : "WAVE CLEARED", window.innerWidth/2, window.innerHeight/2 - 50, "#00f2ff");
     }
@@ -509,38 +530,51 @@ class Game {
         for (let i = 0; i < this.maxSlots; i++) {
             const slot = this.slots[i]; const div = document.createElement('div');
             if (slot) {
+                // 產生每個字元的 HTML 結構
+                let charsHTML = slot.word.split('').map(c => 
+                    `<span class="char ${slot.chars.includes(c) ? 'collected' : 'uncollected'}">${c}</span>`
+                ).join('');
+
                 if (slot.type === 'READY') {
-                    div.className = 'slot ready'; div.innerHTML = `<span>${slot.word}</span><div style="font-size:0.5rem; color:#fff;">點擊/按${i+1}</div>`;
-                    // 【修正 2：改用穩定的 onclick 與 touchstart 解決「點成語都不見了/無效」問題】
+                    div.className = 'slot ready'; 
+                    div.innerHTML = `<div class="slot-title">${charsHTML}</div><div class="slot-subtitle">點擊發動<br>(${slot.effectDesc})</div>`;
                     div.onclick = (e) => { e.stopPropagation(); this.useIdiom(i); };
                     div.ontouchstart = (e) => { e.stopPropagation(); e.preventDefault(); this.useIdiom(i); };
                 } else if (slot.type === 'COLLECTING') {
                     div.className = 'slot collecting';
-                    let displayStr = slot.word.split('').map(c => slot.chars.includes(c) ? c : '_').join('');
-                    div.innerHTML = `<span style="letter-spacing:2px; font-weight:bold;">${displayStr}</span><div style="font-size:0.5rem; color:#888;">收集中</div>`;
+                    div.innerHTML = `<div class="slot-title">${charsHTML}</div><div class="slot-subtitle">收集中...</div>`;
                 }
-            } else { div.className = 'slot'; div.innerHTML = `<div style="opacity:0.3;">空</div>`; }
+            }
             container.appendChild(div);
         }
     }
 
     useIdiom(index) {
         const idiom = this.slots[index]; if (!idiom || idiom.type !== 'READY') return;
-        this.slots.splice(index, 1); this.renderIdiomSlots(); sfx.playUse();
+        
+        // 發動特殊攻擊
+        sfx.playUse();
+        this.showFloatText(`發動！${idiom.word}！`, this.player.pos.x, this.player.pos.y - 40, '#ffea00');
+
         if (idiom.effect === 'BOMB_BOOST') this.triggerBomb();
         if (idiom.effect === 'INVINCIBLE') this.invincibleTimer = 10;
         if (idiom.effect === 'RAPID_FIRE') this.player.rapidFire = 6;
         if (idiom.effect === 'LASER_BEAM') this.triggerLaser();
         if (idiom.effect === 'SPREAD_FIRE') this.player.spreadFire = 8;
+
+        // 發動完後立刻接取新的成語任務
+        const rand = CONFIG.IDIOMS[Math.floor(Math.random() * CONFIG.IDIOMS.length)];
+        this.slots[index] = { type: 'COLLECTING', word: rand.word, chars: [], effect: rand.effect, effectDesc: rand.desc };
+        this.renderIdiomSlots(); 
     }
 
     triggerBomb() {
         this.bullets.pool.forEach(b => { if(!b.isPlayer) b.active = false; });
-        if (this.boss) this.boss.hp -= 200;
-        this.enemies.forEach(e => { this.dropDarkMatter(e.pos.x, e.pos.y, e.hp * 2); sfx.playExplosion(); });
-        this.enemies = []; this.showFloatText("全螢幕爆破!", this.player.pos.x, this.player.pos.y-30, "#ff00ff");
+        if (this.boss) this.boss.hp -= 300;
+        this.enemies.forEach(e => { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 2); sfx.playExplosion(); });
+        this.enemies = []; this.showFloatText("全螢幕爆破!", window.innerWidth/2, window.innerHeight/2, "#ff00ff");
     }
-    triggerLaser() { this.laserTimer = 0.5; if(this.boss) this.boss.hp -= 150; }
+    triggerLaser() { this.laserTimer = 1.0; if(this.boss) this.boss.hp -= 200; }
 
     showFloatText(text, x, y, color = "#fff") { const t = this.texts.get(); t.pos = new Vec2(x, y); t.text = text; t.color = color; t.life = 1.5; }
     dropDarkMatter(x, y, amount) { this.darkMatter += amount; this.showFloatText(`+${amount} DM`, x, y, "#b026ff"); this.updateHUD(); }
@@ -575,18 +609,23 @@ class Game {
     spawnEnemy() {
         const diff = this.currentStage + this.currentSub;
         const angle = Math.random() * Math.PI * 2; 
-        const speed = 80 + this.currentStage * 12; 
-        const hp = 2 + this.currentStage * 1.5; 
+        let eType = 'SCOUT'; 
+        let r = Math.random();
         
+        if (this.currentStage > 2) { if (r > 0.8) eType = 'TANK'; else if (r > 0.4) eType = 'FIGHTER'; } 
+        else if (this.currentStage > 1) { if (r > 0.6) eType = 'FIGHTER'; } 
+        else { if (r > 0.8) eType = 'FIGHTER'; }
+
+        let speed, maxHp, radius, color, shootInterval;
+        if (eType === 'SCOUT') { speed = 120 + this.currentStage * 15; maxHp = 2 + this.currentStage * 1; radius = 14; color = "var(--neon-green)"; shootInterval = 4.0; } 
+        else if (eType === 'FIGHTER') { speed = 80 + this.currentStage * 10; maxHp = 6 + this.currentStage * 2.5; radius = 20; color = "var(--neon-orange)"; shootInterval = 2.0; } 
+        else if (eType === 'TANK') { speed = 40 + this.currentStage * 5; maxHp = 15 + this.currentStage * 5; radius = 30; color = "var(--neon-red)"; shootInterval = 1.2; }
+
         this.enemies.push({ 
-            pos: new Vec2(Math.random() * (window.innerWidth - 60) + 30, -30), 
+            type: eType, pos: new Vec2(Math.random() * (window.innerWidth - 60) + 30, -30), 
             vel: new Vec2(Math.cos(angle)*speed, Math.sin(angle)*speed), 
-            hp: hp, 
-            radius: 18, 
-            color: "#ff00aa", // 給敵機一個螢光粉/紫色
-            diff: diff,
-            shootTimer: Math.random() * 2,
-            shootInterval: Math.max(1.5, 4.5 - this.currentStage * 0.35) 
+            hp: maxHp, maxHp: maxHp, radius: radius, color: color, diff: diff,
+            shootTimer: Math.random() * shootInterval, shootInterval: shootInterval 
         });
     }
 
@@ -596,20 +635,21 @@ class Game {
         if (this.keys['KeyA'] || this.keys['ArrowLeft']) this.player.pos.x -= this.player.speed * dt;
         if (this.keys['KeyD'] || this.keys['ArrowRight']) this.player.pos.x += this.player.speed * dt;
         
-        this.player.pos.x = Math.max(15, Math.min(window.innerWidth - 15, this.player.pos.x));
-        this.player.pos.y = Math.max(15, Math.min(window.innerHeight - 15, this.player.pos.y));
+        this.player.pos.x = Math.max(20, Math.min(window.innerWidth - 20, this.player.pos.x));
+        this.player.pos.y = Math.max(20, Math.min(window.innerHeight - 20, this.player.pos.y));
 
         const fireRate = this.player.rapidFire > 0 ? 50 : Math.max(80, 200 - this.weaponLvl * 10);
         if (Date.now() - this.player.lastShoot > fireRate) {
             const dmg = 1 + (this.weaponLvl * 0.5);
             const shootBullet = (offset, angle) => {
-                const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + offset, this.player.pos.y - 15);
+                const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + offset, this.player.pos.y - 25);
                 b.vel = new Vec2(Math.sin(angle)*800, -Math.cos(angle)*800);
                 b.color = "#00f2ff"; b.isPlayer = true; b.radius = 4 + (this.weaponLvl * 0.5); b.damage = dmg;
             };
             shootBullet(0, 0); 
             if (this.weaponLvl >= 3 || this.player.spreadFire > 0) { shootBullet(-15, -0.15); shootBullet(15, 0.15); }
             if (this.weaponLvl >= 6 || this.player.spreadFire > 0) { shootBullet(-25, -0.3); shootBullet(25, 0.3); }
+            if (this.player.spreadFire > 0) { shootBullet(-35, -0.45); shootBullet(35, 0.45); }
             this.player.lastShoot = Date.now(); sfx.playShoot();
         }
 
@@ -618,31 +658,24 @@ class Game {
                 if (this.enemiesSpawned < this.waveQuota) {
                     this.enemySpawnTimer -= dt;
                     const maxOnScreen = Math.min(8, 2 + Math.floor(this.currentStage * 0.6));
-                    
                     if (this.enemySpawnTimer <= 0 && this.enemies.length < maxOnScreen) {
-                        this.spawnEnemy();
-                        this.enemiesSpawned++;
-                        this.enemySpawnTimer = Math.max(0.4, 1.5 - this.currentStage * 0.1); 
+                        this.spawnEnemy(); this.enemiesSpawned++; this.enemySpawnTimer = Math.max(0.5, 2.0 - this.currentStage * 0.15); 
                     }
-                } 
-                else if (this.enemies.length === 0) {
-                    this.startTransition(false); 
-                }
+                } else if (this.enemies.length === 0) { this.startTransition(false); }
             } else {
-                this.boss = new Boss(this.currentStage);
-                document.getElementById('boss-bar').style.display = 'block';
-                sfx.playReady();
+                this.boss = new Boss(this.currentStage); document.getElementById('boss-bar').style.display = 'block'; sfx.playReady();
             }
         }
 
-        this.meteorTimer += dt;
-        if (this.meteorTimer > 1.2) {
-            if (Math.random() < 0.6) this.spawnMeteor(Math.random() * (window.innerWidth-40) + 20, -50);
-            this.meteorTimer = 0;
+        // 掉落成語字塊：分析當前需要哪些字，提高掉落機率
+        this.idiomBlockTimer += dt;
+        if (this.idiomBlockTimer > 2.0) { // 稍微加快掉落速度
+            if (Math.random() < 0.7) this.spawnIdiomBlock(Math.random() * (window.innerWidth-60) + 30, -50);
+            this.idiomBlockTimer = 0;
         }
 
         if (this.boss) {
-            this.boss.update(dt, this.player.pos, () => this.bullets.get(), (x,y) => this.spawnMeteor(x,y));
+            this.boss.update(dt, this.player.pos, () => this.bullets.get(), (x,y) => this.spawnIdiomBlock(x,y));
             document.getElementById('boss-hp-fill').style.width = (this.boss.hp / this.boss.maxHp * 100) + "%";
             if (this.boss.hp <= 0) {
                 this.dropDarkMatter(this.boss.pos.x, this.boss.pos.y, this.boss.dmReward);
@@ -659,18 +692,24 @@ class Game {
 
             e.shootTimer += dt;
             if (e.shootTimer > e.shootInterval) {
-                e.shootTimer = 0;
-                const b = this.bullets.get();
-                b.pos = new Vec2(e.pos.x, e.pos.y);
+                e.shootTimer = 0; const b = this.bullets.get(); b.pos = new Vec2(e.pos.x, e.pos.y + e.radius);
                 const angleToPlayer = Math.atan2(this.player.pos.y - e.pos.y, this.player.pos.x - e.pos.x);
                 const bulletSpeed = 100 + this.currentStage * 10;
-                b.vel = new Vec2(Math.cos(angleToPlayer) * bulletSpeed, Math.sin(angleToPlayer) * bulletSpeed); 
-                b.color = "#ff3333"; b.isPlayer = false; b.radius = 5; b.damage = 1;
+                
+                if (e.type === 'TANK') {
+                    const b2 = this.bullets.get(); b2.pos = new Vec2(e.pos.x - 10, e.pos.y + e.radius); b.pos.x += 10;
+                    b.vel = new Vec2(Math.cos(angleToPlayer) * bulletSpeed, Math.sin(angleToPlayer) * bulletSpeed); 
+                    b2.vel = new Vec2(Math.cos(angleToPlayer) * bulletSpeed, Math.sin(angleToPlayer) * bulletSpeed); 
+                    b.color = b2.color = e.color; b.isPlayer = b2.isPlayer = false; b.radius = b2.radius = 6; b.damage = b2.damage = 2;
+                } else {
+                    b.vel = new Vec2(Math.cos(angleToPlayer) * bulletSpeed, Math.sin(angleToPlayer) * bulletSpeed); 
+                    b.color = e.color; b.isPlayer = false; b.radius = 4; b.damage = 1;
+                }
                 sfx.playEnemyShoot();
             }
 
             if (Math.hypot(e.pos.x - this.player.pos.x, e.pos.y - this.player.pos.y) < e.radius + this.player.radius && this.invincibleTimer <= 0) {
-                this.hp -= 15; this.invincibleTimer = 1.0; sfx.playHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
+                this.hp -= (e.type === 'TANK' ? 25 : 15); this.invincibleTimer = 1.0; sfx.playHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
             }
         });
 
@@ -686,43 +725,54 @@ class Game {
                     this.enemies.forEach((e, i) => {
                         if (Math.hypot(b.pos.x - e.pos.x, b.pos.y - e.pos.y) < e.radius) {
                             e.hp -= b.damage; b.active = false; sfx.playHit();
-                            if(e.hp<=0) { 
-                                this.dropDarkMatter(e.pos.x, e.pos.y, e.diff * 3); sfx.playExplosion();
-                                this.enemies.splice(i, 1); 
-                            }
+                            if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); sfx.playExplosion(); this.enemies.splice(i, 1); }
                         }
                     });
-                    this.meteors.forEach((m, i) => {
+                    this.idiomBlocks.forEach((m, i) => {
                         if (Math.hypot(b.pos.x - m.pos.x, b.pos.y - m.pos.y) < m.radius) {
                             m.hp -= b.damage; b.active = false; sfx.playHit();
                             if(m.hp<=0) {
-                                this.charItems.push({ pos: new Vec2(m.pos.x, m.pos.y), char: m.char, idiomWord: m.idiomWord });
-                                sfx.playExplosion(); this.meteors.splice(i, 1);
+                                this.charItems.push({ pos: new Vec2(m.pos.x, m.pos.y), char: m.char });
+                                sfx.playExplosion(); this.idiomBlocks.splice(i, 1);
                             }
                         }
                     });
                 } else {
                     if (Math.hypot(b.pos.x - this.player.pos.x, b.pos.y - this.player.pos.y) < this.player.radius && this.invincibleTimer <= 0) {
-                        this.hp -= 10; b.active = false; this.invincibleTimer = 0.5; sfx.playHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
+                        this.hp -= b.damage * 10; b.active = false; this.invincibleTimer = 0.5; sfx.playHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
                     }
                 }
             }
         });
 
-        this.meteors.forEach((m, i) => {
-            m.pos.y += 180 * dt; 
-            if (m.pos.y > window.innerHeight + m.radius) this.meteors.splice(i, 1);
+        this.idiomBlocks.forEach((m, i) => {
+            m.pos.y += 60 * dt; 
+            if (m.pos.y > window.innerHeight + m.radius) this.idiomBlocks.splice(i, 1);
             else if (Math.hypot(m.pos.x - this.player.pos.x, m.pos.y - this.player.pos.y) < m.radius + this.player.radius && this.invincibleTimer <= 0) {
-                this.hp -= 20; this.invincibleTimer = 1.0; this.meteors.splice(i, 1); sfx.playHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
+                this.hp -= 20; this.invincibleTimer = 1.0; this.idiomBlocks.splice(i, 1); sfx.playHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
             }
         });
 
         this.charItems.forEach((c, i) => {
-            c.pos.y += 120 * dt;
+            c.pos.y += 120 * dt; 
             if (Math.hypot(c.pos.x - this.player.pos.x, c.pos.y - this.player.pos.y) < 40) {
-                this.collectChar(c.char, c.idiomWord); this.charItems.splice(i, 1);
+                this.collectChar(c.char); this.charItems.splice(i, 1);
             }
         });
+
+        if (this.laserTimer > 0) {
+            this.enemies.forEach((e, i) => {
+                if (Math.abs(e.pos.x - this.player.pos.x) < 25 && e.pos.y < this.player.pos.y) {
+                    e.hp -= 50 * dt; if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp*1.5); sfx.playExplosion(); this.enemies.splice(i, 1); }
+                }
+            });
+            this.idiomBlocks.forEach((m, i) => {
+                if (Math.abs(m.pos.x - this.player.pos.x) < 25 && m.pos.y < this.player.pos.y) {
+                    m.hp -= 100 * dt; 
+                    if(m.hp<=0) { this.charItems.push({ pos: new Vec2(m.pos.x, m.pos.y), char: m.char }); sfx.playExplosion(); this.idiomBlocks.splice(i, 1); }
+                }
+            });
+        }
 
         this.texts.pool.forEach(t => { if(t.active) t.update(dt); });
 
@@ -732,30 +782,52 @@ class Game {
         if (this.laserTimer > 0) this.laserTimer -= dt;
     }
 
-    spawnMeteor(x, y) {
-        const idiomObj = CONFIG.IDIOMS[Math.floor(Math.random() * CONFIG.IDIOMS.length)];
-        const char = idiomObj.word[Math.floor(Math.random() * 4)];
-        this.meteors.push({ pos: new Vec2(x, y), radius: 28, hp: 3, char: char, idiomWord: idiomObj.word, color: "#888" });
+    // 智能掉落：高機率掉落目前需要的字元
+    spawnIdiomBlock(x, y) {
+        let neededChars = [];
+        this.slots.forEach(slot => {
+            if (slot.type === 'COLLECTING') {
+                for (let char of slot.word) {
+                    if (!slot.chars.includes(char)) neededChars.push(char);
+                }
+            }
+        });
+
+        let dropChar;
+        if (neededChars.length > 0 && Math.random() < 0.8) {
+            dropChar = neededChars[Math.floor(Math.random() * neededChars.length)];
+        } else {
+            const randomIdiom = CONFIG.IDIOMS[Math.floor(Math.random() * CONFIG.IDIOMS.length)];
+            dropChar = randomIdiom.word[Math.floor(Math.random() * 4)];
+        }
+
+        this.idiomBlocks.push({ pos: new Vec2(x, y), radius: 25, hp: 6 + this.currentStage*2, char: dropChar, maxHp: 6 + this.currentStage*2 });
     }
 
-    collectChar(char, idiomWord) {
-        let slot = this.slots.find(s => s.type === 'COLLECTING' && s.word === idiomWord);
-        if (slot) {
-            if (!slot.chars.includes(char)) {
-                slot.chars.push(char); sfx.playCollect();
+    // 無序收集判定
+    collectChar(char) {
+        let collected = false;
+        for (let slot of this.slots) {
+            if (slot.type === 'COLLECTING' && slot.word.includes(char) && !slot.chars.includes(char)) {
+                slot.chars.push(char);
+                collected = true;
+                sfx.playCollect();
+                this.showFloatText(char, this.player.pos.x, this.player.pos.y - 20, '#00f2ff');
+
                 if (slot.chars.length === 4) {
-                    slot.type = 'READY'; sfx.playReady(); this.showFloatText(`${idiomWord} 就緒!`, this.player.pos.x, this.player.pos.y - 20, '#ff00ff');
-                } else { this.showFloatText(char, this.player.pos.x, this.player.pos.y - 20, '#00f2ff'); }
-            } else { this.dropDarkMatter(this.player.pos.x, this.player.pos.y, 5); sfx.playHit(); }
-        } else {
-            if (this.slots.length < this.maxSlots) {
-                const idiomData = CONFIG.IDIOMS.find(i => i.word === idiomWord);
-                this.slots.push({ type: 'COLLECTING', word: idiomWord, chars: [char], effect: idiomData.effect });
-                sfx.playCollect(); this.showFloatText(char, this.player.pos.x, this.player.pos.y - 20, '#00f2ff');
-            } else {
-                this.dropDarkMatter(this.player.pos.x, this.player.pos.y, 5);
-                this.showFloatText("滿載", this.player.pos.x, this.player.pos.y - 20, '#ff3333'); sfx.playHit();
+                    slot.type = 'READY';
+                    sfx.playReady();
+                    this.showFloatText(`${slot.word} 完成!`, this.player.pos.x, this.player.pos.y - 40, '#ffea00');
+                }
+                break; // 只要有一個槽位吸收了這個字就跳出
             }
+        }
+
+        if (!collected) {
+            // 如果吸收的字目前不需要，轉換為暗物質
+            this.dropDarkMatter(this.player.pos.x, this.player.pos.y, 10);
+            this.showFloatText("轉換DM", this.player.pos.x, this.player.pos.y - 20, '#b026ff');
+            sfx.playHit();
         }
         this.renderIdiomSlots();
     }
@@ -774,85 +846,149 @@ class Game {
 
         if (this.gameState === 'PLAYING' || this.gameState === 'TRANSITION') {
             if (this.laserTimer > 0) {
-                ctx.fillStyle = "rgba(255, 234, 0, 0.7)"; ctx.shadowBlur = 20; ctx.shadowColor = "#ffea00";
-                ctx.fillRect(this.player.pos.x - 20, 0, 40, this.player.pos.y); ctx.shadowBlur = 0;
+                const laserWidth = 40 + Math.random() * 10;
+                ctx.fillStyle = "rgba(255, 234, 0, 0.8)"; ctx.shadowBlur = 25; ctx.shadowColor = "#ffea00";
+                ctx.fillRect(this.player.pos.x - laserWidth/2, 0, laserWidth, this.player.pos.y); ctx.shadowBlur = 0;
+                ctx.fillStyle = "#ffffff"; ctx.fillRect(this.player.pos.x - laserWidth/4, 0, laserWidth/2, this.player.pos.y);
             }
 
-            if (this.invincibleTimer <= 0 || Math.floor(Date.now() / 100) % 2 === 0) {
-                ctx.fillStyle = this.invincibleTimer > 0 ? "#ffea00" : "#00f2ff";
-                ctx.shadowBlur = 15; ctx.shadowColor = ctx.fillStyle;
-                ctx.beginPath(); ctx.moveTo(this.player.pos.x, this.player.pos.y-18);
-                ctx.lineTo(this.player.pos.x-16, this.player.pos.y+12); ctx.lineTo(this.player.pos.x+16, this.player.pos.y+12);
-                ctx.fill(); ctx.shadowBlur = 0;
-                if (this.gameState === 'TRANSITION' && this.transitionTimer > 1.0) {
-                    ctx.fillStyle = "#ffaa00"; ctx.beginPath(); ctx.moveTo(this.player.pos.x-8, this.player.pos.y+12);
-                    ctx.lineTo(this.player.pos.x+8, this.player.pos.y+12); ctx.lineTo(this.player.pos.x, this.player.pos.y+30 + Math.random()*20); ctx.fill();
-                }
+            // 【全新：華麗星際戰機繪製】
+            ctx.save();
+            ctx.translate(this.player.pos.x, this.player.pos.y);
+            
+            const isInv = this.invincibleTimer > 0;
+            const mainColor = isInv ? "var(--neon-gold)" : "var(--neon-blue)";
+            const hullColor = "#0f172a"; // 金屬暗灰
+            
+            ctx.shadowBlur = isInv ? 20 : 10;
+            ctx.shadowColor = mainColor;
+
+            // 引擎噴射火焰
+            if (isInv || Math.floor(Date.now() / 50) % 2 === 0) {
+                const flameLen = (this.gameState === 'TRANSITION' && this.transitionTimer > 1.0) ? 60 : 25 + Math.random() * 15;
+                ctx.fillStyle = isInv ? "#ffffff" : "#ffaa00";
+                ctx.shadowBlur = 20; ctx.shadowColor = "#ffaa00";
+                
+                // 左引擎
+                ctx.beginPath(); ctx.moveTo(-12, 12); ctx.lineTo(-6, 12); ctx.lineTo(-9, 12 + flameLen); ctx.fill();
+                // 右引擎
+                ctx.beginPath(); ctx.moveTo(6, 12); ctx.lineTo(12, 12); ctx.lineTo(9, 12 + flameLen); ctx.fill();
             }
+
+            ctx.shadowBlur = isInv ? 15 : 5;
+            
+            // 主機翼 (外展後掠翼)
+            ctx.fillStyle = hullColor;
+            ctx.strokeStyle = mainColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, -10);
+            ctx.lineTo(-30, 15); // 左翼尖
+            ctx.lineTo(-30, 20);
+            ctx.lineTo(-10, 10);
+            ctx.lineTo(10, 10);
+            ctx.lineTo(30, 20); // 右翼尖
+            ctx.lineTo(30, 15);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+
+            // 內側輔助翼
+            ctx.beginPath();
+            ctx.moveTo(0, -15);
+            ctx.lineTo(-15, 5);
+            ctx.lineTo(15, 5);
+            ctx.closePath();
+            ctx.fillStyle = "#1e293b";
+            ctx.fill(); ctx.stroke();
+
+            // 戰機機身 (流線型)
+            ctx.beginPath();
+            ctx.moveTo(0, -32); // 機鼻
+            ctx.lineTo(-8, -5);
+            ctx.lineTo(-8, 15); // 機尾
+            ctx.lineTo(0, 18);
+            ctx.lineTo(8, 15);
+            ctx.lineTo(8, -5);
+            ctx.closePath();
+            ctx.fillStyle = hullColor;
+            ctx.fill(); ctx.stroke();
+
+            // 發光駕駛艙
+            ctx.fillStyle = isInv ? "rgba(255, 234, 0, 0.9)" : "rgba(0, 242, 255, 0.9)";
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.moveTo(0, -18);
+            ctx.lineTo(-4, -5);
+            ctx.lineTo(0, 2);
+            ctx.lineTo(4, -5);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
 
             if (this.boss) this.boss.draw(ctx);
-
             this.bullets.pool.forEach(b => { if(b.active) b.draw(ctx); });
             
-            // 【修正 3：完美回應「強調在閃」與「華麗戰機」需求】
-            // 完全取代原本的陽春圓圈，改為具備高頻閃爍、科技光暈、雙翼引擎細節的戰機
+            const time = Date.now();
             this.enemies.forEach(e => {
                 ctx.save();
                 ctx.translate(e.pos.x, e.pos.y);
-
-                // 根據時間動態計算脈衝，產生「持續閃爍」的效果
-                const time = Date.now();
-                const pulse = (Math.sin(time / 80) + 1) / 2; // 產生 0~1 的高頻閃爍值
-                
-                ctx.shadowBlur = 15 + pulse * 20; // 閃爍發光邊緣
+                const pulse = (Math.sin(time / 80) + 1) / 2;
+                ctx.shadowBlur = 10 + pulse * 15; 
                 ctx.shadowColor = e.color;
-
-                // 繪製敵機主體幾何結構
-                ctx.fillStyle = "#1a1a2e"; // 暗色科技金屬底色
-                ctx.strokeStyle = e.color; // 敵機本身顏色作為發光邊框
-                ctx.lineWidth = 2 + pulse * 1.5;
-
+                ctx.strokeStyle = e.color; 
+                ctx.fillStyle = "#111"; 
+                
                 ctx.beginPath();
-                ctx.moveTo(0, e.radius); // 機鼻
-                ctx.lineTo(e.radius * 0.8, e.radius * 0.2); // 右前翼
-                ctx.lineTo(e.radius * 1.2, -e.radius * 0.4); // 右翼尖端
-                ctx.lineTo(e.radius * 0.3, -e.radius * 0.2); // 右翼內收
-                ctx.lineTo(e.radius * 0.2, -e.radius * 0.8); // 右尾翼
-                ctx.lineTo(-e.radius * 0.2, -e.radius * 0.8); // 左尾翼
-                ctx.lineTo(-e.radius * 0.3, -e.radius * 0.2); // 左翼內收
-                ctx.lineTo(-e.radius * 1.2, -e.radius * 0.4); // 左翼尖端
-                ctx.lineTo(-e.radius * 0.8, e.radius * 0.2); // 左前翼
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-
-                // 繪製閃爍的高能駕駛艙核心
-                ctx.fillStyle = "#ffffff";
-                ctx.shadowBlur = 25 * pulse;
-                ctx.beginPath();
-                ctx.moveTo(0, e.radius * 0.5);
-                ctx.lineTo(e.radius * 0.25, e.radius * 0.1);
-                ctx.lineTo(0, -e.radius * 0.1);
-                ctx.lineTo(-e.radius * 0.25, e.radius * 0.1);
-                ctx.closePath();
-                ctx.fill();
-
-                // 繪製兩側脈衝推進器 (閃閃發光)
-                ctx.fillStyle = "#00ffff";
-                ctx.shadowBlur = 10;
-                ctx.beginPath();
-                ctx.arc(e.radius * 0.6, -e.radius * 0.2, 3 + pulse * 2, 0, Math.PI * 2);
-                ctx.arc(-e.radius * 0.6, -e.radius * 0.2, 3 + pulse * 2, 0, Math.PI * 2);
-                ctx.fill();
-
+                if (e.type === 'SCOUT') {
+                    ctx.lineWidth = 2;
+                    ctx.moveTo(0, e.radius); ctx.lineTo(e.radius, -e.radius); ctx.lineTo(0, -e.radius*0.5); ctx.lineTo(-e.radius, -e.radius);
+                } else if (e.type === 'FIGHTER') {
+                    ctx.lineWidth = 2;
+                    ctx.moveTo(0, e.radius); ctx.lineTo(e.radius*0.8, e.radius*0.2); ctx.lineTo(e.radius*1.2, -e.radius*0.4); 
+                    ctx.lineTo(e.radius*0.3, -e.radius*0.2); ctx.lineTo(e.radius*0.2, -e.radius*0.8); ctx.lineTo(-e.radius*0.2, -e.radius*0.8); 
+                    ctx.lineTo(-e.radius*0.3, -e.radius*0.2); ctx.lineTo(-e.radius*1.2, -e.radius*0.4); ctx.lineTo(-e.radius*0.8, e.radius*0.2);
+                } else if (e.type === 'TANK') {
+                    ctx.lineWidth = 3 + pulse;
+                    for(let i=0; i<=6; i++) {
+                        const a = (i / 6) * Math.PI * 2 + (Math.PI/6);
+                        const r = e.radius * (i%2===0 ? 1 : 0.8);
+                        if(i===0) ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r); else ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+                    }
+                    ctx.fillStyle = e.color; ctx.fillRect(-e.radius, -e.radius - 10, (e.hp/e.maxHp)*e.radius*2, 4); ctx.fillStyle = "#111";
+                }
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+                
+                ctx.fillStyle = "#fff"; ctx.shadowBlur = 20 * pulse;
+                ctx.beginPath(); ctx.arc(0, e.type==='TANK'?0:e.radius*0.3, e.radius*0.25, 0, Math.PI*2); ctx.fill();
                 ctx.restore();
             });
 
-            this.meteors.forEach(m => {
-                ctx.strokeStyle = m.color; ctx.lineWidth = 2; ctx.strokeRect(m.pos.x-m.radius, m.pos.y-m.radius, m.radius*2, m.radius*2);
-                ctx.fillStyle = "#fff"; ctx.font = "bold 20px Arial"; ctx.textAlign="center"; ctx.fillText(m.char, m.pos.x, m.pos.y + 7);
+            this.idiomBlocks.forEach(m => {
+                ctx.save(); ctx.translate(m.pos.x, m.pos.y);
+                const blockPulse = (Math.sin(time / 150) + 1) / 2;
+                ctx.fillStyle = `rgba(0, 242, 255, ${0.1 + blockPulse * 0.2})`; ctx.strokeStyle = "var(--neon-blue)";
+                ctx.lineWidth = 2; ctx.shadowBlur = 15; ctx.shadowColor = "var(--neon-blue)";
+                ctx.beginPath(); ctx.rect(-m.radius, -m.radius, m.radius*2, m.radius*2); ctx.fill(); ctx.stroke();
+                
+                ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 5; ctx.font = `bold ${m.radius}px 'Microsoft JhengHei'`;
+                ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(m.char, 0, 0);
+
+                ctx.fillStyle = "rgba(0, 242, 255, 0.8)"; ctx.fillRect(-m.radius, m.radius + 5, (m.hp/m.maxHp)*m.radius*2, 3);
+                ctx.restore();
             });
-            this.charItems.forEach(c => { ctx.fillStyle = "#ffea00"; ctx.font = "bold 26px Arial"; ctx.fillText(c.char, c.pos.x, c.pos.y); });
+
+            this.charItems.forEach(c => { 
+                ctx.save();
+                ctx.fillStyle = "var(--neon-gold)"; ctx.shadowBlur = 15; ctx.shadowColor = "var(--neon-gold)";
+                ctx.font = "bold 28px 'Microsoft JhengHei'"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.fillText(c.char, c.pos.x, c.pos.y); 
+                
+                ctx.strokeStyle = "rgba(255, 234, 0, 0.5)"; ctx.lineWidth = 2; ctx.beginPath();
+                ctx.arc(c.pos.x, c.pos.y, 20 + Math.sin(time/100)*5, 0, Math.PI*2); ctx.stroke();
+                ctx.restore();
+            });
+
             this.texts.pool.forEach(t => { if(t.active) t.draw(ctx); });
         }
     }
