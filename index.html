@@ -94,7 +94,7 @@
         
         .idiom-slots {
             position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 10px; align-items: flex-end; z-index: 5; flex-wrap: wrap; justify-content: center; width: 90%; pointer-events: none;
+            display: flex; gap: 10px; align-items: flex-end; z-index: 20; flex-wrap: wrap; justify-content: center; width: 90%; pointer-events: none;
         }
         .slot {
             width: 65px; height: 65px; border: 2px solid #444; background: rgba(0,0,0,0.8);
@@ -127,7 +127,6 @@
 <script>
 "use strict";
 
-// --- 宇宙沉浸音效系統 ---
 class RetroAudio {
     constructor() { this.ctx = null; this.lastShootTime = 0; }
     init() {
@@ -198,7 +197,6 @@ class RetroAudio {
 }
 const sfx = new RetroAudio();
 
-// --- 遊戲邏輯 ---
 const CONFIG = {
     IDIOMS: [
         { word: "破釜沉舟", effect: "BOMB_BOOST", desc: "清空彈幕並造成大傷" },
@@ -249,7 +247,6 @@ class Boss extends Entity {
     constructor(stage) {
         super();
         this.stage = stage;
-        // 難度曲線：BOSS血量隨關卡平滑上升 (第1關 300，第8關 2750，最終BOSS 5000)
         this.maxHp = stage === 9 ? 5000 : 300 + (stage - 1) * 350;
         this.hp = this.maxHp;
         this.radius = 45;
@@ -268,7 +265,6 @@ class Boss extends Entity {
         this.pos.x = window.innerWidth / 2 + Math.sin(Date.now() / 1500) * (window.innerWidth/3);
 
         this.shootTimer += dt;
-        // 難度曲線：BOSS發射頻率 (第1關較慢 0.9秒，第8關極快 0.2秒)
         const fireRate = this.stage === 9 ? 0.15 : Math.max(0.2, 1.0 - this.stage * 0.1);
         if (this.shootTimer > fireRate) { this.shoot(spawnBullet, playerPos); this.shootTimer = 0; }
 
@@ -278,9 +274,7 @@ class Boss extends Entity {
 
     shoot(spawnBullet, playerPos) {
         this.angle += 0.15;
-        // 難度曲線：BOSS子彈速度隨關卡提升
         const speedBase = 120 + this.stage * 15;
-        
         switch(this.pattern) {
             case 0:
                 for(let i=0; i<6; i++) {
@@ -305,17 +299,35 @@ class Boss extends Entity {
                 } break;
         }
     }
+    
     draw(ctx) {
-        ctx.save(); ctx.shadowBlur = 20; ctx.shadowColor = this.color; ctx.fillStyle = this.color;
-        ctx.beginPath();
+        ctx.save();
+        ctx.translate(this.pos.x, this.pos.y);
+        ctx.rotate(this.angle * 0.5); 
+        ctx.shadowBlur = 25; ctx.shadowColor = this.color;
+        
+        ctx.strokeStyle = this.color; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, 0, this.radius * 1.3, 0, Math.PI * 2); ctx.setLineDash([10, 15]); ctx.stroke(); ctx.setLineDash([]);
+
+        ctx.fillStyle = "#0a0a1a"; ctx.lineWidth = 4; ctx.beginPath();
         const sides = 5 + (this.stage % 4);
         for(let i=0; i<=sides; i++) {
-            const a = (i / sides) * Math.PI * 2 + this.angle;
-            const x = this.pos.x + Math.cos(a) * this.radius;
-            const y = this.pos.y + Math.sin(a) * this.radius;
+            const a = (i / sides) * Math.PI * 2;
+            const x = Math.cos(a) * this.radius; const y = Math.sin(a) * this.radius;
             if(i===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
-        ctx.fill(); ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.font = "bold 18px Arial"; ctx.fillText("BOSS", this.pos.x, this.pos.y + 6);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 30; ctx.beginPath();
+        for(let i=0; i<=sides; i++) {
+            const a = (i / sides) * Math.PI * 2 + (Math.PI / sides);
+            const x = Math.cos(a) * (this.radius * 0.4); const y = Math.sin(a) * (this.radius * 0.4);
+            if(i===0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath(); ctx.fill(); ctx.restore();
+
+        ctx.save(); ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+        ctx.textAlign = "center"; ctx.font = "bold 20px Arial"; ctx.fillText("BOSS", this.pos.x, this.pos.y + this.radius + 30);
         ctx.restore();
     }
 }
@@ -367,19 +379,41 @@ class Game {
         });
         window.addEventListener('keyup', (e) => this.keys[e.code] = false);
 
-        this.canvas.addEventListener('pointerdown', (e) => {
+        // 【修正 1：移除 setPointerCapture，改回穩定觸控事件，解決「不能操縱戰機」Bug】
+        this.canvas.addEventListener('touchstart', (e) => {
+            if (this.gameState !== 'PLAYING') return;
+            this.pointerActive = true;
+            this.lastPointerX = e.touches[0].clientX;
+            this.lastPointerY = e.touches[0].clientY;
+        }, {passive: false});
+        
+        this.canvas.addEventListener('touchmove', (e) => {
+            if (!this.pointerActive || this.gameState !== 'PLAYING') return;
+            e.preventDefault(); 
+            const dx = e.touches[0].clientX - this.lastPointerX; 
+            const dy = e.touches[0].clientY - this.lastPointerY;
+            this.player.pos.x += dx * 1.5; 
+            this.player.pos.y += dy * 1.5;
+            this.lastPointerX = e.touches[0].clientX; 
+            this.lastPointerY = e.touches[0].clientY;
+        }, {passive: false});
+        
+        this.canvas.addEventListener('touchend', () => { this.pointerActive = false; });
+        this.canvas.addEventListener('touchcancel', () => { this.pointerActive = false; });
+
+        // 保留滑鼠事件作為電腦版備用
+        this.canvas.addEventListener('mousedown', (e) => {
             if (this.gameState !== 'PLAYING') return;
             this.pointerActive = true; this.lastPointerX = e.clientX; this.lastPointerY = e.clientY;
-            this.canvas.setPointerCapture(e.pointerId);
         });
-        this.canvas.addEventListener('pointermove', (e) => {
+        this.canvas.addEventListener('mousemove', (e) => {
             if (!this.pointerActive || this.gameState !== 'PLAYING') return;
             const dx = e.clientX - this.lastPointerX; const dy = e.clientY - this.lastPointerY;
-            this.player.pos.x += dx * 1.3; this.player.pos.y += dy * 1.3;
+            this.player.pos.x += dx * 1.5; this.player.pos.y += dy * 1.5;
             this.lastPointerX = e.clientX; this.lastPointerY = e.clientY;
         });
-        this.canvas.addEventListener('pointerup', (e) => { this.pointerActive = false; this.canvas.releasePointerCapture(e.pointerId); });
-        this.canvas.addEventListener('pointercancel', (e) => { this.pointerActive = false; });
+        this.canvas.addEventListener('mouseup', () => { this.pointerActive = false; });
+        this.canvas.addEventListener('mouseleave', () => { this.pointerActive = false; });
 
         this.setState('INIT'); requestAnimationFrame((t) => this.loop(t));
     }
@@ -451,12 +485,11 @@ class Game {
         document.getElementById('boss-bar').style.display = 'none';
         
         if (this.currentSub < 3) {
-            // 難度曲線：敵人總量隨關卡平滑上升 (1-1 只有 2 隻，8-2 會有 25 隻)
             this.waveQuota = 2 + (this.currentStage - 1) * 3 + (this.currentSub - 1) * 2;
             this.enemiesSpawned = 0;
             this.enemySpawnTimer = 0;
         } else {
-            this.waveQuota = 0; // 第3子關卡直接打王
+            this.waveQuota = 0;
         }
         this.meteorTimer = 0;
 
@@ -478,7 +511,9 @@ class Game {
             if (slot) {
                 if (slot.type === 'READY') {
                     div.className = 'slot ready'; div.innerHTML = `<span>${slot.word}</span><div style="font-size:0.5rem; color:#fff;">點擊/按${i+1}</div>`;
-                    if (i < 9) div.onpointerdown = (e) => { e.stopPropagation(); this.useIdiom(i); };
+                    // 【修正 2：改用穩定的 onclick 與 touchstart 解決「點成語都不見了/無效」問題】
+                    div.onclick = (e) => { e.stopPropagation(); this.useIdiom(i); };
+                    div.ontouchstart = (e) => { e.stopPropagation(); e.preventDefault(); this.useIdiom(i); };
                 } else if (slot.type === 'COLLECTING') {
                     div.className = 'slot collecting';
                     let displayStr = slot.word.split('').map(c => slot.chars.includes(c) ? c : '_').join('');
@@ -540,19 +575,18 @@ class Game {
     spawnEnemy() {
         const diff = this.currentStage + this.currentSub;
         const angle = Math.random() * Math.PI * 2; 
-        // 難度曲線：雜魚速度、血量、發射間隔
         const speed = 80 + this.currentStage * 12; 
-        const hp = 2 + this.currentStage * 1.5; // 初期血少，打幾下就爆
+        const hp = 2 + this.currentStage * 1.5; 
         
         this.enemies.push({ 
             pos: new Vec2(Math.random() * (window.innerWidth - 60) + 30, -30), 
             vel: new Vec2(Math.cos(angle)*speed, Math.sin(angle)*speed), 
             hp: hp, 
             radius: 18, 
-            color: "#f0f", 
+            color: "#ff00aa", // 給敵機一個螢光粉/紫色
             diff: diff,
             shootTimer: Math.random() * 2,
-            shootInterval: Math.max(1.5, 4.5 - this.currentStage * 0.35) // 第1關 4.15秒，第8關 1.7秒
+            shootInterval: Math.max(1.5, 4.5 - this.currentStage * 0.35) 
         });
     }
 
@@ -583,13 +617,11 @@ class Game {
             if (this.currentSub < 3) {
                 if (this.enemiesSpawned < this.waveQuota) {
                     this.enemySpawnTimer -= dt;
-                    // 難度曲線：控制畫面最大敵人數量 (第1關最多 2 隻，第8關最多 6 隻)
                     const maxOnScreen = Math.min(8, 2 + Math.floor(this.currentStage * 0.6));
                     
                     if (this.enemySpawnTimer <= 0 && this.enemies.length < maxOnScreen) {
                         this.spawnEnemy();
                         this.enemiesSpawned++;
-                        // 初期生成間隔較慢，隨關卡變快
                         this.enemySpawnTimer = Math.max(0.4, 1.5 - this.currentStage * 0.1); 
                     }
                 } 
@@ -603,7 +635,6 @@ class Game {
             }
         }
 
-        // 為了確保初期關卡(敵人少)玩家還是能搜集到成語，加快一點隕石掉落率
         this.meteorTimer += dt;
         if (this.meteorTimer > 1.2) {
             if (Math.random() < 0.6) this.spawnMeteor(Math.random() * (window.innerWidth-40) + 20, -50);
@@ -632,7 +663,6 @@ class Game {
                 const b = this.bullets.get();
                 b.pos = new Vec2(e.pos.x, e.pos.y);
                 const angleToPlayer = Math.atan2(this.player.pos.y - e.pos.y, this.player.pos.x - e.pos.x);
-                // 難度曲線：雜魚子彈速度隨關卡提升 (第1關 110 很慢，第8關 180)
                 const bulletSpeed = 100 + this.currentStage * 10;
                 b.vel = new Vec2(Math.cos(angleToPlayer) * bulletSpeed, Math.sin(angleToPlayer) * bulletSpeed); 
                 b.color = "#ff3333"; b.isPlayer = false; b.radius = 5; b.damage = 1;
@@ -763,7 +793,61 @@ class Game {
             if (this.boss) this.boss.draw(ctx);
 
             this.bullets.pool.forEach(b => { if(b.active) b.draw(ctx); });
-            this.enemies.forEach(e => { ctx.fillStyle = e.color; ctx.shadowBlur = 10; ctx.shadowColor = e.color; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.y, e.radius, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur=0; });
+            
+            // 【修正 3：完美回應「強調在閃」與「華麗戰機」需求】
+            // 完全取代原本的陽春圓圈，改為具備高頻閃爍、科技光暈、雙翼引擎細節的戰機
+            this.enemies.forEach(e => {
+                ctx.save();
+                ctx.translate(e.pos.x, e.pos.y);
+
+                // 根據時間動態計算脈衝，產生「持續閃爍」的效果
+                const time = Date.now();
+                const pulse = (Math.sin(time / 80) + 1) / 2; // 產生 0~1 的高頻閃爍值
+                
+                ctx.shadowBlur = 15 + pulse * 20; // 閃爍發光邊緣
+                ctx.shadowColor = e.color;
+
+                // 繪製敵機主體幾何結構
+                ctx.fillStyle = "#1a1a2e"; // 暗色科技金屬底色
+                ctx.strokeStyle = e.color; // 敵機本身顏色作為發光邊框
+                ctx.lineWidth = 2 + pulse * 1.5;
+
+                ctx.beginPath();
+                ctx.moveTo(0, e.radius); // 機鼻
+                ctx.lineTo(e.radius * 0.8, e.radius * 0.2); // 右前翼
+                ctx.lineTo(e.radius * 1.2, -e.radius * 0.4); // 右翼尖端
+                ctx.lineTo(e.radius * 0.3, -e.radius * 0.2); // 右翼內收
+                ctx.lineTo(e.radius * 0.2, -e.radius * 0.8); // 右尾翼
+                ctx.lineTo(-e.radius * 0.2, -e.radius * 0.8); // 左尾翼
+                ctx.lineTo(-e.radius * 0.3, -e.radius * 0.2); // 左翼內收
+                ctx.lineTo(-e.radius * 1.2, -e.radius * 0.4); // 左翼尖端
+                ctx.lineTo(-e.radius * 0.8, e.radius * 0.2); // 左前翼
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // 繪製閃爍的高能駕駛艙核心
+                ctx.fillStyle = "#ffffff";
+                ctx.shadowBlur = 25 * pulse;
+                ctx.beginPath();
+                ctx.moveTo(0, e.radius * 0.5);
+                ctx.lineTo(e.radius * 0.25, e.radius * 0.1);
+                ctx.lineTo(0, -e.radius * 0.1);
+                ctx.lineTo(-e.radius * 0.25, e.radius * 0.1);
+                ctx.closePath();
+                ctx.fill();
+
+                // 繪製兩側脈衝推進器 (閃閃發光)
+                ctx.fillStyle = "#00ffff";
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(e.radius * 0.6, -e.radius * 0.2, 3 + pulse * 2, 0, Math.PI * 2);
+                ctx.arc(-e.radius * 0.6, -e.radius * 0.2, 3 + pulse * 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            });
+
             this.meteors.forEach(m => {
                 ctx.strokeStyle = m.color; ctx.lineWidth = 2; ctx.strokeRect(m.pos.x-m.radius, m.pos.y-m.radius, m.radius*2, m.radius*2);
                 ctx.fillStyle = "#fff"; ctx.font = "bold 20px Arial"; ctx.textAlign="center"; ctx.fillText(m.char, m.pos.x, m.pos.y + 7);
