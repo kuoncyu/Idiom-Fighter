@@ -1,0 +1,63 @@
+# 成語戰機：Firebase 設定說明
+
+遊戲已內建你的 firebaseConfig（專案 idiom-fighter）。第一次使用前，請在 Firebase 後台完成下列設定。
+
+## 1. 開啟登入方式
+Firebase Console → Build → **Authentication** → Sign-in method → 啟用 **電子郵件／密碼**。
+（遊戲的「帳號」會在內部轉成 `帳號@idiom-fighter.app` 的假信箱，玩家不需要真實 Email。）
+
+## 2. 建立資料庫
+Build → **Firestore Database** → Create database（建議 production mode，地區選 asia-east1 或 asia-southeast1）。
+
+## 3. 發布安全規則
+Firestore → **Rules** → 把本資料夾的 `firestore.rules` 全部貼上 → Publish。
+沒有發布規則的話，排行榜、好友、聊天、PK 都會顯示「沒有權限」。
+
+## 4. 授權網域
+Authentication → Settings → **Authorized domains**，加入你放遊戲的網域（例如 `你的帳號.github.io`）。
+`localhost` 預設已授權。請用 https 網址或 localhost 開啟遊戲，直接雙擊 index.html（file://）可能無法登入。
+
+## 5. 建立管理員
+1. 先在遊戲裡註冊一個帳號（例如 `admin`）。
+2. Firestore → Data → 新增集合 **admins** → 文件 ID 填入該帳號的 **UID**
+   （Authentication → Users 可以複製 UID），欄位可以隨意（例如 `role` = `admin`）。
+3. 用該帳號重新登入，大廳會多出「管理員」磚，可查看大廳、所有群組、所有好友私聊。
+
+管理員資格只認 `admins` 集合，沒有寫死在遊戲程式裡，玩家端也無法自行加入。
+
+## 資料結構（供參考）
+- `users/{uid}`：暱稱、最高分、累積／花費暗物質、全關破關時間（`bestClearMs`、`clearKey`）、PK 勝敗、遊戲存檔
+- `users/{uid}/friends`、`users/{uid}/invites`、`friendRequests`
+- `lobbyChat`、`dms/{uidA_uidB}/messages`、`groups/{id}/messages`
+- `rooms/{4位數密碼}`、`rooms/{密碼}/events`（PK）
+
+## 注意
+- 排行榜需要讀取其他玩家的 `users` 文件，所以玩家存檔欄位（save）對已登入的玩家是可讀的；若在意，可之後把存檔移到獨立集合。
+- PK 為「各自遊玩、成語攻擊同步」的對戰：雙方畫面在成語演示時一起凍結。
+
+---
+
+# 其他檔案與功能說明
+
+## 音樂檔案（放在網頁旁的 `music/` 資料夾）
+遊戲會先找 `music/`，找不到再找 `assets/music/`，兩個都沒有時，大廳與關卡會退回內建的合成音樂。
+
+| 檔名 | 用途 |
+|---|---|
+| `lobby.mp3` | 大廳、商店、戰機管理、登入等主選單畫面 |
+| `stage1.mp3` ~ `stage9.mp3` | 第 1~9 關（第 9 關為最終 Boss） |
+| `end.mp3` | 遊戲結束的結算畫面（勝利或失敗都用同一首） |
+
+檔名必須完全一致（小寫）。想改檔名可以改 `index.html` 裡的 `MUSIC_FILES`。
+
+## 離線資料包
+- 大廳的「離線資料包」磚塊 → 下載後，把網頁、圖片、音樂、Firebase SDK 存進這台裝置，完全沒有網路也能開啟並遊玩。
+- 需要 **https 網址或 localhost**（GitHub Pages 可以）。直接雙擊 `index.html`（file://）不支援離線功能。
+- 檔案：`sw.js`（離線機制）、`manifest.webmanifest`、`icon-192.png`、`icon-512.png` 必須和 `index.html` 放在同一層。
+- 離線時：單機遊玩、成語演示、商店、戰機管理都可用；排行榜、好友、聊天、PK 需要網路。進度先存在裝置，連網後在大廳點「連線登入」就會同步（以離線期間較新的進度為準）。
+- 第一次必須先連網登入過一次，離線時登入畫面才會出現「離線遊玩」。
+- 更新遊戲內容（圖片、音樂）後，到「離線資料包」按「下載／更新」重新下載一次。
+- iPhone / Android 可以「加入主畫面」，從主畫面開啟就是全螢幕（iPhone Safari 不支援網頁全螢幕按鈕）。
+
+## 暗物質
+暗物質獲得量由 `index.html` 裡的 `DM_RATE`（目前 0.5）控制，商店價格未變。

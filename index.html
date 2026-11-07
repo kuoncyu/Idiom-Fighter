@@ -2,7 +2,12 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#050510">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <title>成語戰機：星際觸控版</title>
     <style>
         :root {
@@ -28,8 +33,8 @@
         }
         #game-container {
             position: relative;
-            width: 100vw;
-            height: 100vh;
+            width: var(--app-w, 100vw);
+            height: var(--app-h, 100vh);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -136,7 +141,7 @@
         .ip-line { text-align:left; line-height:1.7; color:#e8f7ff; font-size:1.05rem; }
         .ip-line b { color:var(--neon-blue); }
         .ip-bar { height:6px; background:#333; border-radius:3px; margin-top:16px; overflow:hidden; }
-        .ip-bar i { display:block; height:100%; background:var(--neon-gold); animation: ipCount 3s linear forwards; }
+        .ip-bar i { display:block; height:100%; background:var(--neon-gold); animation: ipCount 5s linear forwards; }
         @keyframes ipCount { from { width:100%; } to { width:0; } }
         .cards { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; width:100%; margin:10px 0; }
         .card { width:230px; background:rgba(10,12,30,.92); border:2px solid #334; border-radius:12px; padding:10px; text-align:left; cursor:pointer; }
@@ -186,6 +191,27 @@
         @keyframes spGlow { from { text-shadow:0 0 10px var(--neon-blue); } to { text-shadow:0 0 30px var(--neon-blue),0 0 70px var(--neon-purple); } }
         .sp-sub { color:var(--neon-blue); letter-spacing:.6em; margin:6px 0 34px; }
         .sp-hint { color:#8aa; font-size:.85rem; animation:spBlink 1.6s infinite; } @keyframes spBlink { 50% { opacity:.3; } }
+        #hud { font-size:clamp(.7rem,3.3vw,1rem); padding:clamp(4px,1.6vw,10px) clamp(6px,3vw,15px); top:max(6px,env(safe-area-inset-top)); left:clamp(4px,2vw,10px); right:clamp(4px,2vw,10px); }
+        .hud-item { margin:0 clamp(2px,1vw,5px); }
+        .hbtn { font-size:clamp(.62rem,3vw,.9rem); padding:3px clamp(5px,2vw,10px); margin-right:clamp(2px,1vw,6px); }
+        #stage-info { top:clamp(42px,12vw,60px); font-size:clamp(.8rem,4vw,1.2rem); }
+        #buff-bar { top:clamp(66px,18vw,70px); left:clamp(4px,2vw,12px); gap:clamp(3px,1vw,6px); max-width:62%; }
+        .buff { min-width:clamp(62px,19vw,96px); font-size:clamp(.58rem,2.7vw,.75rem); padding:2px 6px 5px; }
+        .boss-hp-bar { top:clamp(92px,24vw,96px); }
+        .idiom-slots { bottom:max(8px,env(safe-area-inset-bottom)); gap:clamp(3px,1.2vw,10px); }
+        .slot { min-width:0; height:clamp(52px,15vw,80px); }
+        .slot-title { font-size:min(1.2rem,calc((96vw - (var(--n,6) - 1) * 6px) / var(--n,6) / 4.7)); margin-bottom:2px; gap:1px; }
+        .slot-subtitle { font-size:clamp(.5rem,2.4vw,.7rem); line-height:1.15; padding:0 2px; }
+        .ready .slot-subtitle { font-size:clamp(.54rem,2.6vw,.8rem); }
+        .slot-key { width:clamp(15px,5vw,22px); height:clamp(15px,5vw,22px); line-height:clamp(15px,5vw,22px); font-size:clamp(.58rem,3vw,.85rem); top:-8px; left:-4px; }
+        @media (max-width:520px) { .slot-subtitle br { display:none; } .menu-overlay { padding:16px; } }
+        @media (max-height:520px) and (orientation:landscape) { .slot { height:46px; } #stage-info { top:44px; } }
+        .res-rows { margin:8px 0; } .res-rows .rrow { display:flex; justify-content:space-between; padding:6px 10px; border-bottom:1px solid #223; text-align:left; } .res-rows b { color:var(--neon-gold); }
+        .idiom-slots { bottom:calc(env(safe-area-inset-bottom, 0px) + 10px); gap:4px; width:auto; max-width:100%; }
+        .slot { flex:0 0 var(--sw, 80px); width:var(--sw, 80px); max-width:none; min-width:0; box-sizing:border-box; height:calc(var(--sw, 80px) * 0.95); min-height:50px; max-height:84px; padding:0 1px; }
+        .slot-title { font-size:min(1.2rem, calc(var(--sw, 80px) / 4.9)); }
+        .slot-subtitle { font-size:clamp(.5rem, calc(var(--sw, 80px) / 8.5), .75rem); }
+        .ip-line { min-height:3.4em; } .ip-cur { color:var(--neon-gold); animation:spBlink .8s infinite; } .muted { color:#8aa; font-size:.85rem; }
     </style>
 </head>
 <body>
@@ -194,7 +220,7 @@
     <canvas id="gameCanvas"></canvas>
     <div id="ui-layer"></div>
     <div id="hud" style="display:none;">
-        <div class="hud-item hud-btns"><button class="hbtn" onclick="game.goHome()" title="回首頁 [H]">⌂ 首頁</button><button class="hbtn" onclick="game.openSettings()" title="設定 [O]">⚙ 設定</button></div>
+        <div class="hud-item hud-btns"><button class="hbtn" onclick="game.goHome()" title="回首頁 [H]">⌂ 首頁</button><button class="hbtn" onclick="game.openSettings()" title="設定 [O]">⚙ 設定</button><button class="hbtn" onclick="game.toggleFullscreen()" title="全螢幕">⛶</button></div>
         <div class="hud-item hud-dm">暗物質: <span id="dm-val">0</span></div>
         <div class="hud-item">LVL: <span id="lvl-val">1-1</span></div>
     </div>
@@ -284,6 +310,7 @@ class RetroAudio {
             case 'SHIELD': seq([392, 523, 659, 784], 'triangle', 80, 0.4, 0.1, true); this.sweep('sine', 200, 600, 0.5, 0.1, true); break;
             case 'PIERCE': this.sweep('sawtooth', 300, 1500, 0.25, 0.12, true); this.playNoise(0.1, 0.1); break;
             case 'MISSILE': seq([500, 700, 900, 1200], 'triangle', 60, 0.15, 0.08); break;
+            case 'ALLY': seq([392, 523, 659, 784, 1047], 'square', 70, 0.2, 0.07, true); break;
             case 'SLOW_TIME': this.sweep('sine', 900, 120, 1.1, 0.15, true); this.sweep('triangle', 450, 60, 1.1, 0.1, true); break;
         }
     }
@@ -311,9 +338,19 @@ class RetroAudio {
 }
 const sfx = new RetroAudio();
 
+// ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
+const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
+const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
+function updateWorld() {
+    const dpr = Math.min(2, window.devicePixelRatio || 1), rw = window.innerWidth, rh = window.innerHeight;
+    document.documentElement.style.setProperty('--app-w', rw + 'px'); document.documentElement.style.setProperty('--app-h', rh + 'px');
+    WORLD.rw = rw; WORLD.rh = rh; WORLD.dpr = dpr; WORLD.s = Math.min(rw / 540, rh / 900); WORLD.k = WORLD.s * dpr; WORLD.w = rw / WORLD.s; WORLD.h = rh / WORLD.s;
+}
+updateWorld();
+
 // ===== AI 圖片素材：放在 index.html 旁的 assets/ 資料夾，缺檔時自動使用內建向量圖 =====
 const ASSET_FILES = { player:'assets/player.png', scout:'assets/enemy_scout.png', fighter:'assets/enemy_fighter.png',
-    tank:'assets/enemy_tank.png', boss:'assets/boss.png', block:'assets/idiom_block.png',
+    tank:'assets/enemy_tank.png', boss:'assets/boss.png', block:'assets/idiom_block.png', dart:'assets/enemy_dart.png', swarm:'assets/enemy_swarm.png', sniper:'assets/enemy_sniper.png', bomber:'assets/enemy_bomber.png', guard:'assets/enemy_guard.png',
     ship_wind:'assets/ship_wind.png', ship_bastion:'assets/ship_bastion.png', ship_blaze:'assets/ship_blaze.png', ship_storm:'assets/ship_storm.png' };
 for (let i = 1; i <= 9; i++) ASSET_FILES['boss_' + i] = `assets/boss_${i}.png`;   // 每關各自的 Boss 圖，缺檔用 boss.png 或向量圖
 const IMG = {};
@@ -331,6 +368,8 @@ const SHIPS = [
       base:{ dmg:1, rate:3, hp:0, spd:1 }, cap:{ dmg:5, rate:16, hp:6, spd:7 }, fit:{ GLASS:3, TANK:2, BARRAGE:1 } }
 ];
 const SKINS = SHIPS;
+const BOSS_NAMES = { 1:'璃光', 2:'鐵幕', 3:'環星', 4:'金矛', 5:'霜牆', 6:'旋蝕', 7:'紫刃', 8:'赤殼', 9:'裂空' };
+const bossLabel = st => `${BOSS_NAMES[st]}（${BOSS_INFO[BOSS_TYPES[st]].name}）`;   // 例：璃光（玻璃砲）
 // 每關 Boss：mv 移動方式、sh 射擊樣式（依序輪替）、r 基礎射擊間隔（秒）
 const BOSS_CFG = {
     1:{ mv:'hover',  sh:['aim'], r:1.6 },                      2:{ mv:'sweep',  sh:['burst'], r:1.5 },
@@ -372,12 +411,11 @@ function fitDraw(ctx, img, box) {
     ctx.drawImage(img, -w / 2, -h / 2, w, h);
 }
 
-// ===== 關卡音樂：assets/music/stage1.mp3 ~ stage9.mp3（第 9 關為最終 Boss）=====
-// 大廳／商店／結算維持原本的合成神秘音樂；某一關缺檔時，該關也會自動退回合成音樂。
-const STAGE_MUSIC = {};
-for (let i = 1; i <= 9; i++) STAGE_MUSIC[i] = `assets/music/stage${i}.mp3`;
+// ===== 音樂檔案（依序嘗試 music/ 與 assets/music/；找不到時，大廳／關卡退回合成音樂）=====
+const MUSIC_DIRS = ['music/', 'assets/music/'];
+const MUSIC_FILES = { lobby: 'lobby.mp3', end: 'end.mp3', 1: 'stage1.mp3', 2: 'stage2.mp3', 3: 'stage3.mp3', 4: 'stage4.mp3', 5: 'stage5.mp3', 6: 'stage6.mp3', 7: 'stage7.mp3', 8: 'stage8.mp3', 9: 'stage9.mp3' };
 const music = {
-    cur: null, curStage: 0, vol: 0.4, cache: {},
+    cur: null, curStage: 0, lobbyOn: false, vol: 0.4, tok: 0, ok: {},
     fade(a, to, done) {
         clearInterval(a._f);
         a._f = setInterval(() => {
@@ -386,33 +424,46 @@ const music = {
             else a.volume = Math.min(1, Math.max(0, a.volume + Math.sign(d) * 0.03));
         }, 40);
     },
-    stopFile() { const a = this.cur; this.cur = null; this.curStage = 0; if (a) this.fade(a, 0, () => a.pause()); },
-    play(stage) {
-        if (this.curStage === stage) return;           // 同一關的子關卡不重播
-        this.stopFile(); this.curStage = stage; sfx.stopSpaceBGM();
-        let a = this.cache[stage];
-        if (!a) { a = new Audio(STAGE_MUSIC[stage]); a.loop = true; a.preload = 'auto'; this.cache[stage] = a; }
-        const fallback = () => { if (this.cur === a) { this.cur = null; sfx.startSpaceBGM(); } };
-        a.onerror = fallback;
-        this.cur = a; a.currentTime = 0; a.volume = 0;
-        a.play().then(() => this.fade(a, this.vol)).catch(fallback);
+    stopFile() { this.tok++; const a = this.cur; this.cur = null; this.curStage = 0; this.lobbyOn = false; if (a) this.fade(a, 0, () => a.pause()); },
+    playFile(name, loop, onFail) {
+        const token = ++this.tok; let urls = MUSIC_DIRS.map(d => d + name); if (this.ok[name]) urls = [this.ok[name]];
+        const tryAt = i => {
+            if (token !== this.tok) return;
+            if (i >= urls.length) { onFail(); return; }
+            const a = new Audio(urls[i]); a.loop = loop; a.volume = 0; let done = false;
+            const bad = () => { if (done) return; done = true; a.onerror = null; tryAt(i + 1); };
+            a.onerror = bad;
+            const r = a.play();
+            if (r && r.then) r.then(() => { if (done) return; done = true; if (token !== this.tok) { a.pause(); return; } this.ok[name] = urls[i]; this.cur = a; this.fade(a, this.vol); }).catch(bad);
+        };
+        tryAt(0);
     },
-    toLobby() { if (this.curStage === 0) return; this.stopFile(); sfx.startSpaceBGM(); },
+    play(stage) {
+        if (this.curStage === stage) return;          // 同一關的子關卡不重播
+        this.stopFile(); this.curStage = stage; sfx.stopSpaceBGM();
+        this.playFile(MUSIC_FILES[stage], true, () => { if (this.curStage === stage) sfx.startSpaceBGM(); });
+    },
+    playEnd() { this.stopFile(); this.curStage = -1; sfx.stopSpaceBGM(); this.playFile(MUSIC_FILES.end, true, () => { if (this.curStage === -1) sfx.startSpaceBGM(); }); },
+    toLobby() {
+        if (this.lobbyOn) return;
+        this.stopFile(); this.lobbyOn = true; sfx.stopSpaceBGM();
+        this.playFile(MUSIC_FILES.lobby, true, () => { if (this.lobbyOn) sfx.startSpaceBGM(); });
+    },
     pause(b) { if (!this.cur) return; if (b) this.cur.pause(); else this.cur.play().catch(() => {}); }
 };
 
 const CONFIG = {
-    EFFECTS: { BOMB_BOOST:"清空彈幕", INVINCIBLE:"10秒無敵", LASER_BEAM:"貫穿雷射", HEAL:"回復30血", SLOW_TIME:"敵彈減速", SHIELD:"護盾+50", PIERCE:"穿甲彈 30秒", MISSILE:"追蹤導彈 10秒" },
+    EFFECTS: { BOMB_BOOST:"清空彈幕", INVINCIBLE:"10秒無敵", LASER_BEAM:"貫穿雷射", HEAL:"回復30血", SLOW_TIME:"敵彈減速", SHIELD:"護盾+50", PIERCE:"穿甲彈 30秒", MISSILE:"追蹤導彈 10秒", ALLY:"呼叫友軍 15秒" },
     IDIOM_LIST: [
-        ["破釜沉舟","BOMB_BOOST"],["排山倒海","BOMB_BOOST"],["天崩地裂","BOMB_BOOST"],["氣吞山河","BOMB_BOOST"],["翻江倒海","BOMB_BOOST"],
-        ["星火燎原","BOMB_BOOST"],["天女散花","BOMB_BOOST"],["花團錦簇","BOMB_BOOST"],
-        ["金蟬脫殼","INVINCIBLE"],["安然無恙","INVINCIBLE"],["全身而退","INVINCIBLE"],["平安無事","INVINCIBLE"],
+        ["天崩地裂","BOMB_BOOST"],["排山倒海","BOMB_BOOST"],["石破天驚","BOMB_BOOST"],["雷霆萬鈞","BOMB_BOOST"],["驚天動地","BOMB_BOOST"],["地動山搖","BOMB_BOOST"],["摧枯拉朽","BOMB_BOOST"],["翻江倒海","BOMB_BOOST"],["氣吞山河","BOMB_BOOST"],["驚濤駭浪","BOMB_BOOST"],
+        ["金蟬脫殼","INVINCIBLE"],["安然無恙","INVINCIBLE"],["全身而退","INVINCIBLE"],["平安無事","INVINCIBLE"],["毫髮無傷","INVINCIBLE"],["逢凶化吉","INVINCIBLE"],["吉人天相","INVINCIBLE"],["有驚無險","INVINCIBLE"],["化險為夷","INVINCIBLE"],["轉危為安","INVINCIBLE"],
         ["銅牆鐵壁","SHIELD"],["固若金湯","SHIELD"],["堅不可摧","SHIELD"],["金剛不壞","SHIELD"],["刀槍不入","SHIELD"],["滴水不漏","SHIELD"],["萬無一失","SHIELD"],["無懈可擊","SHIELD"],["牢不可破","SHIELD"],["嚴陣以待","SHIELD"],
-        ["一針見血","PIERCE"],["鞭辟入裡","PIERCE"],["勢如破竹","PIERCE"],["一語中的","PIERCE"],["石破天驚","PIERCE"],
-        ["百步穿楊","MISSILE"],["箭無虛發","MISSILE"],["一箭雙鵰","MISSILE"],["萬箭齊發","MISSILE"],["乘勝追擊","MISSILE"],
-        ["直搗黃龍","LASER_BEAM"],["一氣呵成","LASER_BEAM"],["奮不顧身","LASER_BEAM"],["雷霆萬鈞","LASER_BEAM"],["銳不可當","LASER_BEAM"],
-        ["妙手回春","HEAL"],["起死回生","HEAL"],["化險為夷","HEAL"],["轉危為安","HEAL"],["枯木逢春","HEAL"],["絕處逢生","HEAL"],["否極泰來","HEAL"],
-        ["按兵不動","SLOW_TIME"],["慢條斯理","SLOW_TIME"],["以靜制動","SLOW_TIME"],["從容不迫","SLOW_TIME"],["穩如泰山","SLOW_TIME"],["氣定神閒","SLOW_TIME"]
+        ["一針見血","PIERCE"],["鞭辟入裡","PIERCE"],["勢如破竹","PIERCE"],["一語中的","PIERCE"],["入木三分","PIERCE"],["力透紙背","PIERCE"],["穿雲裂石","PIERCE"],["切中要害","PIERCE"],["銳不可當","PIERCE"],["迎刃而解","PIERCE"],
+        ["百步穿楊","MISSILE"],["箭無虛發","MISSILE"],["一箭雙鵰","MISSILE"],["乘勝追擊","MISSILE"],["窮追不捨","MISSILE"],["窮追猛打","MISSILE"],["緊追不捨","MISSILE"],["如影隨形","MISSILE"],["鍥而不捨","MISSILE"],["追根究底","MISSILE"],
+        ["直搗黃龍","LASER_BEAM"],["一氣呵成","LASER_BEAM"],["風馳電掣","LASER_BEAM"],["電光石火","LASER_BEAM"],["光芒萬丈","LASER_BEAM"],["一瀉千里","LASER_BEAM"],["一往無前","LASER_BEAM"],["一馬當先","LASER_BEAM"],["日行千里","LASER_BEAM"],["疾風迅雷","LASER_BEAM"],
+        ["妙手回春","HEAL"],["起死回生","HEAL"],["枯木逢春","HEAL"],["絕處逢生","HEAL"],["否極泰來","HEAL"],["藥到病除","HEAL"],["華佗再世","HEAL"],["死而復生","HEAL"],["重見天日","HEAL"],["精神抖擻","HEAL"],
+        ["按兵不動","SLOW_TIME"],["慢條斯理","SLOW_TIME"],["以靜制動","SLOW_TIME"],["從容不迫","SLOW_TIME"],["穩如泰山","SLOW_TIME"],["氣定神閒","SLOW_TIME"],["沉著冷靜","SLOW_TIME"],["悠然自得","SLOW_TIME"],["泰然自若","SLOW_TIME"],["閒庭信步","SLOW_TIME"],
+        ["呼朋引伴","ALLY"],["鼎力相助","ALLY"],["攜手合作","ALLY"],["同心協力","ALLY"],["並肩作戰","ALLY"],["同舟共濟","ALLY"],["齊心協力","ALLY"],["守望相助","ALLY"],["眾志成城","ALLY"],["患難與共","ALLY"],["肝膽相照","ALLY"],["共襄盛舉","ALLY"]
     ],
     MAX_STAGES: 8
 };
@@ -478,7 +529,53 @@ const IDIOM_INFO = {
 "牢不可破":["非常堅固，無法被破壞。","兩人建立了牢不可破的友誼。"],
 "嚴陣以待":["做好嚴密準備，等待對手到來。","守衛們嚴陣以待，迎接挑戰。"],
 "全身而退":["毫髮無傷地離開危險的地方。","他在混亂中全身而退。"],
-"平安無事":["平順安全，沒有發生意外。","旅途平安無事，大家順利抵達。"]
+"平安無事":["平順安全，沒有發生意外。","旅途平安無事，大家順利抵達。"],
+"驚天動地":["形容聲勢或事蹟極其浩大，震撼人心。","這項發明驚天動地，改變了世界。"],
+"地動山搖":["大地震動、山嶽搖晃，形容聲勢浩大。","巨石滾落，震得地動山搖。"],
+"摧枯拉朽":["比喻輕易就能摧毀腐朽或弱小的事物。","我軍攻勢猛烈，摧枯拉朽般擊潰敵人。"],
+"驚濤駭浪":["洶湧驚人的浪濤，比喻險惡的處境。","船隻在驚濤駭浪中奮力前行。"],
+"毫髮無傷":["一點傷害也沒有，形容安然無事。","車子翻覆，他卻毫髮無傷。"],
+"逢凶化吉":["遇到危險能轉為平安順利。","幸好有貴人相助，他總能逢凶化吉。"],
+"吉人天相":["善良的人會有上天保佑，平安無事。","他吉人天相，順利脫離險境。"],
+"有驚無險":["雖然受到驚嚇，但沒有真正的危險。","山路崎嶇，所幸有驚無險。"],
+"入木三分":["形容書法有力，或見解深刻透徹。","他的評論入木三分，令人信服。"],
+"力透紙背":["筆力強勁，字跡像要穿透紙張。","這幅字力透紙背，氣勢十足。"],
+"穿雲裂石":["形容聲音高亢，力道強勁穿透。","號角聲穿雲裂石，響徹山谷。"],
+"切中要害":["正好擊中最關鍵的地方。","他的質問切中要害，對方啞口無言。"],
+"迎刃而解":["比喻問題一抓到關鍵就容易解決。","掌握方法後，難題迎刃而解。"],
+"窮追不捨":["緊緊追趕，絕不放棄。","警察窮追不捨，終於抓到小偷。"],
+"窮追猛打":["不停地追擊，持續猛烈地攻擊。","球隊乘勝窮追猛打，擴大領先。"],
+"緊追不捨":["緊緊跟著追趕，一刻也不放鬆。","第二名選手緊追不捨，差距越來越小。"],
+"如影隨形":["像影子跟著身體一樣，形容緊緊跟隨。","這隻小狗如影隨形地跟著主人。"],
+"鍥而不捨":["雕刻不中斷，比喻有恆心、不放棄。","他鍥而不捨地練習，終於成功。"],
+"追根究底":["追查事物的根源，弄清楚真相。","科學家追根究底，找出了病因。"],
+"電光石火":["像閃電和擊石的火花，形容極其短暫迅速。","電光石火之間，球已射進網裡。"],
+"光芒萬丈":["光線強烈，形容非常耀眼偉大。","夕陽照得海面光芒萬丈。"],
+"一瀉千里":["水流迅速奔流，形容速度極快或文筆流暢。","河水一瀉千里，奔向大海。"],
+"一往無前":["勇敢向前，毫不退縮。","隊員們一往無前，衝向終點。"],
+"一馬當先":["騎馬衝在最前面，比喻帶頭領先。","他一馬當先，衝過了終點線。"],
+"疾風迅雷":["像急風迅雷般，形容快速猛烈。","部隊疾風迅雷般攻佔了高地。"],
+"藥到病除":["藥一服用，病就好了，形容醫術高明。","這帖草藥藥到病除。"],
+"華佗再世":["稱讚醫術高明得像名醫華佗重生。","老醫生被鄉親稱為華佗再世。"],
+"死而復生":["人死了又活過來，比喻挽回危局。","這家店在改裝後死而復生。"],
+"重見天日":["脫離黑暗，重新看到光明。","受困礦工終於重見天日。"],
+"精神抖擻":["精神振奮、充滿活力的樣子。","睡飽後，他精神抖擻地出門。"],
+"沉著冷靜":["遇事不慌張，保持鎮定。","面對突發狀況，她沉著冷靜地處理。"],
+"悠然自得":["悠閒自在，心情愉快滿足。","爺爺坐在樹下，悠然自得地泡茶。"],
+"泰然自若":["神態鎮定，毫不慌亂。","遇到困難，他仍泰然自若。"],
+"閒庭信步":["像在庭院中散步，形容從容悠閒。","他在賽場上閒庭信步，輕鬆取勝。"],
+"呼朋引伴":["招呼朋友，邀請同伴一起行動。","週末他呼朋引伴去爬山。"],
+"鼎力相助":["用盡全力幫助別人。","多虧大家鼎力相助，活動順利完成。"],
+"攜手合作":["手牽著手，一起合作完成事情。","兩家公司攜手合作，推出新產品。"],
+"同心協力":["大家心意一致，共同努力。","全班同心協力，完成了壁報。"],
+"並肩作戰":["肩並肩一起戰鬥，比喻共同奮鬥。","我們並肩作戰，一起通過難關。"],
+"同舟共濟":["同坐一條船共渡難關，比喻團結互助。","面對困境，大家同舟共濟。"],
+"齊心協力":["大家一條心，共同努力。","同學們齊心協力，打掃教室。"],
+"守望相助":["鄰里互相照應、互相幫忙。","社區居民守望相助，治安良好。"],
+"眾志成城":["大家心意團結，就能像城牆一樣堅固。","全民眾志成城，度過了災難。"],
+"患難與共":["共同承擔困難與危險。","他們患難與共，從不離棄彼此。"],
+"肝膽相照":["彼此真誠相待，全心信任。","兩人肝膽相照，是一輩子的好友。"],
+"共襄盛舉":["大家一起來參與、協助盛大的活動。","歡迎各位共襄盛舉，參加義賣。"]
 };
 
 class Vec2 { constructor(x, y) { this.x = x; this.y = y; } }
@@ -491,7 +588,7 @@ class ObjectPool {
     get() {
         let obj = this.pool.find(o => !o.active);
         if (!obj) { obj = this.createFn(); this.pool.push(obj); }
-        obj.active = true; obj.homing = false; return obj;
+        obj.active = true; obj.homing = false; obj.target = null; return obj;
     }
 }
 
@@ -524,7 +621,7 @@ class Boss extends Entity {
         this.hp = this.maxHp;
         this.radius = 45;
         this.color = stage === 9 ? "#ff00ff" : "#ff3333";
-        this.pos = new Vec2(window.innerWidth / 2, -100);
+        this.pos = new Vec2(WORLD.w / 2, -100);
         this.targetY = 120;
         this.shootTimer = 0;
         this.meteorTimer = 0;
@@ -532,30 +629,34 @@ class Boss extends Entity {
         this.angle = 0;
         this.dmReward = stage * 100; this.cfg = BOSS_CFG[stage] || BOSS_CFG[1]; this.volley = 0;
         const hasImg = !!(IMG['boss_' + stage] || IMG.boss);
-        this.size = hasImg ? Math.min(260, window.innerWidth * 0.55) : 110;
+        this.size = hasImg ? Math.min(260, WORLD.w * 0.55) : 110;
         if (hasImg) { this.radius = this.size * 0.28; this.targetY = this.size * 0.5 + 30; }
         this.type = BOSS_TYPES[stage] || 'TANK';
         const M = { GLASS:[0.45, 2.2, 1.4], TANK:[1.5, 1.0, 1.0], BARRAGE:[1.0, 1.0, 0.55], FINAL:[1.0, 1.3, 0.9] }[this.type];   // [血量倍率, 子彈傷害倍率, 射擊間隔倍率]
         this.maxHp = Math.round(this.maxHp * M[0]); this.hp = this.maxHp; this.dmgMul = M[1]; this.rateMul = M[2];
     }
 
-    move(dt, W, t, pp) {
-        const m = this.cfg.mv, cx = W / 2, sp = 90 + this.stage * 18;
-        if (m === 'sweep') this.pos.x = cx + Math.sin(t / 1500) * W / 3;
-        else if (m === 'hover') { this.pos.x = cx + Math.sin(t / 2500) * W / 7; this.pos.y = this.targetY + Math.sin(t / 900) * 25; }
-        else if (m === 'orbit') { this.pos.x = cx + Math.cos(t / 1300) * W / 3; this.pos.y = this.targetY + 40 + Math.sin(t / 1300) * 55; }
-        else if (m === 'chase') this.pos.x += Math.sign(pp.x - this.pos.x) * Math.min(Math.abs(pp.x - this.pos.x), sp * 1.1 * dt);
-        else if (m === 'zigzag') { this.zz = this.zz || 1; this.pos.x += this.zz * sp * 2.2 * dt; if (this.pos.x > W - 80) this.zz = -1; if (this.pos.x < 80) this.zz = 1; }
-        else if (m === 'dash') {
-            this.dashT = (this.dashT || 0) - dt;
-            if (this.dashT <= 0) { this.dashX = 80 + Math.random() * (W - 160); this.dashT = 2.2; }
-            const d = this.dashX - this.pos.x; this.pos.x += Math.sign(d) * Math.min(Math.abs(d), sp * 3 * dt);
-        }
+    move(dt, W, pp) {   // 「目標點 + 指數平滑」：不瞬移、不抖動，並限制最高速度
+        this.tm = (this.tm || 0) + dt * 1000;
+        const t = this.tm, m = this.cfg.mv, cx = W / 2, margin = this.size * 0.35;
+        let tx = cx, ty = this.targetY, k = 3;
+        if (m === 'sweep') tx = cx + Math.sin(t / 1800) * W / 3;
+        else if (m === 'hover') { tx = cx + Math.sin(t / 2600) * W / 7; ty += Math.sin(t / 950) * 25; }
+        else if (m === 'orbit') { tx = cx + Math.cos(t / 1500) * W / 3; ty += 40 + Math.sin(t / 1500) * 55; }
+        else if (m === 'chase') { tx = pp.x; k = 1.6; }
+        else if (m === 'zigzag') { const ph = (t / 1500) % 2; tx = margin + (ph < 1 ? ph : 2 - ph) * (W - margin * 2); k = 4; }
+        else if (m === 'dash') { this.dashT = (this.dashT || 0) - dt; if (this.dashT <= 0) { this.dashX = margin + Math.random() * (W - margin * 2); this.dashT = 2.4; } tx = this.dashX; k = 4; }
+        tx = Math.max(margin, Math.min(W - margin, tx));
+        // 期望速度 = 與目標的距離 × 增益；速度只能以固定加速度改變（起步與煞車都是漸進的）
+        const vmax = 650, acc = 1500 * dt, cl = (v, m) => Math.max(-m, Math.min(m, v));
+        this.vx = (this.vx || 0); this.vy = (this.vy || 0);
+        this.vx += cl(cl((tx - this.pos.x) * k, vmax) - this.vx, acc);
+        this.vy += cl(cl((ty - this.pos.y) * k, vmax) - this.vy, acc);
+        this.pos.x += this.vx * dt; this.pos.y += this.vy * dt;
     }
 
     update(dt, playerPos, spawnBullet, spawnMeteor) {
-        if (this.pos.y < this.targetY) this.pos.y += 100 * dt;
-        else this.move(dt, window.innerWidth, Date.now(), playerPos);
+        this.move(dt, WORLD.w, playerPos);
 
         this.shootTimer += dt;
         const fireRate = this.cfg.r * this.rateMul * (this.stage === 9 && this.hp < this.maxHp / 2 ? 0.7 : 1);
@@ -581,7 +682,7 @@ class Boss extends Entity {
                 const gap = Math.floor(Math.random() * 12);
                 for (let i = 0; i < 12; i++) {
                     if (Math.abs(i - gap) < 1.5) continue;
-                    const b = spawnBullet(); b.pos = new Vec2(window.innerWidth * (i + 0.5) / 12, this.pos.y + 30); b.vel = new Vec2(0, sp * 0.9); b.color = '#ff66ff'; b.isPlayer = false;
+                    const b = spawnBullet(); b.pos = new Vec2(WORLD.w * (i + 0.5) / 12, this.pos.y + 30); b.vel = new Vec2(0, sp * 0.9); b.color = '#ff66ff'; b.isPlayer = false;
                 }
                 break;
             }
@@ -608,7 +709,7 @@ class Boss extends Entity {
         }
         ctx.closePath(); ctx.fill(); ctx.restore();
         ctx.save(); ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 10; ctx.shadowColor = this.color;
-        ctx.textAlign = "center"; ctx.font = "bold 20px Arial"; ctx.fillText("BOSS・" + BOSS_INFO[this.type].name, this.pos.x, this.pos.y + this.radius + 30);
+        ctx.textAlign = "center"; ctx.font = "bold 20px Arial"; ctx.fillText("BOSS・" + bossLabel(this.stage), this.pos.x, this.pos.y + this.radius + 30);
         ctx.restore();
     }
 }
@@ -653,15 +754,16 @@ class Game {
         this.slots = [];       
         
         this.laserTimer = 0; this.invincibleTimer = 0; this.slowTimer = 0; this.paused = false; this.particles = [];
-        this.pierceTimer = 0; this.missileTimer = 0; this.missileCd = 0; this.dlgOpen = false; this.dlgConfirm = null; this.dlgResume = false; this.volMain = 1; this.volMusic = 0.5; this._buffHtml = '';
+        this.pierceTimer = 0; this.missileTimer = 0; this.missileCd = 0; this.allies = []; this.allyTimer = 0; this.bgClock = 0; this.runClock = 0; this.pkMode = false; this.pkTime = 0; this.dlgOpen = false; this.dlgConfirm = null; this.dlgResume = false; this.volMain = 1; this.volMusic = 0.5; this._buffHtml = '';
         this.fleet = {}; SHIPS.forEach(S => { this.fleet[S.id] = { own: S.price === 0, ...S.base }; }); this.shipId = 'star'; this.startStage = 1; this.bestStage = 1; this.st = null; this.hIdx = 0; this.shield = 0; this.shock = null; this.magnetLvl = 0; this.dmLvl = 0; this.skin = 0; this.casting = null;
 
         this.load(); this.loadVol(); this.applyUpgrades(); this.init();
     }
 
     init() {
-        this.resize(); window.addEventListener('resize', () => this.resize());
+        this.resize(); window.addEventListener('resize', () => this.resize()); window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250)); if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.resize());
         window.addEventListener('keydown', (e) => {
+            if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
             this.keys[e.code] = true;
             if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
             if (!e.repeat) this.handleKey(e);
@@ -681,7 +783,7 @@ class Game {
             e.preventDefault(); 
             const dx = e.touches[0].clientX - this.lastPointerX; 
             const dy = e.touches[0].clientY - this.lastPointerY;
-            this.dragBy(dx, dy);
+            this.dragBy(dx / WORLD.s, dy / WORLD.s);
             this.lastPointerX = e.touches[0].clientX; 
             this.lastPointerY = e.touches[0].clientY;
         }, {passive: false});
@@ -696,7 +798,7 @@ class Game {
         this.canvas.addEventListener('mousemove', (e) => {
             if (!this.pointerActive || this.gameState !== 'PLAYING') return;
             const dx = e.clientX - this.lastPointerX; const dy = e.clientY - this.lastPointerY;
-            this.dragBy(dx, dy);
+            this.dragBy(dx / WORLD.s, dy / WORLD.s);
             this.lastPointerX = e.clientX; this.lastPointerY = e.clientY;
         });
         this.canvas.addEventListener('mouseup', () => { this.pointerActive = false; });
@@ -705,12 +807,12 @@ class Game {
         this.setState('INIT'); requestAnimationFrame((t) => this.loop(t));
     }
 
-    resize() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; }
+    resize() { updateWorld(); this.canvas.width = Math.round(WORLD.rw * WORLD.dpr); this.canvas.height = Math.round(WORLD.rh * WORLD.dpr); this.canvas.style.width = WORLD.rw + 'px'; this.canvas.style.height = WORLD.rh + 'px'; if (this.player && this.player.pos) { this.player.pos.x = Math.min(this.player.pos.x, WORLD.w - 20); this.player.pos.y = Math.min(this.player.pos.y, WORLD.h - 20); } }
 
     setState(state) {
         this.gameState = state; this.paused = false; this.endCast(); if (state !== 'PLAYING') this.save();
-        document.getElementById('buff-bar').innerHTML = ''; this._buffHtml = '';
-        if (state === 'PLAYING') { this.bestStage = Math.max(this.bestStage, this.currentStage); music.play(this.currentStage); loadBg(this.currentStage); loadBg(this.currentStage + 1); } else if (state !== 'INIT') music.toLobby();
+        document.getElementById('buff-bar').innerHTML = ''; this._buffHtml = ''; this.allies = []; this.allyTimer = 0;
+        if (state === 'PLAYING') { this.bestStage = Math.max(this.bestStage, this.currentStage); music.play(this.currentStage); loadBg(this.currentStage); loadBg(this.currentStage + 1); } else if (state === 'GAMEOVER' || state === 'VICTORY') music.playEnd(); else if (state !== 'INIT') music.toLobby();
         this.uiLayer.innerHTML = '';
         if (state === 'LOBBY') {
             document.getElementById('hud').style.display = 'none'; 
@@ -724,18 +826,25 @@ class Game {
         } else if (state === 'INIT') {
             const tiles = Array.from({ length: 14 }, (_, i) => `<i style="left:${(i * 7.3 + 3) % 100}%;animation-delay:${-i * 0.9}s;animation-duration:${8 + (i % 5) * 2}s;width:${34 + (i % 4) * 14}px;height:${34 + (i % 4) * 14}px"></i>`).join('');
             this.uiLayer.innerHTML = `<div class="splash" id="splash"><div class="sp-tiles">${tiles}</div><h1 class="sp-title">成語戰機</h1><p class="sp-sub">IDIOM FIGHTER</p><button class="btn btn-start" id="boot-btn">點擊開始（啟動音樂與音效）</button><p class="sp-hint">按任意鍵也可以開始</p></div>`;
-            const boot = () => { sfx.init(); this.applyVol(); this.setState('LOBBY'); };
+            const boot = () => { sfx.init(); this.applyVol(); this.afterBoot(); };
             document.getElementById('boot-btn').onclick = (e) => { e.stopPropagation(); boot(); };
             document.getElementById('splash').onclick = boot;
         } else if (state === 'PLAYING') {
             document.getElementById('hud').style.display = 'flex'; 
             document.getElementById('idiom-ui').style.display = 'flex';
             this.renderIdiomSlots(); this.updateHUD();
-        } else if (state === 'GAMEOVER') {
-            this.uiLayer.innerHTML = `<div class="menu-overlay"><h2>戰機損毀</h2><p style="color:var(--neon-purple)">本次戰鬥累積暗物質: ${this.darkMatter} DM</p><button class="btn btn-start" onclick="game.setState('LOBBY')">返回大廳 [Enter]</button></div>`;
-        } else if (state === 'VICTORY') {
-            this.uiLayer.innerHTML = `<div class="menu-overlay"><h1>完全勝利</h1><p>宇宙已恢復和平！</p><button class="btn btn-start" onclick="game.setState('LOBBY')">返回大廳 [Enter]</button></div>`;
+        } else if (state === 'GAMEOVER' || state === 'VICTORY') {
+            this.renderResult(state === 'VICTORY');
         }
+    }
+
+    renderResult(win) {   // 結算畫面
+        const secs = Math.round(this.runClock || 0), mm = Math.floor(secs / 60), ss = String(secs % 60).padStart(2, '0'), dm = Math.round(this.runDM || 0);
+        const rows = [['到達關卡', `第 ${this.currentStage} 關`], ['本次得分', dm * 10], ['獲得暗物質', `${dm} DM`], ['擊破敵機', this.runKills || 0], ['發動成語', this.runCasts || 0], ['遊戲時間', `${mm}:${ss}`], ['持有暗物質', `${this.darkMatter} DM`]];
+        this.uiLayer.innerHTML = `<div class="menu-overlay" style="width:min(92vw,420px)"><h1 style="color:${win ? 'var(--neon-gold)' : '#ff6b6b'};margin:0 0 4px">${win ? '完全勝利' : '戰機損毀'}</h1>
+            <p style="margin:4px 0 8px">${win ? '宇宙已恢復和平！' : '升級戰機後再來挑戰吧'}</p><div id="res-extra"></div>
+            <div class="res-rows">${rows.map(([k, v]) => `<div class="rrow"><span>${k}</span><b>${v}</b></div>`).join('')}</div>
+            <button class="btn btn-start" onclick="game.startNewGame()">再次出擊 [R]</button><button class="btn" onclick="game.setState('LOBBY')">返回大廳 [Enter]</button></div>`;
     }
 
     ship(id = this.shipId) { return SHIPS.find(x => x.id === id); }
@@ -749,19 +858,117 @@ class Game {
         this.st = { dmg: st.dmg, interval: st.iv }; this.maxHp = st.hp; this.player.speed = st.spd; this.player.radius = S.r;
         this.weaponLvl = this.fleet[S.id].dmg; this.skin = SHIPS.indexOf(S);
     }
-        updateBuffs() {
+        summonAllies() {   // 呼叫友軍：已擁有（不含目前出戰）的戰機；若沒有其他戰機，派出基礎僚機
+        const others = SHIPS.filter(S => this.fleet[S.id].own && S.id !== this.shipId);
+        const list = (others.length ? others : [this.ship('star')]).slice(0, 3);
+        this.allies = list.map((S, i) => {
+            const st = this.statsOf(S.id), hp = Math.round(st.hp * 0.7);
+            return { sid: S.id, slot: i, pos: new Vec2(this.player.pos.x + (i - (list.length - 1) / 2) * 80, Math.min(WORLD.h - 40, this.player.pos.y + 50)),
+                hp, maxHp: hp, dmg: st.dmg * 0.8, iv: st.iv * 1.15 / 1000, spd: Math.max(240, st.spd * 1.15), cd: 0, radius: S.r + 2 };
+        });
+        this.allyTimer = 15; this.showFloatText('友軍出動！', this.player.pos.x, this.player.pos.y - 90, '#7ad7ff');
+    }
+    updateAllies(dt) {
+        if (this.allyTimer <= 0) { if (this.allies.length) this.allies = []; return; }
+        this.allyTimer -= dt;
+        const W = WORLD.w, H = WORLD.h, foes = this.enemies.concat(this.boss ? [this.boss] : []);
+        this.allies.forEach(a => {
+            let tx, ty = Math.min(H - 40, this.player.pos.y + 30), item = null, bd = 1e9;
+            this.charItems.forEach(c => { const d = Math.hypot(c.pos.x - a.pos.x, c.pos.y - a.pos.y); if (d < bd) { bd = d; item = c; } });
+            if (item) { tx = item.pos.x; ty = item.pos.y; }
+            else { let f = null, fd = 1e9; foes.forEach(e => { const d = Math.abs(e.pos.x - a.pos.x); if (d < fd) { fd = d; f = e; } }); tx = f ? f.pos.x : this.player.pos.x + (a.slot - 1) * 80; }
+            const dx = tx - a.pos.x, dy = ty - a.pos.y, d = Math.hypot(dx, dy), step = Math.min(d, a.spd * dt);
+            if (d > 1) { a.pos.x += dx / d * step; a.pos.y += dy / d * step; }
+            a.pos.x = Math.max(20, Math.min(W - 20, a.pos.x)); a.pos.y = Math.max(40, Math.min(H - 30, a.pos.y));
+            a.cd -= dt;
+            if (a.cd <= 0) { a.cd = a.iv; const b = this.bullets.get(); b.pos = new Vec2(a.pos.x, a.pos.y - 22); b.vel = new Vec2(0, -800); b.color = this.ship(a.sid).c; b.isPlayer = true; b.radius = 4; b.damage = a.dmg; }
+            for (let j = this.charItems.length - 1; j >= 0; j--) { const c = this.charItems[j]; if (Math.hypot(c.pos.x - a.pos.x, c.pos.y - a.pos.y) < 38) { this.collectChar(c.char); this.charItems.splice(j, 1); } }
+            this.bullets.pool.forEach(b => { if (b.active && !b.isPlayer && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) < a.radius + b.radius + 4) { a.hp -= b.damage * 10; b.active = false; } });
+            this.enemies.forEach(e => { if (Math.hypot(e.pos.x - a.pos.x, e.pos.y - a.pos.y) < a.radius + e.radius) a.hp -= 40 * dt; });
+        });
+        const dead = this.allies.filter(a => a.hp <= 0);
+        dead.forEach(a => { this.burst(a.pos.x, a.pos.y, 14); sfx.playExplosion(); });
+        if (dead.length) this.allies = this.allies.filter(a => a.hp > 0);
+    }
+    // ===== 離線資料包（Service Worker + Cache API）=====
+    offlineInfo() { try { const i = JSON.parse(localStorage.getItem('idiomOfflineInfo') || 'null'); return i ? `已下載 ${i.n} 個檔案` : '下載後可完全離線遊玩'; } catch (e) { return ''; } }
+    offlineList() {
+        const L = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'sw.js'];
+        Object.values(ASSET_FILES).forEach(u => L.push(u));
+        for (let i = 1; i <= 9; i++) L.push(`assets/bg/stage${i}.jpg`);
+        Object.values(MUSIC_FILES).forEach(f => MUSIC_DIRS.forEach(d => L.push(d + f)));
+        ['app', 'auth', 'firestore', 'analytics'].forEach(n => L.push(`https://www.gstatic.com/firebasejs/10.12.2/firebase-${n}-compat.js`));
+        return [...new Set(L)];
+    }
+    offlineDialog() {
+        const ok = 'caches' in window && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol);
+        this.dialog(`<h3>離線資料包</h3>
+            <p style="text-align:left;font-size:.9rem;line-height:1.6">把遊戲網頁、圖片與音樂存到這台裝置。下載完成後，即使完全沒有網路也能打開網頁遊玩。排行榜、好友、聊天、PK 仍需要網路；離線時進度會先存在裝置，連網後重新登入就會同步。</p>
+            <p id="off-info" class="muted">${ok ? this.offlineInfo() : '這個環境不支援離線功能（需要 https 網址或 localhost，且瀏覽器支援 Service Worker）'}</p>
+            <div class="ip-bar" id="off-bar" style="display:none"><i id="off-fill" style="animation:none;width:0%"></i></div>
+            <button class="btn btn-start" id="off-go" ${ok ? '' : 'disabled'} onclick="game.downloadOffline()">下載／更新離線資料包</button>
+            <button class="btn" ${ok ? '' : 'disabled'} onclick="game.deleteOffline()">刪除離線資料</button><button class="btn" onclick="game.closeDlg()">關閉 [Esc]</button>`);
+    }
+    async downloadOffline() {
+        if (this._offBusy) return; this._offBusy = true;
+        const btn = document.getElementById('off-go'), info = document.getElementById('off-info'), bar = document.getElementById('off-bar'), fill = document.getElementById('off-fill');
+        if (btn) btn.disabled = true; if (bar) bar.style.display = 'block';
+        try {
+            if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+            const cache = await caches.open('idiom-offline-v1'), list = this.offlineList(); let done = 0, ok = 0;
+            const get = async url => {
+                try {
+                    const cross = new URL(url, location.href).origin !== location.origin;
+                    const r = await fetch(url, cross ? { mode: 'no-cors' } : { cache: 'reload' });
+                    if (r.ok || r.type === 'opaque') { await cache.put(url, r); ok++; }
+                } catch (e) {}
+                done++; const f = document.getElementById('off-fill'), i = document.getElementById('off-info');
+                if (f) f.style.width = (done / list.length * 100) + '%'; if (i) i.textContent = `下載中… ${done}/${list.length}`;
+            };
+            for (let i = 0; i < list.length; i += 4) await Promise.all(list.slice(i, i + 4).map(get));
+            localStorage.setItem('idiomOfflineInfo', JSON.stringify({ n: ok, ts: Date.now() }));
+            const i2 = document.getElementById('off-info'); if (i2) i2.textContent = ok ? `完成！已儲存 ${ok} 個檔案，現在可以離線遊玩了` : '沒有下載到任何檔案，請確認網路';
+        } catch (e) { const i2 = document.getElementById('off-info'); if (i2) i2.textContent = '下載失敗：' + (e.message || e); }
+        this._offBusy = false; const b2 = document.getElementById('off-go'); if (b2) b2.disabled = false;
+    }
+    async deleteOffline() {
+        try { await caches.delete('idiom-offline-v1'); localStorage.removeItem('idiomOfflineInfo'); const i = document.getElementById('off-info'); if (i) i.textContent = '已刪除離線資料'; } catch (e) {}
+    }
+    resetProgress() {
+        this.darkMatter = 0; this.maxSlots = 3; this.magnetLvl = 0; this.dmLvl = 0; this.bestStage = 1; this.startStage = 1; this.shipId = 'star';
+        this.fleet = {}; SHIPS.forEach(S => { this.fleet[S.id] = { own: S.price === 0, ...S.base }; }); this.applyUpgrades();
+    }
+    tryFullscreen() {
+        try {
+            if (localStorage.getItem('idiomFS') === '0' || document.fullscreenElement || document.webkitFullscreenElement) return;
+            const el = document.documentElement; const f = el.requestFullscreen || el.webkitRequestFullscreen;
+            if (f) { const r = f.call(el); if (r && r.catch) r.catch(() => {}); }
+        } catch (e) {}
+    }
+    toggleFullscreen() {
+        const el = document.documentElement;
+        if (document.fullscreenElement || document.webkitFullscreenElement) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+        else { const f = el.requestFullscreen || el.webkitRequestFullscreen; if (f) { const r = f.call(el); if (r && r.catch) r.catch(() => {}); } else this.dialog('<h3>無法全螢幕</h3><p>這個瀏覽器不支援網頁全螢幕。<br>iPhone Safari 請點「分享 → 加入主畫面」，再從主畫面圖示開啟，就會是全螢幕。</p><button class="btn btn-start" onclick="game.closeDlg()">知道了</button>'); }
+    }
+    setAutoFS(v) { try { localStorage.setItem('idiomFS', v ? '1' : '0'); } catch (e) {} }
+    afterBoot() { this.tryFullscreen(); if (window.online) window.online.afterBoot(); else this.setState('LOBBY'); }
+    updateBuffs() {
         const L = [['穿甲彈', this.pierceTimer, 30, '#ffb347'], ['追蹤導彈', this.missileTimer, 10, '#ff6b6b'], ['雷射貫穿', this.laserTimer, 3, '#ffea00'],
-                   ['無敵', this.invincibleTimer > 1.05 ? this.invincibleTimer : 0, 10, '#7dffb0'], ['敵彈減速', this.slowTimer, 6, '#9aa8ff']];
+                   ['無敵', this.invincibleTimer > 1.05 ? this.invincibleTimer : 0, 10, '#7dffb0'], ['敵彈減速', this.slowTimer, 6, '#9aa8ff'], ['呼叫友軍', this.allyTimer, 15, '#7ad7ff']];
         const html = L.filter(x => x[1] > 0).map(([n, t, m, c]) => `<div class="buff" style="--c:${c}">${n} ${Math.ceil(t)}s<i style="width:${Math.min(100, t / m * 100)}%"></i></div>`).join('');
         if (html !== this._buffHtml) { this._buffHtml = html; document.getElementById('buff-bar').innerHTML = html; }
     }
-    steer(b, dt) {   // 導彈導引：優先敵機與 Boss，沒有才找字卡
-        const c = this.enemies.concat(this.boss ? [this.boss] : []), pool = c.length ? c : this.idiomBlocks;
-        let best = null, bd = 1e9;
-        pool.forEach(t => { const d = Math.hypot(t.pos.x - b.pos.x, t.pos.y - b.pos.y); if (d < bd) { bd = d; best = t; } });
-        let a = Math.atan2(b.vel.y, b.vel.x);
-        if (best) { let da = Math.atan2(best.pos.y - b.pos.y, best.pos.x - b.pos.x) - a; da = Math.atan2(Math.sin(da), Math.cos(da)); a += da * Math.min(1, 7 * dt); }
-        b.vel.x = Math.cos(a) * 460; b.vel.y = Math.sin(a) * 460;
+    steer(b, dt) {   // 主炮追蹤：只鎖定敵機／Boss（先打血量少的），沒有敵機才找字卡
+        const live = t => this.enemies.includes(t) || t === this.boss || this.idiomBlocks.includes(t);
+        if (!b.target || !live(b.target)) {
+            const c = this.enemies.concat(this.boss ? [this.boss] : []), pool = c.length ? c : this.idiomBlocks;
+            let best = null, bh = 1e9, bd = 1e9;
+            pool.forEach(t => { const h = t.hp || 0, d = Math.hypot(t.pos.x - b.pos.x, t.pos.y - b.pos.y); if (h < bh || (h === bh && d < bd)) { bh = h; bd = d; best = t; } });
+            b.target = best;
+        }
+        const sp = Math.hypot(b.vel.x, b.vel.y) || 800; let a = Math.atan2(b.vel.y, b.vel.x);
+        if (b.target) { let da = Math.atan2(b.target.pos.y - b.pos.y, b.target.pos.x - b.pos.x) - a; da = Math.atan2(Math.sin(da), Math.cos(da)); a += da * Math.min(1, 6 * dt); }
+        b.vel.x = Math.cos(a) * sp; b.vel.y = Math.sin(a) * sp;
     }
     dialog(html, onConfirm) {
         let d = document.getElementById('dlg');
@@ -786,6 +993,7 @@ class Game {
         this.dialog(`<h3>設定</h3>
             <label>主音量（音效／大廳音樂）<input type="range" min="0" max="100" value="${Math.round(this.volMain * 100)}" oninput="game.setVol('main', this.value)"></label>
             <label>關卡音樂音量<input type="range" min="0" max="100" value="${Math.round(this.volMusic * 100)}" oninput="game.setVol('music', this.value)"></label>
+            <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" ${localStorage.getItem('idiomFS') !== '0' ? 'checked' : ''} onchange="game.setAutoFS(this.checked)" style="width:auto;"> 開啟遊戲時自動全螢幕</label><button class="btn" onclick="game.toggleFullscreen()">全螢幕 ／ 離開全螢幕</button>
             <small style="color:#8aa;">快捷鍵：O 設定　H 回首頁（戰鬥中）　P／Esc 暫停</small>
             <button class="btn btn-start" onclick="game.closeDlg()">關閉 [Esc]</button>`);
     }
@@ -808,7 +1016,7 @@ class Game {
     hurt(n) { if (this.shield > 0) { const a = Math.min(this.shield, n); this.shield -= a; n -= a; } this.hp -= n; }
     shieldOf(e) {
         if (e.maxShield === undefined) {
-            const k = e === this.boss ? ({ TANK: 0.2, FINAL: 0.25 }[e.type] || 0) : (e.type === 'TANK' ? 0.4 : (e.type === 'FIGHTER' && this.currentStage >= 4 ? 0.25 : 0));
+            const k = e === this.boss ? ({ TANK: 0.2, FINAL: 0.25 }[e.type] || 0) : (e.type === 'TANK' ? 0.4 : e.type === 'GUARD' ? 0.6 : (e.type === 'FIGHTER' && this.currentStage >= 4 ? 0.25 : 0));
             e.maxShield = e.shield = Math.round(e.maxHp * k);
         }
         return e.shield;
@@ -865,7 +1073,7 @@ class Game {
                 <div class="tiles">
                     <div class="tile live w2 h2" style="--a:#0aa5ff;--b:#7b2ff7;--d:0s" onclick="game.startNewGame()">
                         ${im(`assets/boss_${this.startStage}.png`)}
-                        <div class="f1"><h4>開始出擊</h4><small>第 ${this.startStage} 關</small><small>Boss：${info.name}型</small><small>[Enter]</small></div>
+                        <div class="f1"><h4>開始出擊</h4><small>第 ${this.startStage} 關</small><small>Boss：${bossLabel(this.startStage)}</small><small>[Enter]</small></div>
                         <div class="f2"><h4>${S.name}</h4><small>${ok ? '很適合本關 Boss' : '建議改用 ' + rec.ship.name}</small><small>${info.tip}</small></div>
                     </div>
                     <div class="tile live w2" style="--a:#b026ff;--b:#ff3366;--d:.08s" onclick="game.openHangar()">
@@ -883,9 +1091,10 @@ class Game {
                         <small>←／→ 切換（最高解鎖第 ${this.bestStage} 關）</small>
                     </div>
                     <div class="tile live w2" style="--a:#ff3366;--b:#7a0f2a;--d:.4s" onclick="game.equip('${rec.ship.id}')">
-                        <div class="f1"><h4>Boss：${info.name}型</h4><small>${info.desc}</small></div>
+                        <div class="f1"><h4>Boss：${bossLabel(this.startStage)}</h4><small>${info.desc}</small></div>
                         <div class="f2"><h4>推薦：${rec.ship.name}</h4><small>${ok ? '目前戰機很適合' : '點此或按 [R] 一鍵換裝'}</small>${rec.ideal ? `<small>商店有更合適的 ${rec.ideal.name}</small>` : ''}</div>
                     </div>
+                <div class="tile" style="--a:#0f2027;--b:#2c5364;--d:.46s" onclick="game.offlineDialog()"><h4>離線資料包</h4><small>${this.offlineInfo()}</small><span class="ico">⇩</span></div>
                 </div>
                 <div class="roster">各關 Boss：${roster}</div>
             </div>`;
@@ -964,7 +1173,7 @@ class Game {
     }
 
     startNewGame() {
-        sfx.init(); this.applyUpgrades(); this.shield = 0; this.pierceTimer = 0; this.missileTimer = 0; this.currentStage = Math.min(this.startStage, this.bestStage); this.currentSub = 1; this.score = 0; 
+        sfx.init(); this.tryFullscreen(); this.applyUpgrades(); this.shield = 0; this.pierceTimer = 0; this.missileTimer = 0; this.allies = []; this.allyTimer = 0; this.runDM = 0; this.runKills = 0; this.runCasts = 0; this.currentStage = Math.min(this.startStage, this.bestStage); this.currentSub = 1; this.score = 0; 
         this.hp = this.maxHp; this.slots = []; 
         this.fillEmptySlots(); // 遊戲開始時塞滿隨機成語任務
         this.resetStage(); this.setState('PLAYING');
@@ -980,7 +1189,7 @@ class Game {
     resetStage() {
         this.boss = null;
         this.enemies = []; this.idiomBlocks = []; this.charItems = [];
-        this.player.pos = new Vec2(window.innerWidth / 2, window.innerHeight - 150);
+        this.player.pos = new Vec2(WORLD.w / 2, WORLD.h - 150);
         this.bullets.pool.forEach(b => b.active = false);
         this.pointerActive = false; 
         document.getElementById('boss-bar').style.display = 'none';
@@ -993,19 +1202,19 @@ class Game {
             this.waveQuota = 0;
         }
         this.idiomBlockTimer = 0;
-        this.showFloatText(this.currentSub === 3 ? "WARNING: " + BOSS_INFO[BOSS_TYPES[this.currentStage] || "TANK"].name + " BOSS" : `區塊 ${this.currentStage}-${this.currentSub} 開始`, window.innerWidth/2, window.innerHeight/2, "#ffea00");
+        this.showFloatText(this.currentSub === 3 ? "WARNING: " + bossLabel(this.currentStage) : `區塊 ${this.currentStage}-${this.currentSub} 開始`, WORLD.w/2, WORLD.h/2, "#ffea00");
     }
 
     startTransition(isNextStage) {
         this.gameState = 'TRANSITION'; this.transitionTimer = 0; this.isNextStage = isNextStage;
         this.bullets.pool.forEach(b => b.active = false); this.enemies = []; this.idiomBlocks = []; this.charItems = [];
         sfx.playTransition();
-        this.showFloatText(isNextStage ? "STAGE CLEAR" : "WAVE CLEARED", window.innerWidth/2, window.innerHeight/2 - 50, "#00f2ff");
+        this.showFloatText(isNextStage ? "STAGE CLEAR" : "WAVE CLEARED", WORLD.w/2, WORLD.h/2 - 50, "#00f2ff");
     }
 
     renderIdiomSlots() {
         if(this.gameState !== 'PLAYING' && this.gameState !== 'TRANSITION') return;
-        const container = document.getElementById('idiom-ui'); container.innerHTML = '';
+        const container = document.getElementById('idiom-ui'); container.innerHTML = ''; container.style.setProperty('--n', this.maxSlots); { const avail = Math.min(WORLD.rw, 720) * 0.98 - (this.maxSlots - 1) * 4; container.style.setProperty('--sw', Math.max(40, Math.min(120, avail / this.maxSlots)) + 'px'); }
         for (let i = 0; i < this.maxSlots; i++) {
             const slot = this.slots[i]; const div = document.createElement('div');
             if (slot) {
@@ -1038,18 +1247,23 @@ class Game {
     }
 
     startCast(idiom) {
-        this.casting = { idiom, t: 3 }; sfx.playIdiomCast();
-        const info = IDIOM_INFO[idiom.word] || ['', ''];
+        this.casting = { idiom, t: 5 }; sfx.playIdiomCast();
+        const info = IDIOM_INFO[idiom.word] || ['', ''], useMeaning = Math.random() < 0.5, label = useMeaning ? '意思' : '造句', text = info[useMeaning ? 0 : 1] || '';
         let p = document.getElementById('idiom-popup');
         if (!p) { p = document.createElement('div'); p.id = 'idiom-popup'; document.getElementById('game-container').appendChild(p); }
-        p.innerHTML = `<div class="ip-word">${idiom.word}</div><div class="ip-effect">大招效果：${idiom.desc}</div><div class="ip-line"><b>意思</b>　${info[0]}</div><div class="ip-line"><b>造句</b>　${info[1]}</div><div class="ip-bar"><i></i></div>`;
-        p.style.display = 'block';
+        p.innerHTML = `<div class="ip-word">${idiom.word}</div><div class="ip-effect">大招效果：${idiom.desc}</div><div class="ip-line"><b>${label}</b>　<span id="ip-text"></span><span class="ip-cur">▌</span></div><div class="ip-bar"><i></i></div>`;
+        p.style.display = 'block'; this.typeText(text);
+    }
+    typeText(text) {   // 像 AI 回覆一樣逐字浮現
+        clearInterval(this._tw); const el = document.getElementById('ip-text'); if (!el) return;
+        const ch = [...text]; let i = 0, step = Math.max(45, Math.min(130, 3200 / Math.max(1, ch.length)));
+        this._tw = setInterval(() => { i++; el.textContent = ch.slice(0, i).join(''); if (i >= ch.length) { clearInterval(this._tw); const c = document.querySelector('#idiom-popup .ip-cur'); if (c) c.style.display = 'none'; } }, step);
     }
 
-    endCast() { this.casting = null; const p = document.getElementById('idiom-popup'); if (p) p.style.display = 'none'; }
+    endCast() { clearInterval(this._tw); this.casting = null; const p = document.getElementById('idiom-popup'); if (p) p.style.display = 'none'; }
 
     finishCast() {
-        const idiom = this.casting.idiom; this.endCast();
+        const idiom = this.casting.idiom; this.endCast(); this.runCasts = (this.runCasts || 0) + 1;
         sfx.playIdiomFire(idiom.effect);
         this.showFloatText(`發動！${idiom.word}！`, this.player.pos.x, this.player.pos.y - 40, '#ffea00');
         if (idiom.effect === 'BOMB_BOOST') this.triggerBomb();
@@ -1057,6 +1271,7 @@ class Game {
         
         if (idiom.effect === 'LASER_BEAM') this.triggerLaser();
         if (idiom.effect === 'SHIELD') { this.shield = Math.min(this.maxHp, this.shield + 50); this.showFloatText('護盾 +50', this.player.pos.x, this.player.pos.y - 70, '#4dd2ff'); }
+        if (idiom.effect === 'ALLY') this.summonAllies();
         if (idiom.effect === 'PIERCE') this.pierceTimer = 30;
         if (idiom.effect === 'MISSILE') { this.missileTimer = 10; this.missileCd = 0; }
         if (idiom.effect === 'HEAL') { this.hp = Math.min(this.maxHp, this.hp + 30); this.updateHUD(); }
@@ -1067,14 +1282,14 @@ class Game {
         this.bullets.pool.forEach(b => { if(!b.isPlayer) b.active = false; });
         if (this.boss) { const d = Math.min(300, this.boss.maxHp * 0.25); this.dmgEnt(this.boss, d); this.showFloatText(`Boss -${Math.round(d)}`, this.boss.pos.x, this.boss.pos.y + 70, '#ff3366'); }
         this.shock = { t: 0, x: this.player.pos.x, y: this.player.pos.y };
-        for (let i = 0; i < 24; i++) this.burst(Math.random() * window.innerWidth, Math.random() * window.innerHeight, 8);
-        this.enemies.forEach(e => { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 2); sfx.playExplosion(); });
-        this.enemies = []; this.showFloatText("全螢幕爆破!", window.innerWidth/2, window.innerHeight/2, "#ff00ff");
+        for (let i = 0; i < 24; i++) this.burst(Math.random() * WORLD.w, Math.random() * WORLD.h, 8);
+        this.enemies.forEach(e => { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 2); this.runKills = (this.runKills || 0) + 1; sfx.playExplosion(); });
+        this.enemies = []; this.showFloatText("全螢幕爆破!", WORLD.w/2, WORLD.h/2, "#ff00ff");
     }
     triggerLaser() { this.laserTimer = 3.0; }
 
     showFloatText(text, x, y, color = "#fff") { const t = this.texts.get(); t.pos = new Vec2(x, y); t.text = text; t.color = color; t.life = 1.5; }
-    dropDarkMatter(x, y, amount) { amount = Math.round(amount * (1 + 0.2 * this.dmLvl) * (1 + 0.25 * (this.currentStage - 1))); this.burst(x, y, amount >= 20 ? 18 : 4); this.darkMatter += amount; this.showFloatText(`+${amount} DM`, x, y, "#b026ff"); this.updateHUD(); }
+    dropDarkMatter(x, y, amount) { amount = Math.max(1, Math.round(amount * (1 + 0.2 * this.dmLvl) * (1 + 0.25 * (this.currentStage - 1)) * DM_RATE)); this.runDM = (this.runDM || 0) + amount; this.burst(x, y, amount >= 20 ? 18 : 4); this.darkMatter += amount; this.showFloatText(`+${amount} DM`, x, y, "#b026ff"); this.updateHUD(); }
 
     updateHUD() {
         if(this.gameState !== 'PLAYING' && this.gameState !== 'TRANSITION') return;
@@ -1084,7 +1299,7 @@ class Game {
 
     loop(timestamp) {
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1); this.lastTime = timestamp;
-        if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); } else this.update(dt); } } else if (this.gameState === 'TRANSITION') this.updateTransition(dt);
+        if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); } else { this.bgClock += dt; this.runClock += dt; if (this.pkMode) this.pkTime += dt; this.update(dt); } } } else if (this.gameState === 'TRANSITION') { this.bgClock += dt; this.runClock += dt; this.updateTransition(dt); }
         this.draw(); requestAnimationFrame((t) => this.loop(t));
     }
 
@@ -1102,28 +1317,107 @@ class Game {
         this.texts.pool.forEach(t => { if(t.active) t.update(dt); });
     }
 
+    enemyFire(e, dt) {   // 每種小怪各有專屬的攻擊樣式與頻率
+        if (e.pos.y < 20) return;                   // 還沒進入畫面不開火
+        const v = 70 + this.currentStage * 14, D = Math.PI / 2;
+        const shot = (x, y, a, sp, r, dmg) => { const b = this.bullets.get(); b.pos = new Vec2(x, y); b.vel = new Vec2(Math.cos(a) * sp, Math.sin(a) * sp); b.color = e.color; b.isPlayer = false; b.radius = r; b.damage = dmg; };
+        const aim = () => Math.atan2(this.player.pos.y - e.pos.y, this.player.pos.x - e.pos.x);
+        if (e.q && e.q.length) {                    // 連發／蓄力／雙擊的後續動作
+            e.q[0].t -= dt; if (e.type === 'SNIPER') e.charge = Math.max(0, e.q[0].t);
+            if (e.q[0].t <= 0) e.q.shift().f();
+            return;
+        }
+        e.shootTimer += dt; if (e.shootTimer <= e.shootInterval) return; e.shootTimer = 0;
+        const x = e.pos.x, y0 = e.pos.y + e.radius, push = (t, f) => { (e.q = e.q || []).push({ t, f }); };
+        switch (e.type) {
+            case 'SCOUT': shot(x, y0, aim(), v * 0.8, 4, 1); break;                                                        // 單發慢彈
+            case 'FIGHTER': for (let i = 0; i < 3; i++) push(i ? 0.14 : 0.01, () => { shot(e.pos.x, e.pos.y + e.radius, aim(), v * 1.1, 4, 1); sfx.playEnemyShoot(); }); return;   // 三連發
+            case 'TANK': for (let i = -2; i <= 2; i++) shot(x, y0, D + i * 0.26, v * 0.8, 6, 2); break;                    // 重砲五向齊射
+            case 'SWARM': { const k = e.form && e.form.kind;                                                              // 依隊形：直射／瞄準／向外放射
+                if (k === 'ring') shot(x, e.pos.y, Math.atan2(e.pos.y - e.cy, e.pos.x - e.cx), v * 0.7, 3, 1);
+                else if (k === 'v') shot(x, y0, aim(), v * 0.9, 3, 1); else shot(x, y0, D, v * 0.9, 3, 1); break; }
+            case 'SNIPER': e.lockA = aim(); e.charge = 0.9; push(0.9, () => { shot(e.pos.x, e.pos.y + e.radius, e.lockA, v * 1.9, 4, 1.5); e.charge = 0; sfx.playEnemyShoot(); }); sfx.playIdiomCast && 0; return;   // 蓄力瞄準後高速狙擊
+            case 'BOMBER': { const p = (e.pat = e.pat || 0) % 3; e.pat++;                                                 // 三向 → 五向 → 慢速大炸彈 輪替
+                if (p === 0) [-0.35, 0, 0.35].forEach(o => shot(x, y0, D + o, v * 0.9, 5, 1));
+                else if (p === 1) [-0.6, -0.3, 0, 0.3, 0.6].forEach(o => shot(x, y0, D + o, v * 0.85, 5, 1));
+                else shot(x, y0, D, v * 0.5, 9, 2); break; }
+            case 'GUARD': { const a = aim(); shot(x - 7, y0, a - 0.1, v, 4, 1); shot(x + 7, y0, a + 0.1, v, 4, 1);          // 雙擊：兩次雙發
+                push(0.25, () => { const a2 = aim(); shot(e.pos.x - 7, e.pos.y + e.radius, a2 - 0.1, v, 4, 1); shot(e.pos.x + 7, e.pos.y + e.radius, a2 + 0.1, v, 4, 1); sfx.playEnemyShoot(); }); break; }
+            default: return;                                                                                               // 俯衝機不開火，靠撞擊
+        }
+        sfx.playEnemyShoot();
+    }
+
+    moveCustom(e, dt) {   // 每種敵機各有專屬移動；蜂群、俯衝隊、護衛會以隊形一起行動
+        e.tm += dt; const W = WORLD.w, H = WORLD.h, t = e.tm, cl = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+        const toward = (tx, sp) => { const d = tx - e.pos.x; e.pos.x += cl(d, -sp * dt, sp * dt); };
+        switch (e.mv) {
+            case 'sway':   // 偵察機：緩慢下降並大幅左右擺盪
+                e.pos.y += e.speed * 0.5 * dt; e.pos.x = cl(e.bx + Math.sin(t * 1.6 + e.ph) * 110, e.radius, W - e.radius); if (e.pos.y > H + 40) e.gone = true; break;
+            case 'hunt':   // 戰鬥機：下降到定位後，橫向追著玩家
+                if (e.pos.y < e.hy) e.pos.y += e.speed * 2 * dt; else e.pos.y = e.hy + Math.sin(t * 2) * 10;
+                toward(cl(this.player.pos.x + e.off, e.radius, W - e.radius), e.speed * 3); break;
+            case 'march':  // 坦克：沉重地直線推進、駐守，只有輕微橫移
+                if (e.pos.y < e.hy) e.pos.y += e.speed * 1.5 * dt;
+                e.pos.x = cl(e.pos.x + Math.sin(t * 0.5 + e.ph) * 22 * dt, e.radius, W - e.radius); break;
+            case 'dive':   // 俯衝機：V 字編隊朝玩家直線衝刺
+                e.pos.x += e.vel.x * dt; e.pos.y += e.vel.y * dt; if (e.pos.y > H + 60 || e.pos.x < -60 || e.pos.x > W + 60) e.gone = true; break;
+            case 'formation': {   // 蜂群：整隊一起移動（橫列／V 字／旋轉圓環）
+                const f = e.form, n = f.n, c = f.i - (n - 1) / 2, cy = -40 + e.speed * t, cx = e.bx + Math.sin(t * 1.1 + e.ph) * 110;
+                let ox, oy;
+                if (f.kind === 'line') { ox = c * 42; oy = 0; } else if (f.kind === 'v') { ox = c * 42; oy = Math.abs(c) * 30; }
+                else { const a = t * 1.6 + f.i * Math.PI * 2 / n; ox = Math.cos(a) * 62; oy = Math.sin(a) * 62; }
+                e.cx = cx; e.cy = cy; e.pos.x = cl(cx + ox, e.radius, W - e.radius); e.pos.y = cy + oy; if (cy > H + 90) e.gone = true; break;
+            }
+            case 'mirror':   // 狙擊機：定位後與玩家「鏡像」移動
+                if (e.pos.y < e.hy) e.pos.y += e.speed * 2.2 * dt; if (!(e.charge > 0)) toward(cl(W - this.player.pos.x, e.radius, W - e.radius), e.speed * 3.5); break;
+            case 'lawn':     // 轟炸機：橫掃整個畫面，到邊緣就往下一排
+                if (e.pos.y < e.hy) e.pos.y += e.speed * 1.5 * dt; e.pos.x += e.dir * e.speed * 2.2 * dt;
+                if (e.pos.x > W - e.radius) { e.pos.x = W - e.radius; e.dir = -1; e.hy = Math.min(e.hy + 55, H * 0.45); }
+                if (e.pos.x < e.radius) { e.pos.x = e.radius; e.dir = 1; e.hy = Math.min(e.hy + 55, H * 0.45); } break;
+            case 'patrol': { // 護衛機：成對繞圈巡邏
+                const a = t * 1.3 + e.ph, cy = Math.min(e.hy, -30 + e.speed * 2.5 * t);
+                e.pos.x = cl(e.bx + Math.cos(a) * 100, e.radius, W - e.radius); e.pos.y = cy + Math.sin(a) * 38; break;
+            }
+        }
+    }
+
     spawnEnemy() {
-        const diff = this.currentStage + this.currentSub;
-        const t = (this.currentStage - 1) + (this.currentSub - 1) * 0.3;
-        const angle = Math.random() * Math.PI * 2; 
-        let eType = 'SCOUT'; 
-        let r = Math.random();
-        
-        if (this.currentStage > 2) { if (r > 0.8) eType = 'TANK'; else if (r > 0.4) eType = 'FIGHTER'; } 
-        else if (this.currentStage > 1) { if (r > 0.6) eType = 'FIGHTER'; } 
-        else if (this.currentSub > 1 && r > 0.85) eType = 'FIGHTER';
-
-        let speed, maxHp, radius, color, shootInterval;
-        if (eType === 'SCOUT') { speed = 50 + t * 28; maxHp = 1.5 + t * 1.4; radius = 14; color = "#00ffcc"; shootInterval = Math.max(2.5, 6.0 - t * 0.45); } 
-        else if (eType === 'FIGHTER') { speed = 40 + t * 18; maxHp = 3 + t * 3.2; radius = 20; color = "#ffaa00"; shootInterval = Math.max(1.2, 4.0 - t * 0.35); } 
-        else if (eType === 'TANK') { speed = 25 + t * 8; maxHp = 10 + t * 7; radius = 30; color = "#ff3366"; shootInterval = Math.max(0.8, 3.0 - t * 0.25); }
-
-        this.enemies.push({ 
-            type: eType, pos: new Vec2(Math.random() * (window.innerWidth - 60) + 30, -30), 
-            vel: new Vec2(Math.cos(angle)*speed, Math.sin(angle)*speed), 
-            hp: maxHp, maxHp: maxHp, radius: radius, color: color, diff: diff,
-            shootTimer: Math.random() * shootInterval, shootInterval: shootInterval 
-        });
+        const diff = this.currentStage + this.currentSub, t = (this.currentStage - 1) + (this.currentSub - 1) * 0.3, W = WORLD.w, st = this.currentStage;
+        const pools = {
+            1: this.currentSub > 1 ? ['SCOUT', 'SCOUT', 'DART'] : ['SCOUT'],
+            2: ['SCOUT', 'SWARM', 'FIGHTER', 'DART'],
+            3: ['SCOUT', 'SWARM', 'SNIPER', 'FIGHTER', 'DART'],
+            4: ['DART', 'SNIPER', 'FIGHTER', 'BOMBER', 'SWARM']
+        };
+        const pool = pools[st] || ['FIGHTER', 'SNIPER', 'BOMBER', 'TANK', 'GUARD', 'SWARM', 'DART'];
+        const eType = pool[Math.floor(Math.random() * pool.length)];
+        const D = {
+            SCOUT:   { speed: 50 + t * 28, hp: 1.5 + t * 1.4, r: 14, c: '#00ffcc', iv: Math.max(2.8, 5.5 - t * 0.4), mv: 'sway' },
+            FIGHTER: { speed: 40 + t * 18, hp: 3 + t * 3.2, r: 20, c: '#ffaa00', iv: Math.max(1.6, 3.2 - t * 0.25), mv: 'hunt' },
+            TANK:    { speed: 25 + t * 8, hp: 10 + t * 7, r: 30, c: '#ff3366', iv: Math.max(2.0, 4.2 - t * 0.3), mv: 'march' },
+            DART:    { speed: 150 + t * 22, hp: 1 + t * 0.9, r: 13, c: '#ff77ff', iv: 999, mv: 'dive' },
+            SWARM:   { speed: 55 + t * 14, hp: 1 + t * 0.8, r: 11, c: '#aaff44', iv: Math.max(3.5, 6.5 - t * 0.35), mv: 'formation' },
+            SNIPER:  { speed: 35 + t * 6, hp: 2.5 + t * 2.2, r: 17, c: '#66ccff', iv: Math.max(2.0, 3.8 - t * 0.25), mv: 'mirror' },
+            BOMBER:  { speed: 30 + t * 6, hp: 6 + t * 4.2, r: 24, c: '#ffcc66', iv: Math.max(1.4, 2.8 - t * 0.2), mv: 'lawn' },
+            GUARD:   { speed: 32 + t * 6, hp: 5 + t * 3.4, r: 21, c: '#66ffaa', iv: Math.max(1.0, 2.4 - t * 0.18), mv: 'patrol' }
+        }[eType];
+        const make = (x, y, extra) => {
+            const e = { type: eType, pos: new Vec2(x, y), vel: new Vec2(0, 0), hp: D.hp, maxHp: D.hp, radius: D.r, color: D.c, diff: diff, speed: D.speed,
+                shootTimer: Math.random() * D.iv, shootInterval: D.iv, custom: true, mv: D.mv, tm: 0, dir: Math.random() < 0.5 ? -1 : 1, ph: Math.random() * 6, bx: x,
+                off: (Math.random() - 0.5) * 160, hy: (eType === 'SNIPER' ? 70 : eType === 'BOMBER' ? 90 : eType === 'GUARD' ? 140 : 130) + Math.random() * 70 };
+            Object.assign(e, extra || {}); this.enemies.push(e);
+        };
+        const x0 = Math.random() * Math.max(10, W - 300) + Math.min(150, W / 2 - 5);
+        if (eType === 'SWARM') {   // 蜂群：整隊陣列移動
+            const n = 4 + (st >= 3 ? 1 : 0) + (st >= 5 ? 1 : 0), kind = ['line', 'v', 'ring'][Math.floor(Math.random() * 3)], ph = Math.random() * 6;
+            for (let i = 0; i < n; i++) make(x0, -40, { form: { kind, i, n }, ph });
+        } else if (eType === 'DART') {   // 俯衝機：V 字編隊
+            const n = st <= 2 ? 3 : 5;
+            for (let i = 0; i < n; i++) { const c = i - (n - 1) / 2, x = x0 + c * 46, y = -30 - Math.abs(c) * 38, a = Math.atan2(this.player.pos.y - y, this.player.pos.x - x); make(x, y, { vel: new Vec2(Math.cos(a) * D.speed, Math.sin(a) * D.speed) }); }
+        } else if (eType === 'GUARD') {   // 護衛機：成對巡邏
+            const ph = Math.random() * 6; [0, Math.PI].forEach(o => make(x0, -30, { ph: ph + o }));
+        } else make(Math.random() * (W - 60) + 30, -30);
     }
 
     update(dt) {
@@ -1140,8 +1434,8 @@ class Game {
             else { this.player.pos.x += ex / d * step; this.player.pos.y += ey / d * step; }
         }
         
-        this.player.pos.x = Math.max(20, Math.min(window.innerWidth - 20, this.player.pos.x));
-        this.player.pos.y = Math.max(20, Math.min(window.innerHeight - 20, this.player.pos.y));
+        this.player.pos.x = Math.max(20, Math.min(WORLD.w - 20, this.player.pos.x));
+        this.player.pos.y = Math.max(20, Math.min(WORLD.h - 20, this.player.pos.y));
 
         const fireRate = this.player.rapidFire > 0 ? Math.min(50, this.st.interval) : this.st.interval;
         if (Date.now() - this.player.lastShoot > fireRate) {
@@ -1149,7 +1443,7 @@ class Game {
             const shootBullet = (offset, angle) => {
                 const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + offset, this.player.pos.y - 25);
                 b.vel = new Vec2(Math.sin(angle)*800, -Math.cos(angle)*800);
-                b.color = SKINS[this.skin].c; b.isPlayer = true; b.radius = 4 + (this.weaponLvl * 0.5); b.damage = dmg;
+                b.color = SKINS[this.skin].c; b.isPlayer = true; b.radius = 4 + (this.weaponLvl * 0.5); b.damage = dmg; b.homing = this.missileTimer > 0;
             };
             shootBullet(0, 0); 
             if (this.weaponLvl >= 3 || this.player.spreadFire > 0) { shootBullet(-15, -0.15); shootBullet(15, 0.15); }
@@ -1175,7 +1469,7 @@ class Game {
         // 掉落成語字塊：分析當前需要哪些字，提高掉落機率
         this.idiomBlockTimer += dt;
         if (this.idiomBlockTimer > 2.0) { // 稍微加快掉落速度
-            if (Math.random() < 0.7) this.spawnIdiomBlock(Math.random() * (window.innerWidth-60) + 30, -50);
+            if (Math.random() < 0.7) this.spawnIdiomBlock(Math.random() * (WORLD.w-60) + 30, -50);
             this.idiomBlockTimer = 0;
         }
 
@@ -1183,35 +1477,23 @@ class Game {
             this.boss.update(dt, this.player.pos, () => { const b = this.bullets.get(); b.damage = this.boss.dmgMul; b.radius = 6; return b; }, (x,y) => this.spawnIdiomBlock(x,y));
             document.getElementById('boss-hp-fill').style.width = (this.boss.hp / this.boss.maxHp * 100) + "%";
             if (this.boss.hp <= 0) {
-                this.dropDarkMatter(this.boss.pos.x, this.boss.pos.y, this.boss.dmReward);
+                this.dropDarkMatter(this.boss.pos.x, this.boss.pos.y, this.boss.dmReward); this.runKills = (this.runKills || 0) + 1;
                 sfx.playExplosion(); this.boss = null; this.startTransition(true);
             }
         }
 
         this.enemies.forEach((e, i) => {
-            const sdt = this.slowTimer > 0 ? dt * 0.4 : dt; e.pos.x += e.vel.x * sdt; e.pos.y += e.vel.y * sdt;
-            if (e.pos.x < e.radius) { e.pos.x = e.radius; e.vel.x = Math.abs(e.vel.x); }
-            if (e.pos.x > window.innerWidth - e.radius) { e.pos.x = window.innerWidth - e.radius; e.vel.x = -Math.abs(e.vel.x); }
-            if (e.pos.y < e.radius) { e.pos.y = e.radius; e.vel.y = Math.abs(e.vel.y); }
-            if (e.pos.y > window.innerHeight - e.radius) { e.pos.y = window.innerHeight - e.radius; e.vel.y = -Math.abs(e.vel.y); }
-
-            e.shootTimer += dt;
-            if (e.shootTimer > e.shootInterval) {
-                e.shootTimer = 0; const b = this.bullets.get(); b.pos = new Vec2(e.pos.x, e.pos.y + e.radius);
-                const angleToPlayer = Math.atan2(this.player.pos.y - e.pos.y, this.player.pos.x - e.pos.x);
-                const bulletSpeed = 70 + this.currentStage * 14;
-                
-                if (e.type === 'TANK') {
-                    const b2 = this.bullets.get(); b2.pos = new Vec2(e.pos.x - 10, e.pos.y + e.radius); b.pos.x += 10;
-                    b.vel = new Vec2(Math.cos(angleToPlayer) * bulletSpeed, Math.sin(angleToPlayer) * bulletSpeed); 
-                    b2.vel = new Vec2(Math.cos(angleToPlayer) * bulletSpeed, Math.sin(angleToPlayer) * bulletSpeed); 
-                    b.color = b2.color = e.color; b.isPlayer = b2.isPlayer = false; b.radius = b2.radius = 6; b.damage = b2.damage = 2;
-                } else {
-                    b.vel = new Vec2(Math.cos(angleToPlayer) * bulletSpeed, Math.sin(angleToPlayer) * bulletSpeed); 
-                    b.color = e.color; b.isPlayer = false; b.radius = 4; b.damage = 1;
-                }
-                sfx.playEnemyShoot();
+            const sdt = this.slowTimer > 0 ? dt * 0.4 : dt;
+            if (e.custom) { this.moveCustom(e, sdt); if (e.gone) { this.enemies.splice(i, 1); return; } }
+            else {
+                e.pos.x += e.vel.x * sdt; e.pos.y += e.vel.y * sdt;
+                if (e.pos.x < e.radius) { e.pos.x = e.radius; e.vel.x = Math.abs(e.vel.x); }
+                if (e.pos.x > WORLD.w - e.radius) { e.pos.x = WORLD.w - e.radius; e.vel.x = -Math.abs(e.vel.x); }
+                if (e.pos.y < e.radius) { e.pos.y = e.radius; e.vel.y = Math.abs(e.vel.y); }
+                if (e.pos.y > WORLD.h - e.radius) { e.pos.y = WORLD.h - e.radius; e.vel.y = -Math.abs(e.vel.y); }
             }
+
+            this.enemyFire(e, dt);
 
             if (Math.hypot(e.pos.x - this.player.pos.x, e.pos.y - this.player.pos.y) < e.radius + this.player.radius && this.invincibleTimer <= 0) {
                 this.hurt(e.type === 'TANK' ? 25 : 15); this.invincibleTimer = 1.0; sfx.playHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
@@ -1222,7 +1504,7 @@ class Game {
             if (b.active) {
                 if (b.homing) this.steer(b, dt);
                 b.update(!b.isPlayer && this.slowTimer > 0 ? dt * 0.4 : dt);
-                if (b.pos.y < -50 || b.pos.y > window.innerHeight + 50 || b.pos.x < -50 || b.pos.x > window.innerWidth+50) b.active = false;
+                if (b.pos.y < -50 || b.pos.y > WORLD.h + 50 || b.pos.x < -50 || b.pos.x > WORLD.w+50) b.active = false;
                 
                 if (b.isPlayer) {
                     if (this.boss && Math.hypot(b.pos.x - this.boss.pos.x, b.pos.y - this.boss.pos.y) < this.boss.radius) {
@@ -1231,7 +1513,7 @@ class Game {
                     this.enemies.forEach((e, i) => {
                         if (Math.hypot(b.pos.x - e.pos.x, b.pos.y - e.pos.y) < e.radius) {
                             this.dmgEnt(e, b.damage); b.active = false; sfx.playHit();
-                            if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); sfx.playExplosion(); this.enemies.splice(i, 1); }
+                            if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); this.runKills = (this.runKills || 0) + 1; sfx.playExplosion(); this.enemies.splice(i, 1); }
                         }
                     });
                     this.idiomBlocks.forEach((m, i) => {
@@ -1253,7 +1535,7 @@ class Game {
 
         this.idiomBlocks.forEach((m, i) => {
             m.pos.y += 60 * dt; 
-            if (m.pos.y > window.innerHeight + m.radius) this.idiomBlocks.splice(i, 1);
+            if (m.pos.y > WORLD.h + m.radius) this.idiomBlocks.splice(i, 1);
         });
 
         this.charItems.forEach((c, i) => {
@@ -1269,7 +1551,7 @@ class Game {
             if (this.boss && Math.abs(this.boss.pos.x - this.player.pos.x) < this.boss.radius + 25) this.dmgEnt(this.boss, 70 * dt);
             this.enemies.forEach((e, i) => {
                 if (Math.abs(e.pos.x - this.player.pos.x) < 25 && e.pos.y < this.player.pos.y) {
-                    this.dmgEnt(e, 50 * dt); if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp*1.5); sfx.playExplosion(); this.enemies.splice(i, 1); }
+                    this.dmgEnt(e, 50 * dt); if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp*1.5); this.runKills = (this.runKills || 0) + 1; sfx.playExplosion(); this.enemies.splice(i, 1); }
                 }
             });
             this.idiomBlocks.forEach((m, i) => {
@@ -1291,17 +1573,8 @@ class Game {
         if (this.player.spreadFire > 0) this.player.spreadFire -= dt;
         if (this.laserTimer > 0) this.laserTimer -= dt;
         if (this.pierceTimer > 0) this.pierceTimer -= dt;
-        if (this.missileTimer > 0) {   // 追蹤導彈：每 0.5 秒左右各一發，優先鎖定敵機／Boss，沒有敵機才打字卡
-            this.missileTimer -= dt; this.missileCd -= dt;
-            if (this.missileCd <= 0) {
-                this.missileCd = 0.5;
-                [-14, 14].forEach(ox => {
-                    const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + ox, this.player.pos.y - 10); b.vel = new Vec2(ox * 8, -260);
-                    b.color = '#ff8844'; b.isPlayer = true; b.radius = 6; b.damage = this.st.dmg * 3 + 2; b.homing = true;
-                });
-                sfx.sweep('triangle', 500, 1300, 0.18, 0.05);
-            }
-        }
+        if (this.missileTimer > 0) this.missileTimer -= dt;
+        this.updateAllies(dt);
         this.updateBuffs();
     }
 
@@ -1328,7 +1601,7 @@ class Game {
             else if (enter || e.code === 'KeyE') this.hEquip();
             else if (e.code === 'Escape' || e.code === 'KeyB') this.setState('LOBBY');
         }
-        else if (st === 'SHOP') { if (num >= 1) this.buyItem(num - 1); else if (e.code === 'Escape' || e.code === 'KeyB' || enter) this.setState('LOBBY'); } else if (st === 'GAMEOVER' || st === 'VICTORY') { if (enter) this.setState('LOBBY'); }
+        else if (st === 'SHOP') { if (num >= 1) this.buyItem(num - 1); else if (e.code === 'Escape' || e.code === 'KeyB' || enter) this.setState('LOBBY'); } else if (st === 'GAMEOVER' || st === 'VICTORY') { if (enter) this.setState('LOBBY'); else if (e.code === 'KeyR') this.startNewGame(); }
         else if (st === 'PLAYING') {
             if (this.casting) return;
             if (e.code === 'KeyP' || e.code === 'Escape' || (this.paused && enter)) { this.paused = !this.paused; music.pause(this.paused); }
@@ -1403,12 +1676,12 @@ class Game {
     }
 
     draw() {
-        const ctx = this.ctx;
-        ctx.fillStyle = "#050510"; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        const ctx = this.ctx; ctx.setTransform(WORLD.k, 0, 0, WORLD.k, 0, 0);
+        ctx.fillStyle = "#050510"; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
         const bg = BG[this.currentStage];
         if (bg && this.gameState !== 'LOBBY') {
-            const W = this.canvas.width, H = this.canvas.height, h = Math.ceil(bg.height * W / bg.width);
-            const off = (Date.now() / (this.gameState === 'TRANSITION' && this.transitionTimer > 1.0 ? 5 : 18)) % h;
+            const W = WORLD.w, H = WORLD.h, h = Math.ceil(bg.height * W / bg.width);
+            const off = (this.bgClock * 1000 / (this.gameState === 'TRANSITION' && this.transitionTimer > 1.0 ? 5 : 18)) % h;
             for (let y = off - h; y < H; y += h) ctx.drawImage(bg, 0, Math.floor(y), W, h + 1);
             ctx.fillStyle = 'rgba(0,0,8,0.22)'; ctx.fillRect(0, 0, W, H);
         }
@@ -1416,8 +1689,8 @@ class Game {
         const starSpeed = this.gameState === 'TRANSITION' && this.transitionTimer > 1.0 ? 200 : 20;
         ctx.fillStyle = "rgba(255,255,255,0.5)";
         for(let i=0; i<40; i++) {
-            const x = (Math.sin(i*99) + 1) / 2 * this.canvas.width;
-            const y = (Date.now() / (1000/starSpeed) + i * 200) % this.canvas.height;
+            const x = (Math.sin(i*99) + 1) / 2 * WORLD.w;
+            const y = (this.bgClock * starSpeed + i * 200) % WORLD.h;
             ctx.fillRect(x, y, 2, 2);
         }
 
@@ -1437,7 +1710,7 @@ class Game {
             const isInv = this.invincibleTimer > 0;
             const shipImg = IMG['ship_' + SKINS[this.skin].id] || IMG.player;
             if (shipImg) {
-                if (isInv) ctx.globalAlpha = 0.6 + 0.4 * Math.sin(Date.now() / 40);
+                if (isInv) ctx.globalAlpha = 0.6 + 0.4 * Math.sin(this.bgClock * 1000 / 40);
                 ctx.shadowColor = SKINS[this.skin].c; ctx.shadowBlur = 18; if (!IMG['ship_' + SKINS[this.skin].id]) ctx.filter = `hue-rotate(${SKINS[this.skin].h}deg)`; fitDraw(ctx, shipImg, shipImg.width / shipImg.height > 1.3 ? 118 : 96); ctx.restore();
             } else {
             const mainColor = isInv ? "#ffea00" : SKINS[this.skin].c;
@@ -1447,7 +1720,7 @@ class Game {
             ctx.shadowColor = mainColor;
 
             // 引擎噴射火焰
-            if (isInv || Math.floor(Date.now() / 50) % 2 === 0) {
+            if (isInv || Math.floor(this.bgClock * 1000 / 50) % 2 === 0) {
                 const flameLen = (this.gameState === 'TRANSITION' && this.transitionTimer > 1.0) ? 60 : 25 + Math.random() * 15;
                 ctx.fillStyle = isInv ? "#ffffff" : "#ffaa00";
                 ctx.shadowBlur = 20; ctx.shadowColor = "#ffaa00";
@@ -1513,18 +1786,18 @@ class Game {
             if (this.boss) {
                 const bimg = IMG['boss_' + this.boss.stage] || IMG.boss;
                 if (bimg) { const R = this.boss.radius * 2; ctx.save(); ctx.shadowBlur = 25; ctx.shadowColor = this.boss.color; ctx.translate(this.boss.pos.x, this.boss.pos.y); fitDraw(ctx, bimg, this.boss.size);
-                    ctx.fillStyle = '#fff'; ctx.font = "bold 18px 'Microsoft JhengHei'"; ctx.textAlign = 'center'; ctx.fillText('BOSS・' + BOSS_INFO[this.boss.type].name, 0, this.boss.size * 0.5 + 18); ctx.restore(); }
+                    ctx.fillStyle = '#fff'; ctx.font = "bold 18px 'Microsoft JhengHei'"; ctx.textAlign = 'center'; ctx.fillText('BOSS・' + bossLabel(this.boss.stage), 0, this.boss.size * 0.5 + 18); ctx.restore(); }
                 else this.boss.draw(ctx);
             }
             this.bullets.pool.forEach(b => { if(b.active) b.draw(ctx); });
             
-            const time = Date.now();
+            const time = this.bgClock * 1000;
             this.enemies.forEach(e => {
                 ctx.save();
                 ctx.translate(e.pos.x, e.pos.y);
                 const eimg = IMG[e.type.toLowerCase()];
                 if (eimg) {
-                    ctx.shadowBlur = 12; ctx.shadowColor = e.color; fitDraw(ctx, eimg, e.radius * 3.2);
+                    ctx.shadowBlur = 12; ctx.shadowColor = e.color; fitDraw(ctx, eimg, e.radius * 3.2 * (Math.max(eimg.width / eimg.height, eimg.height / eimg.width) > 2.2 ? 1.45 : 1));
                     
                     ctx.restore(); return;
                 }
@@ -1550,7 +1823,9 @@ class Game {
                         const r = e.radius * (i%2===0 ? 1 : 0.8);
                         if(i===0) ctx.moveTo(Math.cos(a)*r, Math.sin(a)*r); else ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
                     }
-                    ctx.fillStyle = e.color; ctx.fillRect(-e.radius, -e.radius - 10, (e.hp/e.maxHp)*e.radius*2, 4); ctx.fillStyle = "#111";
+                    ctx.fillStyle = "#111";
+                } else {
+                    ctx.lineWidth = 2; const R = e.radius; ctx.moveTo(0, R); ctx.lineTo(R, 0); ctx.lineTo(0, -R); ctx.lineTo(-R, 0);
                 }
                 ctx.closePath(); ctx.fill(); ctx.stroke();
                 
@@ -1587,25 +1862,38 @@ class Game {
 
             this.texts.pool.forEach(t => { if(t.active) t.draw(ctx); });
             ctx.save();
+            this.enemies.forEach(e => {   // 狙擊機蓄力時顯示瞄準線
+                if (e.charge > 0) { ctx.save(); ctx.strokeStyle = '#ff4466'; ctx.globalAlpha = 0.35 + 0.4 * Math.abs(Math.sin(this.bgClock * 20)); ctx.lineWidth = 2; ctx.setLineDash([10, 8]);
+                    ctx.beginPath(); ctx.moveTo(e.pos.x, e.pos.y + e.radius); ctx.lineTo(e.pos.x + Math.cos(e.lockA) * 1400, e.pos.y + Math.sin(e.lockA) * 1400); ctx.stroke(); ctx.restore(); }
+            });
+            this.allies.forEach(a => {
+                const S = this.ship(a.sid), im = IMG['ship_' + a.sid] || IMG.player;
+                ctx.save(); ctx.translate(a.pos.x, a.pos.y); ctx.scale(0.8 * S.s, 0.8 * S.s);
+                if (this.allyTimer < 2 && Math.floor(this.bgClock * 10) % 2) ctx.globalAlpha = 0.45;
+                if (im) { ctx.shadowColor = S.c; ctx.shadowBlur = 14; if (!IMG['ship_' + a.sid]) ctx.filter = `hue-rotate(${S.h}deg)`; fitDraw(ctx, im, im.width / im.height > 1.3 ? 110 : 90); }
+                else { ctx.fillStyle = S.c; ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(24, 24); ctx.lineTo(-24, 24); ctx.closePath(); ctx.fill(); }
+                ctx.restore();
+                this.drawBars(ctx, a.pos.x, a.pos.y + 36 * S.s, 50, a.hp, a.maxHp, 0, 0, S.c);
+            });
             this.enemies.forEach(e => { this.shieldOf(e); this.drawBars(ctx, e.pos.x, e.pos.y - e.radius * 1.7 - 6, e.radius * 2.4, e.hp, e.maxHp, e.shield, e.maxShield, e.color); });
             if (this.boss) { this.shieldOf(this.boss); this.drawBars(ctx, this.boss.pos.x, this.boss.pos.y - this.boss.size * 0.5 - 14, 150, this.boss.hp, this.boss.maxHp, this.boss.shield, this.boss.maxShield, '#ff3333'); }
             this.drawBars(ctx, this.player.pos.x, this.player.pos.y + 54 * SKINS[this.skin].s, 64, this.hp, this.maxHp, this.shield, this.maxHp, '#33ff88');
             this.particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life * 2); ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 3, 3); });
             ctx.globalAlpha = 1;
             if (this.shock) {
-                const k = this.shock.t / 1.2, M = Math.hypot(this.canvas.width, this.canvas.height);
+                const k = this.shock.t / 1.2, M = Math.hypot(WORLD.w, WORLD.h);
                 for (let i = 0; i < 3; i++) {
                     const kk = k - i * 0.12; if (kk <= 0) continue;
                     ctx.strokeStyle = ['#ffea00', '#ff8800', '#ff3366'][i]; ctx.globalAlpha = Math.max(0, 1 - kk); ctx.lineWidth = 14 - kk * 10;
                     ctx.shadowBlur = 30; ctx.shadowColor = ctx.strokeStyle; ctx.beginPath(); ctx.arc(this.shock.x, this.shock.y, kk * M, 0, 7); ctx.stroke();
                 }
-                ctx.globalAlpha = Math.max(0, 0.7 - k * 2.5); ctx.fillStyle = '#fff3c4'; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                ctx.globalAlpha = Math.max(0, 0.7 - k * 2.5); ctx.fillStyle = '#fff3c4'; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
                 ctx.globalAlpha = 1; ctx.shadowBlur = 0;
             }
             if (this.keys['ShiftLeft'] || this.keys['ShiftRight']) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.player.pos.x, this.player.pos.y, 4, 0, 7); ctx.fill(); }
-            if (this.casting) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height); }
+            if (this.casting) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, WORLD.w, WORLD.h); }
             if (this.paused) {
-                const W = this.canvas.width, H = this.canvas.height;
+                const W = WORLD.w, H = WORLD.h;
                 ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H);
                 ctx.fillStyle = '#00f2ff'; ctx.textAlign = 'center'; ctx.font = "bold 48px 'Microsoft JhengHei'"; ctx.fillText('暫停中', W / 2, H / 2);
                 ctx.font = "20px 'Microsoft JhengHei'"; ctx.fillText('按 P / Esc / Enter 繼續', W / 2, H / 2 + 50);
@@ -1616,6 +1904,555 @@ class Game {
 }
 
 const game = new Game();
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
+<script>
+(() => {
+'use strict';
+const CFG = { apiKey: "AIzaSyB4MxpM55hfJKIDYdkb6ftGJY4k-QECkBE", authDomain: "idiom-fighter.firebaseapp.com", projectId: "idiom-fighter",
+    storageBucket: "idiom-fighter.firebasestorage.app", messagingSenderId: "224044128546", appId: "1:224044128546:web:60e8120c693cf5ae292d7b", measurementId: "G-8GX7DZVE9E" };
+const G = game, P = Game.prototype, SAVEKEY = 'idiomShooterSave', MIRROR = 'idiomMirror', MAIL = '@idiom-fighter.app';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n, l) => String(n).padStart(l, '0');
+const fmtTime = ms => { const s = ms / 1000, m = Math.floor(s / 60); return `${m}:${(s % 60).toFixed(1).padStart(4, '0')}`; };
+const ui = html => { G.uiLayer.innerHTML = html; };
+const toast = (msg, ms = 2800) => {
+    let t = $('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; $('game-container').appendChild(t); }
+    t.textContent = msg; t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = 0; }, ms);
+};
+const BACK = `<button class="btn btn-start" style="margin-top:8px" onclick="game.setState('LOBBY')">返回大廳 [Esc]</button>`;
+const errMsg = e => ({ 'auth/user-not-found': '帳號或密碼錯誤', 'auth/wrong-password': '帳號或密碼錯誤', 'auth/invalid-credential': '帳號或密碼錯誤', 'auth/invalid-login-credentials': '帳號或密碼錯誤',
+    'auth/email-already-in-use': '這個帳號已經有人使用', 'auth/weak-password': '密碼太短（至少 6 碼）', 'auth/network-request-failed': '網路連線失敗',
+    'auth/operation-not-allowed': '尚未在 Firebase 後台開啟「電子郵件／密碼」登入', 'auth/too-many-requests': '嘗試次數過多，請稍後再試',
+    'permission-denied': '沒有權限（請確認 Firestore 規則已發布）' }[e && e.code] || ('發生錯誤：' + ((e && (e.code || e.message)) || e)));
+
+// ---------- 樣式 ----------
+document.head.insertAdjacentHTML('beforeend', `<style>
+.inp{width:100%;box-sizing:border-box;margin:6px 0;padding:10px;border-radius:8px;border:1px solid var(--neon-blue);background:#0a0a1a;color:#fff;font-size:1rem;font-family:inherit}
+.lg-msg{color:#ff6b6b;min-height:1.3em;font-size:.9rem;margin-bottom:4px}.muted{color:#8aa;font-size:.85rem}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0}.tabs button{padding:5px 10px;border-radius:8px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.1);color:#fff;cursor:pointer;font-family:inherit}
+.tabs button.on{background:var(--neon-blue);color:#000;font-weight:bold}
+.rk{display:flex;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid #223;text-align:left}.rk b.n{width:28px;color:var(--neon-gold)}.rk span{flex:1}.rk.me{background:rgba(255,234,0,.12)}
+.lst{max-height:46vh;overflow-y:auto;text-align:left}.row{display:flex;gap:6px;align-items:center;padding:6px 4px;border-bottom:1px solid #223;flex-wrap:wrap}.row span{flex:1;min-width:80px}
+.sm{padding:3px 8px;border-radius:6px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.12);color:#fff;cursor:pointer;font-size:.8rem;font-family:inherit}.sm.red{border-color:#ff6b6b}
+#toast{position:absolute;top:14%;left:50%;transform:translateX(-50%);z-index:70;background:rgba(5,5,16,.95);border:1px solid var(--neon-gold);color:var(--neon-gold);padding:8px 16px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90vw;text-align:center}
+#chat-fab{position:absolute;right:14px;bottom:14px;z-index:40;width:52px;height:52px;border-radius:50%;border:2px solid var(--neon-blue);background:rgba(5,5,16,.92);color:#fff;font-size:1.5rem;cursor:pointer;display:none;box-shadow:0 0 14px rgba(0,242,255,.5)}
+#chat-fab i{position:absolute;top:-4px;right:-4px;background:#ff3366;color:#fff;border-radius:10px;font-size:.7rem;padding:1px 6px;font-style:normal;display:none}
+#chat-panel{position:absolute;right:14px;bottom:76px;z-index:40;width:min(92vw,340px);height:min(62vh,430px);display:none;flex-direction:column;background:rgba(5,5,16,.97);border:2px solid var(--neon-blue);border-radius:12px;overflow:hidden;font-size:.9rem}
+#chat-panel .ch-head{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:rgba(0,242,255,.15)}
+#chat-panel .ch-head button{background:none;border:1px solid #fff;color:#fff;border-radius:6px;cursor:pointer}
+#chat-panel .ch-tabs{display:flex}#chat-panel .ch-tabs button{flex:1;padding:6px;background:#0a0a1a;border:none;border-bottom:2px solid #223;color:#aaa;cursor:pointer;font-family:inherit}
+#chat-panel .ch-tabs button.on{color:var(--neon-blue);border-bottom-color:var(--neon-blue)}
+#ch-sel{padding:6px;display:flex;gap:6px;flex-wrap:wrap}#ch-sel select{flex:1;min-width:0;background:#0a0a1a;color:#fff;border:1px solid var(--neon-blue);border-radius:6px;padding:4px}
+#ch-msgs{flex:1;overflow-y:auto;padding:6px 8px;text-align:left}.msg{margin:4px 0;word-break:break-all}.msg b{color:var(--neon-blue)}.msg.me b{color:var(--neon-gold)}.msg small{color:#667;margin-left:4px}
+#chat-panel .ch-in{display:flex;gap:4px;padding:6px}#chat-panel .ch-in input{flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--neon-blue);background:#0a0a1a;color:#fff;font-family:inherit}
+#chat-panel .ch-in button{padding:0 12px;border-radius:8px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.2);color:#fff;cursor:pointer}
+#pk-hud{position:absolute;top:clamp(92px,24vw,100px);left:50%;transform:translateX(-50%);width:min(80%,340px);z-index:6;text-align:center;font-size:clamp(.7rem,3vw,.9rem);color:#ffb3b3;pointer-events:none;text-shadow:0 0 4px #000}
+#pk-hud .bar{height:8px;background:#333;border:1px solid #fff;margin-top:2px}#pk-hud .bar i{display:block;height:100%;background:linear-gradient(to right,#f33,#fa0)}
+.tut{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;min-height:150px;margin:8px 0;padding:10px;background:rgba(0,0,20,.6);border:1px solid #334;border-radius:10px}
+.tut img{max-height:120px;max-width:44%;object-fit:contain}kbd{display:inline-block;min-width:26px;padding:3px 7px;margin:2px;border:1px solid #fff;border-bottom-width:3px;border-radius:6px;background:#1a1f3a;color:#fff;font-family:monospace}
+.chip{display:inline-block;margin:3px;padding:3px 9px;border-radius:14px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.1);cursor:pointer;color:#fff;font-family:inherit}.chip.on{background:var(--neon-gold);color:#000;border-color:var(--neon-gold)}
+.dots i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#445;margin:0 3px}.dots i.on{background:var(--neon-blue)}
+</style>`);
+
+// ---------- Firebase ----------
+let auth = null, db = null, fbOk = false;
+try { firebase.initializeApp(CFG); auth = firebase.auth(); db = firebase.firestore(); try { firebase.analytics(); } catch (e) {} fbOk = true; } catch (e) { console.warn('Firebase 無法初始化', e); }
+
+const online = window.online = {
+    fbOk, user: null, profile: null, isAdmin: false, friends: [], reqIn: [], invites: [], groups: [], unsubs: [], pk: null, pending: null,
+    chat: { open: false, tab: 'lobby', th: null, unsub: null, msgs: [], unread: 0, first: true, dmReady: {} },
+
+    // ===== 登入 / 帳號 =====
+    afterBoot() { (this.authReady || Promise.resolve()).then(() => { if ((this.user || this.offline) && this.profile) G.setState(this.profile.tutorialDone ? 'LOBBY' : 'TUTORIAL'); else G.setState('LOGIN'); }); },
+    renderLogin(reg) {
+        ui(`<div class="menu-overlay" style="width:min(92vw,380px)"><h2 class="shop-title">${reg ? '註冊帳號' : '登入'}</h2>
+            <div id="lg-msg" class="lg-msg">${fbOk ? '' : '無法載入 Firebase，請確認網路後重新整理頁面'}</div>
+            <input class="inp" id="lg-user" placeholder="帳號（英數字或底線，3~16 字）" autocomplete="username" autocapitalize="none">
+            ${reg ? '<input class="inp" id="lg-name" maxlength="12" placeholder="暱稱（最多 12 字）">' : ''}
+            <input class="inp" id="lg-pass" type="password" placeholder="密碼（至少 6 碼）" autocomplete="${reg ? 'new-password' : 'current-password'}">
+            <button class="btn btn-start" id="lg-go">${reg ? '註冊並登入' : '登入'}</button>
+            <button class="btn" id="lg-sw">${reg ? '已有帳號？回到登入' : '沒有帳號？註冊'}</button>
+            ${(!navigator.onLine || !fbOk) && this.readMirror() ? `<button class="btn" id="lg-off">離線遊玩（${esc(this.readMirror().name)} 的進度）</button>` : ''}</div>`);
+        $('lg-go').onclick = () => this.submitLogin(reg); $('lg-sw').onclick = () => this.renderLogin(!reg); if ($('lg-off')) $('lg-off').onclick = () => this.startOffline();
+        $('lg-pass').onkeydown = e => { if (e.key === 'Enter') this.submitLogin(reg); };
+    },
+    async submitLogin(reg) {
+        const msg = t => { const m = $('lg-msg'); if (m) m.textContent = t; };
+        if (!fbOk) return msg('無法連線到 Firebase');
+        const u = $('lg-user').value.trim().toLowerCase(), p = $('lg-pass').value, name = reg ? $('lg-name').value.trim() : '';
+        if (!/^[a-z0-9_]{3,16}$/.test(u)) return msg('帳號需為 3~16 字的英文、數字或底線');
+        if (p.length < 6) return msg('密碼至少 6 碼');
+        $('lg-go').disabled = true; msg('處理中…');
+        try {
+            if (reg) { this.pending = name || u; await auth.createUserWithEmailAndPassword(u + MAIL, p); }
+            else await auth.signInWithEmailAndPassword(u + MAIL, p);
+        } catch (e) { msg(errMsg(e)); const b = $('lg-go'); if (b) b.disabled = false; }
+    },
+    async onLogin(u) {
+        this.offline = false; this.user = u; const username = (u.email || '').split('@')[0], ref = db.collection('users').doc(u.uid);
+        let snap;
+        try { snap = await Promise.race([ref.get(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), navigator.onLine ? 10000 : 1500))]); }
+        catch (e) { const m = this.readMirror(); if (m && m.uid === u.uid) { this.user = null; this.startOffline(); return; } throw e; }
+        if (!snap.exists) {
+            const name = this.pending || username;
+            this.profile = { username, name, nameLower: name.toLowerCase(), bestScore: 0, totalDM: 0, spentDM: 0, pkWins: 0, pkLosses: 0, tutorialDone: false, createdAt: Date.now() };
+            localStorage.removeItem(SAVEKEY); G.resetProgress(); await ref.set(this.profile);
+        } else {
+            this.profile = snap.data();
+            if (this.profile.save) localStorage.setItem(SAVEKEY, JSON.stringify(this.profile.save)); else localStorage.removeItem(SAVEKEY);
+            G.resetProgress(); G.load(); G.applyUpgrades();
+        }
+        this.pending = null;
+        { const m = this.readMirror();   // 離線期間的進度比雲端新 → 以離線進度為準並同步上去
+          if (m && m.uid === u.uid && m.dirty && m.save && (m.updatedAt || 0) > (this.profile.updatedAt || 0)) {
+            Object.assign(this.profile, m.profile); localStorage.setItem(SAVEKEY, JSON.stringify(m.save)); G.resetProgress(); G.load(); G.applyUpgrades(); this.queuePush(); toast('已同步離線期間的進度');
+          } }
+        try { this.isAdmin = (await db.collection('admins').doc(u.uid).get()).exists; } catch (e) { this.isAdmin = false; }
+        this.startListeners(); this.mountChat();
+        if (G.gameState === 'LOGIN') G.setState(this.profile.tutorialDone ? 'LOBBY' : 'TUTORIAL');
+    },
+    onLogout() {
+        this.unsubs.forEach(f => { try { f(); } catch (e) {} }); this.unsubs = []; this.stopChat();
+        this.user = null; this.profile = null; this.isAdmin = false; this.friends = []; this.reqIn = []; this.invites = []; this.groups = [];
+        localStorage.removeItem(SAVEKEY); G.resetProgress();
+        const f = $('chat-fab'), p = $('chat-panel'); if (f) f.style.display = 'none'; if (p) p.style.display = 'none';
+        if (!['INIT', 'LOGIN'].includes(G.gameState)) G.setState('LOGIN');
+    },
+    logout() { this.pushNow(); if (fbOk) auth.signOut(); },
+
+    // ===== 離線模式：裝置上保留最近一次登入的進度 =====
+    readMirror() { try { return JSON.parse(localStorage.getItem(MIRROR) || 'null'); } catch (e) { return null; } },
+    writeMirror() {
+        const uid = this.user ? this.user.uid : this.offlineUid; if (!uid || !this.profile) return;
+        const keys = ['bestScore', 'totalDM', 'spentDM', 'pkWins', 'pkLosses', 'bestClearMs', 'clearAt', 'clearKey', 'tutorialDone'], pr = {}; keys.forEach(k => { if (this.profile[k] !== undefined) pr[k] = this.profile[k]; });
+        let sv = null; try { sv = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); } catch (e) {}
+        try { localStorage.setItem(MIRROR, JSON.stringify({ uid, username: this.profile.username, name: this.profile.name, profile: pr, save: sv, dirty: !!(this.offline || this._dirty), updatedAt: Date.now() })); } catch (e) {}
+    },
+    startOffline() {
+        const m = this.readMirror(); if (!m) return toast('這台裝置還沒有登入過，第一次需要網路');
+        this.offline = true; this.offlineUid = m.uid; this.user = null;
+        this.profile = Object.assign({ username: m.username, name: m.name, tutorialDone: true }, m.profile);
+        if (m.save) localStorage.setItem(SAVEKEY, JSON.stringify(m.save)); else localStorage.removeItem(SAVEKEY);
+        G.resetProgress(); G.load(); G.applyUpgrades();
+        if (G.gameState === 'LOGIN') { G.setState('LOBBY'); toast('離線模式：進度先存在這台裝置，連網後點「連線登入」即可同步', 5000); }
+    },
+    goLogin() { this.offline = false; G.setState('LOGIN'); },
+
+    // ===== 雲端存檔 / 統計 =====
+    queuePush() { this._dirty = true; this.writeMirror(); clearTimeout(this._pt); this._pt = setTimeout(() => this.pushNow(), 1500); },
+    pushNow() {
+        if (!this.user || !this.profile || !db) return;
+        let sv = null; try { sv = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); } catch (e) {}
+        const doc = Object.assign({}, this.profile, { save: sv, darkMatter: G.darkMatter, updatedAt: Date.now() });
+        db.collection('users').doc(this.user.uid).set(doc, { merge: true }).then(() => { this._dirty = false; this.writeMirror(); }).catch(() => {});
+    },
+    stat(k, d) { if (!this.profile) return; this.profile[k] = (this.profile[k] || 0) + d; this.queuePush(); },
+    finishRun(victory) {
+        if (!this.profile || G.pkMode) return;
+        const score = Math.round((G.runDM || 0) * 10); this.profile.bestScore = Math.max(this.profile.bestScore || 0, score);
+        let extra = '';
+        if (victory && G.runStart === 1) {
+            const ms = Math.round(G.runClock * 1000), best = this.profile.bestClearMs;
+            if (best === undefined || ms < best) {
+                this.profile.bestClearMs = ms; this.profile.clearAt = Date.now(); this.profile.clearKey = pad(ms, 9) + pad(this.profile.clearAt, 14);
+                extra = `<br>全關卡破關時間 <b>${fmtTime(ms)}</b>（新紀錄！）`;
+            } else extra = `<br>全關卡破關時間 ${fmtTime(ms)}（個人紀錄 ${fmtTime(best)}）`;
+        } else if (victory) extra = '<br><small>從第 1 關出發並通關才會計入「全關卡破關時間」排行</small>';
+        this.queuePush();
+        const el = $('res-extra') || G.uiLayer.querySelector('.menu-overlay');
+        if (el) el.insertAdjacentHTML('beforeend', `<p style="color:var(--neon-gold)">歷史最高分 <b>${this.profile.bestScore}</b>${extra}</p>`);
+    },
+
+    // ===== 畫面分派 =====
+    renderState(st) {
+        this.updateChatVis();
+        ({ LOGIN: () => this.renderLogin(false), RANK: () => this.renderRank('bestScore'), FRIENDS: () => this.renderFriends(), PK: () => this.renderPK(),
+           DB: () => this.renderDB(), TUTORIAL: () => this.renderTutorial(0), ADMIN: () => this.renderAdmin('lobby') }[st])();
+    },
+    refresh() { const st = G.gameState; if (st === 'FRIENDS') this.renderFriends(); else if (st === 'PK') this.renderPK(); },
+    extraTiles() {
+        const p = this.profile || {};
+        return `<div class="tile live" style="--a:#f7971e;--b:#ffd200;--d:.48s;color:#222" onclick="game.setState('RANK')"><div class="f1"><h4>排行榜</h4><small>線上</small></div><div class="f2"><small>最高分</small><h4>${p.bestScore || 0}</h4></div></div>
+            <div class="tile live" style="--a:#11998e;--b:#38ef7d;--d:.56s;color:#022" onclick="game.setState('FRIENDS')"><div class="f1"><h4>好友</h4><small>聊天 / 邀請</small></div><div class="f2"><small>好友 ${this.friends.length}</small><small>${this.reqIn.length ? this.reqIn.length + ' 筆邀請' : '無新邀請'}</small></div></div>
+            <div class="tile" style="--a:#cb2d3e;--b:#ef473a;--d:.64s" onclick="game.setState('PK')"><h4>PK 對戰</h4><small>與好友對決</small><span class="ico">⚔</span></div>
+            <div class="tile" style="--a:#614385;--b:#516395;--d:.72s" onclick="game.setState('DB')"><h4>成語資料庫</h4><small>招式對照成語</small><span class="ico">字</span></div>
+            <div class="tile" style="--a:#134e5e;--b:#71b280;--d:.8s" onclick="game.setState('TUTORIAL')"><h4>新手教學</h4><small>圖文說明</small><span class="ico">?</span></div>
+            ${this.isAdmin ? `<div class="tile" style="--a:#232526;--b:#ff512f;--d:.88s" onclick="game.setState('ADMIN')"><h4>管理員</h4><small>查看聊天紀錄</small></div>` : ''}
+            <div class="tile w2" style="--a:#1d2b64;--b:#3a6073;--d:.96s" onclick="game.openSettings()"><h4>${esc(p.name || '')}</h4><small>帳號 ${esc(p.username || '')}　PK ${p.pkWins || 0} 勝 ${p.pkLosses || 0} 敗</small><button class="sm" style="position:relative;margin-top:6px" onclick="event.stopPropagation();${this.user ? 'online.logout()' : 'online.goLogin()'}">${this.user ? '登出' : '連線登入（同步進度）'}</button></div>`;
+    },
+
+    // ===== 排行榜 =====
+    async renderRank(tab) {
+        const T = [['bestScore', '最高分數'], ['totalDM', '累積暗物質'], ['spentDM', '花費排行'], ['clear', '全關破關時間']];
+        ui(`<div class="menu-overlay" style="width:min(94vw,520px)"><h2 class="shop-title">線上排行榜</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderRank('${t[0]}')">${t[1]}</button>`).join('')}</div>
+            <div class="lst" id="rk-list">載入中…</div><p class="muted">${tab === 'clear' ? '從第 1 關出發並全部通關；時間越短越前面，時間相同則先達成者排前面' : '前 20 名'}</p>${BACK}</div>`);
+        try {
+            const q = tab === 'clear' ? db.collection('users').orderBy('clearKey', 'asc').limit(20) : db.collection('users').orderBy(tab, 'desc').limit(20);
+            const s = await q.get(); if (G.gameState !== 'RANK') return;
+            const rows = s.docs.map((d, i) => { const x = d.data(), v = tab === 'clear' ? fmtTime(x.bestClearMs) : (x[tab] || 0);
+                return `<div class="rk ${this.user && d.id === this.user.uid ? 'me' : ''}"><b class="n">${i + 1}</b><span>${esc(x.name)}</span><b>${v}</b></div>`; });
+            $('rk-list').innerHTML = rows.length ? rows.join('') : '<p class="muted">還沒有人上榜</p>';
+        } catch (e) { const l = $('rk-list'); if (l) l.textContent = errMsg(e); }
+    },
+
+    // ===== 好友 =====
+    startListeners() {
+        const uid = this.user.uid, U = db.collection('users').doc(uid), on = (q, f) => this.unsubs.push(q.onSnapshot(f, () => {}));
+        on(U.collection('friends'), s => { this.friends = s.docs.map(d => Object.assign({ uid: d.id }, d.data())); this.refresh(); this.chatSel(); });
+        on(db.collection('friendRequests').where('to', '==', uid).where('status', '==', 'pending'), s => { this.reqIn = s.docs.map(d => Object.assign({ id: d.id }, d.data())); this.refresh(); });
+        on(db.collection('friendRequests').where('from', '==', uid).where('status', '==', 'accepted'), s => s.docs.forEach(d => { const x = d.data();
+            U.collection('friends').doc(x.to).set({ name: x.toName, ts: Date.now() }).then(() => d.ref.delete()).catch(() => {}); }));
+        on(U.collection('invites'), s => { const old = new Set(this.invites.map(i => i.code)); this.invites = s.docs.map(d => d.data());
+            this.invites.forEach(i => { if (!old.has(i.code) && old.size + 1) toast(`${i.fromName} 邀請你 PK！房間密碼 ${i.code}`, 5000); }); this.refresh(); });
+        on(db.collection('groups').where('members', 'array-contains', uid), s => { this.groups = s.docs.map(d => Object.assign({ id: d.id }, d.data())); this.chatSel(); });
+    },
+    renderFriends() {
+        const keep = ($('fr-in') || {}).value || '', me = this.user.uid;
+        ui(`<div class="menu-overlay" style="width:min(94vw,520px)"><h2 class="shop-title">好友</h2>
+            <div class="row"><input class="inp" id="fr-in" style="flex:1;margin:0" placeholder="輸入對方帳號加好友" value="${esc(keep)}"><button class="sm" onclick="online.addFriend(document.getElementById('fr-in').value)">送出邀請</button></div>
+            ${this.invites.length ? `<h4>PK 邀請</h4>` + this.invites.map(i => `<div class="row"><span>${esc(i.fromName)} 邀請你 PK（${esc(i.code)}）</span><button class="sm" onclick="online.acceptInvite('${esc(i.code)}')">加入</button><button class="sm red" onclick="online.dropInvite('${esc(i.code)}')">拒絕</button></div>`).join('') : ''}
+            ${this.reqIn.length ? `<h4>好友邀請</h4>` + this.reqIn.map(r => `<div class="row"><span>${esc(r.fromName)}</span><button class="sm" onclick="online.acceptReq('${r.id}')">接受</button><button class="sm red" onclick="online.declineReq('${r.id}')">拒絕</button></div>`).join('') : ''}
+            <h4>好友列表（${this.friends.length}）</h4><div class="lst">${this.friends.length ? this.friends.map(f => `<div class="row"><span>${esc(f.name)}</span><button class="sm" onclick="online.openChat('dm','${f.uid}')">聊天</button><button class="sm" onclick="online.invite('${f.uid}')">邀請 PK</button><button class="sm red" onclick="online.removeFriend('${f.uid}')">刪除</button></div>`).join('') : '<p class="muted">還沒有好友，輸入對方帳號試試</p>'}</div>${BACK}</div>`);
+        const inp = $('fr-in'); if (inp) inp.onkeydown = e => { if (e.key === 'Enter') this.addFriend(inp.value); };
+    },
+    async addFriend(name) {
+        name = (name || '').trim().toLowerCase(); if (!name) return;
+        try {
+            const q = await db.collection('users').where('username', '==', name).limit(1).get();
+            if (q.empty) return toast('找不到這個帳號');
+            const t = q.docs[0], me = this.user.uid;
+            if (t.id === me) return toast('不能加自己為好友');
+            if (this.friends.some(f => f.uid === t.id)) return toast('已經是好友了');
+            await db.collection('friendRequests').doc(me + '_' + t.id).set({ from: me, to: t.id, fromName: this.profile.name, toName: t.data().name, status: 'pending', ts: Date.now() });
+            toast('已送出好友邀請');
+        } catch (e) { toast(errMsg(e)); }
+    },
+    async acceptReq(id) {
+        const r = this.reqIn.find(x => x.id === id); if (!r) return;
+        try { await db.collection('friendRequests').doc(id).update({ status: 'accepted' });
+            await db.collection('users').doc(this.user.uid).collection('friends').doc(r.from).set({ name: r.fromName, ts: Date.now() }); toast('已成為好友'); } catch (e) { toast(errMsg(e)); }
+    },
+    declineReq(id) { db.collection('friendRequests').doc(id).delete().catch(e => toast(errMsg(e))); },
+    removeFriend(uid) { db.collection('users').doc(this.user.uid).collection('friends').doc(uid).delete().catch(e => toast(errMsg(e))); },
+    dropInvite(code) { db.collection('users').doc(this.user.uid).collection('invites').doc(code).delete().catch(() => {}); },
+    acceptInvite(code) { this.dropInvite(code); G.setState('PK'); this.joinRoom(code); },
+    async invite(uid) {
+        try {
+            if (!this.pk) { G.setState('PK'); await this.createRoom(); }
+            if (!this.pk || this.pk.role !== 'host') return toast('只有主控端可以邀請好友');
+            await db.collection('users').doc(uid).collection('invites').doc(this.pk.code).set({ code: this.pk.code, fromUid: this.user.uid, fromName: this.profile.name, ts: Date.now() });
+            toast('已送出 PK 邀請');
+        } catch (e) { toast(errMsg(e)); }
+    },
+
+    // ===== 聊天 =====
+    mountChat() {
+        if ($('chat-fab')) return;
+        $('game-container').insertAdjacentHTML('beforeend', `<button id="chat-fab" title="聊天">💬<i id="chat-badge"></i></button>
+            <div id="chat-panel"><div class="ch-head"><span>聊天</span><button id="ch-min" title="收折">—</button></div>
+            <div class="ch-tabs"><button data-t="lobby">大廳</button><button data-t="dm">好友</button><button data-t="group">群組</button></div>
+            <div id="ch-sel"></div><div id="ch-msgs"></div><div class="ch-in"><input id="ch-input" maxlength="200" placeholder="輸入訊息…"><button id="ch-send">送出</button></div></div>`);
+        $('chat-fab').onclick = () => this.toggleChat(); $('ch-min').onclick = () => this.toggleChat(false);
+        document.querySelectorAll('#chat-panel .ch-tabs button').forEach(b => { b.onclick = () => this.openChat(b.dataset.t); });
+        $('ch-send').onclick = () => this.sendChat(); $('ch-input').onkeydown = e => { if (e.key === 'Enter') this.sendChat(); };
+        this.updateChatVis();
+    },
+    updateChatVis() { const f = $('chat-fab'); if (!f) return; const show = this.user && !['INIT', 'LOGIN', 'PLAYING', 'TRANSITION'].includes(G.gameState); f.style.display = show ? 'block' : 'none'; if (!show) { $('chat-panel').style.display = 'none'; } else if (this.chat.open) $('chat-panel').style.display = 'flex'; },
+    toggleChat(v) {
+        const c = this.chat; c.open = v === undefined ? !c.open : v; $('chat-panel').style.display = c.open ? 'flex' : 'none';
+        if (c.open) { c.unread = 0; $('chat-badge').style.display = 'none'; if (!c.th) this.openChat(c.tab); }
+    },
+    stopChat() { const c = this.chat; if (c.unsub) { c.unsub(); c.unsub = null; } c.th = null; c.msgs = []; c.open = false; },
+    openChat(tab, peer) {
+        const c = this.chat; c.tab = tab; c.open = true; c.unread = 0; $('chat-badge').style.display = 'none'; $('chat-panel').style.display = 'flex';
+        document.querySelectorAll('#chat-panel .ch-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
+        this.chatSel(peer);
+    },
+    dmId(peer) { return [this.user.uid, peer].sort().join('_'); },
+    chatSel(peer) {
+        const c = this.chat, sel = $('ch-sel'); if (!sel || !this.user) return;
+        if (c.tab === 'lobby') { sel.innerHTML = '<span class="muted">所有玩家都看得到（管理員可查看所有聊天內容）</span>'; this.subChat({ k: 'lobby' }); }
+        else if (c.tab === 'dm') {
+            if (!this.friends.length) { sel.innerHTML = '<span class="muted">加好友後才能私訊</span>'; this.subChat(null); return; }
+            const cur = peer || (c.th && c.th.k === 'dm' ? c.th.peer : this.friends[0].uid);
+            sel.innerHTML = `<select id="ch-friend">${this.friends.map(f => `<option value="${f.uid}" ${f.uid === cur ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select>`;
+            $('ch-friend').onchange = e => this.chatSel(e.target.value); this.subChat({ k: 'dm', peer: cur });
+        } else {
+            const cur = (c.th && c.th.k === 'group' && this.groups.some(g => g.id === c.th.id)) ? c.th.id : (this.groups[0] && this.groups[0].id);
+            sel.innerHTML = `${this.groups.length ? `<select id="ch-group">${this.groups.map(g => `<option value="${g.id}" ${g.id === cur ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select>` : '<span class="muted">還沒有群組</span>'}<button class="sm" id="ch-new">＋建立群組</button>`;
+            if ($('ch-group')) $('ch-group').onchange = e => this.subChat({ k: 'group', id: e.target.value });
+            $('ch-new').onclick = () => this.groupForm(); this.subChat(cur ? { k: 'group', id: cur } : null);
+        }
+    },
+    groupForm() {
+        if (!this.friends.length) return toast('先加好友才能建立群組');
+        $('ch-msgs').innerHTML = `<input class="inp" id="gp-name" maxlength="12" placeholder="群組名稱">${this.friends.map(f => `<label style="display:block"><input type="checkbox" class="gp-f" value="${f.uid}" data-n="${esc(f.name)}"> ${esc(f.name)}</label>`).join('')}<button class="sm" id="gp-ok">建立</button>`;
+        $('gp-ok').onclick = async () => {
+            const name = $('gp-name').value.trim(), sel = [...document.querySelectorAll('.gp-f:checked')];
+            if (!name || !sel.length) return toast('請輸入名稱並勾選好友');
+            const names = { [this.user.uid]: this.profile.name }; sel.forEach(x => { names[x.value] = x.dataset.n; });
+            try { const r = await db.collection('groups').add({ name, owner: this.user.uid, members: [this.user.uid, ...sel.map(x => x.value)], memberNames: names, ts: Date.now() }); this.chat.th = { k: 'group', id: r.id }; this.chat.key = ''; $('ch-msgs').innerHTML = ''; toast('群組已建立'); this.chatSel(); }
+            catch (e) { toast(errMsg(e)); }
+        };
+    },
+    chatRef(th) {
+        if (th.k === 'lobby') return db.collection('lobbyChat');
+        if (th.k === 'dm') return db.collection('dms').doc(this.dmId(th.peer)).collection('messages');
+        return db.collection('groups').doc(th.id).collection('messages');
+    },
+    subChat(th) {
+        const c = this.chat, key = th ? JSON.stringify(th) : ''; if (key === c.key && c.unsub) return;
+        if (c.unsub) { c.unsub(); c.unsub = null; } c.key = key; c.th = th; c.msgs = []; c.first = true; this.renderMsgs();
+        if (!th) return;
+        c.unsub = this.chatRef(th).orderBy('ts', 'desc').limit(60).onSnapshot(s => {
+            const list = s.docs.map(d => d.data()).reverse();
+            if (!c.first && !c.open && list.length > c.msgs.length) { c.unread += list.length - c.msgs.length; const b = $('chat-badge'); b.textContent = c.unread; b.style.display = 'block'; }
+            c.first = false; c.msgs = list; this.renderMsgs();
+        }, e => { $('ch-msgs').textContent = errMsg(e); });
+    },
+    renderMsgs() {
+        const box = $('ch-msgs'); if (!box || $('gp-name')) return;
+        box.innerHTML = this.chat.msgs.length ? this.chat.msgs.map(m => msgHtml(m, this.user && m.uid === this.user.uid)).join('') : '<p class="muted">還沒有訊息</p>'; box.scrollTop = box.scrollHeight;
+    },
+    async sendChat() {
+        const inp = $('ch-input'), text = inp.value.trim(), th = this.chat.th; if (!text || !th) return;
+        inp.value = '';
+        try {
+            if (th.k === 'dm') { const id = this.dmId(th.peer), f = this.friends.find(x => x.uid === th.peer);
+                if (!this.chat.dmReady[id]) { await db.collection('dms').doc(id).set({ members: [this.user.uid, th.peer], names: { [this.user.uid]: this.profile.name, [th.peer]: f ? f.name : '' }, ts: Date.now() }, { merge: true }); this.chat.dmReady[id] = true; } }
+            await this.chatRef(th).add({ uid: this.user.uid, name: this.profile.name, text: text.slice(0, 200), ts: Date.now() });
+        } catch (e) { toast(errMsg(e)); }
+    },
+
+    // ===== 管理員 =====
+    async renderAdmin(tab, id) {
+        if (!this.isAdmin) return G.setState('LOBBY');
+        const T = [['lobby', '大廳'], ['group', '群組聊天'], ['dm', '好友私聊']];
+        ui(`<div class="menu-overlay" style="width:min(94vw,560px)"><h2 class="shop-title">管理員：聊天紀錄</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderAdmin('${t[0]}')">${t[1]}</button>`).join('')}</div>
+            <div class="lst" id="ad-list">載入中…</div><h4 id="ad-title"></h4><div class="lst" id="ad-msgs" style="min-height:120px"></div>${BACK}</div>`);
+        if (this._adUnsub) { this._adUnsub(); this._adUnsub = null; }
+        try {
+            if (tab === 'lobby') { $('ad-list').innerHTML = ''; return this.adView(db.collection('lobbyChat'), '大廳'); }
+            const s = await db.collection(tab === 'group' ? 'groups' : 'dms').limit(100).get();
+            $('ad-list').innerHTML = s.docs.length ? s.docs.map(d => { const x = d.data(); const label = tab === 'group' ? `${x.name}（${Object.values(x.memberNames || {}).join('、')}）` : Object.values(x.names || {}).join(' ⇄ ');
+                return `<div class="row"><span>${esc(label)}</span><button class="sm" onclick="online.adOpen('${tab}','${d.id}')">查看</button></div>`; }).join('') : '<p class="muted">沒有資料</p>';
+        } catch (e) { $('ad-list').textContent = errMsg(e); }
+    },
+    adOpen(tab, id) { this.adView(db.collection(tab === 'group' ? 'groups' : 'dms').doc(id).collection('messages'), id); },
+    adView(ref, title) {
+        if (this._adUnsub) this._adUnsub(); $('ad-title').textContent = title;
+        this._adUnsub = ref.orderBy('ts', 'desc').limit(100).onSnapshot(s => { const b = $('ad-msgs'); if (!b) return; b.innerHTML = s.docs.map(d => msgHtml(d.data(), false)).reverse().join('') || '<p class="muted">沒有訊息</p>'; b.scrollTop = b.scrollHeight; }, e => { const b = $('ad-msgs'); if (b) b.textContent = errMsg(e); });
+    },
+
+    // ===== 成語資料庫 =====
+    renderDB(eff, word) {
+        const DOC = { BOMB_BOOST: ['全螢幕爆破', '清空畫面敵彈與小型敵機並有爆炸動畫；對 Boss 傷害最高為其滿血的 1/4。'], INVINCIBLE: ['無敵', '10 秒內不會受到傷害。'],
+            SHIELD: ['護盾', '獲得 50 點護盾（可累積），會一直存在直到把傷害抵掉。'], PIERCE: ['穿甲彈', '30 秒內，命中的敵機護盾（裝甲）減半。'],
+            MISSILE: ['追蹤導彈', '10 秒內主炮子彈會自動追蹤：先打血量少的敵機，沒有敵機才打字卡。'], LASER_BEAM: ['貫穿雷射', '3 秒的直線雷射，持續貫穿傷害。'],
+            HEAL: ['治療', '立刻回復 30 點血量。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。'] };
+        eff = eff || 'BOMB_BOOST'; const list = CONFIG.IDIOMS.filter(i => i.effect === eff), info = word && IDIOM_INFO[word];
+        ui(`<div class="menu-overlay" style="width:min(94vw,640px)"><h2 class="shop-title">成語資料庫</h2>
+            <div class="tabs">${Object.keys(DOC).map(k => `<button class="${k === eff ? 'on' : ''}" onclick="online.renderDB('${k}')">${DOC[k][0]}</button>`).join('')}</div>
+            <p style="color:var(--neon-gold)"><b>${DOC[eff][0]}</b>　${DOC[eff][1]}</p>
+            <div>${list.map(i => `<button class="chip ${i.word === word ? 'on' : ''}" onclick="online.renderDB('${eff}','${i.word}')">${i.word}</button>`).join('')}</div>
+            <div style="text-align:left;min-height:90px;margin-top:8px;padding:10px;border:1px solid #334;border-radius:10px">${info ? `<h3 style="margin:0 0 6px;color:var(--neon-gold)">${word}</h3><p><b style="color:var(--neon-blue)">意思</b>　${info[0]}</p><p><b style="color:var(--neon-blue)">造句</b>　${info[1]}</p>` : '<span class="muted">點選成語查看意思與造句（共 ' + list.length + ' 個）</span>'}</div>${BACK}</div>`);
+    },
+
+    // ===== 新手教學 =====
+    tut: 0,
+    renderTutorial(i) {
+        const im = (src, st) => `<img src="${src}" ${st ? `style="${st}"` : ''} onerror="this.style.display='none'">`;
+        const slotMock = `<div style="display:flex;gap:4px;font-size:1.3rem;border:2px solid var(--neon-gold);border-radius:8px;padding:6px 10px;box-shadow:0 0 14px var(--neon-gold)"><span class="char collected" style="color:var(--neon-gold)">破</span><span class="char collected" style="color:var(--neon-gold)">釜</span><span class="char collected" style="color:var(--neon-gold)">沉</span><span class="char collected" style="color:var(--neon-gold)">舟</span></div>`;
+        const S = [
+            ['移動與射擊', `${im('assets/player.png')}<div><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或 <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></div><div><kbd>Shift</kbd> 精準微調</div><div>手機：手指拖曳</div></div>`, '戰機會自動射擊。鍵盤與觸控拖曳的移動速度一樣，升級「機動」可以變快。'],
+            ['打字卡、撿字元', `${im('assets/idiom_block.png', 'max-height:90px')}<span style="font-size:2rem">➜</span><span style="font-size:2.4rem;color:var(--neon-blue)">破</span>`, '射擊天上掉下來的字卡，會掉出一個字，飛過去撿起來。字卡只是機關，碰到不會受傷。'],
+            ['湊成語、發動招式', `${slotMock}<span style="font-size:1.6rem">➜</span><span><kbd>1</kbd>~<kbd>6</kbd> 或 <kbd>Space</kbd></span>`, '字元集滿四字就會發光，按對應數字鍵（手機直接點）發動。每個招式都有 10 個以上的相關成語。'],
+            ['時間凍結與成語演示', `<div style="border:2px solid var(--neon-gold);border-radius:10px;padding:10px 16px;text-align:center"><div style="font-size:1.8rem;color:var(--neon-gold);letter-spacing:.2em">破釜沉舟</div><div class="muted">意思或造句 5 秒</div></div>`, '發動後全場凍結 5 秒（敵機、子彈、背景都不會動），畫面會逐字浮現該成語的意思或造句，結束後才發動招式。'],
+            ['九種招式', `<div style="text-align:left;line-height:1.7;font-size:.9rem">爆破・無敵・護盾<br>穿甲彈・追蹤導彈・貫穿雷射<br>治療・時緩・呼叫友軍</div>`, '到大廳的「成語資料庫」可以查每個招式對應哪些成語，點成語還能看意思與造句。'],
+            ['血條與護盾', `${im('assets/player.png', 'max-height:80px')}<div style="width:90px"><div style="height:8px;background:#33ff88"></div><div style="height:6px;margin-top:3px;background:#4dd2ff;width:60%"></div></div>`, '血條在戰機後方，護盾在血條下方；受到傷害時護盾先抵掉。敵機的血條在它上方。'],
+            ['敵機與 Boss', `${im('assets/enemy_scout.png', 'max-height:70px')}${im('assets/enemy_bomber.png', 'max-height:70px')}${im('assets/boss_1.png', 'max-height:110px')}`, `小關有多種敵機（俯衝、蜂群、狙擊、轟炸、護衛…）。Boss 各有名字與類型：${bossLabel(1)}皮薄但傷害高、${bossLabel(2)}血厚、${bossLabel(3)}彈幕密集。`],
+            ['暗物質、商店與戰機', `${im('assets/ship_wind.png', 'max-height:80px')}${im('assets/ship_bastion.png', 'max-height:80px')}${im('assets/ship_blaze.png', 'max-height:80px')}`, '打敗敵人得到暗物質，可到「軍械庫」買戰機，到「戰機管理」升級；每種戰機能力上限不同。出戰前大廳會推薦適合的戰機。'],
+            ['線上功能', `<div style="line-height:1.8;text-align:left">排行榜：分數、暗物質、花費、全關破關時間<br>好友與聊天（右下角對話框）<br>PK：主控端建房，給 4 位數密碼</div>`, '全部關卡破關時間越短排名越高；時間相同則先達成的排前面。PK 時成語演示雙方畫面都會凍結演示。']
+        ];
+        this.tut = Math.max(0, Math.min(S.length - 1, i)); const t = S[this.tut], last = this.tut === S.length - 1;
+        ui(`<div class="menu-overlay" style="width:min(94vw,560px)"><h2 class="shop-title">新手教學 ${this.tut + 1}/${S.length}</h2><h3 style="margin:4px 0;color:var(--neon-gold)">${t[0]}</h3>
+            <div class="tut">${t[1]}</div><p style="text-align:left;line-height:1.6">${t[2]}</p>
+            <div class="dots">${S.map((_, k) => `<i class="${k === this.tut ? 'on' : ''}"></i>`).join('')}</div>
+            <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" onclick="online.renderTutorial(${this.tut - 1})">◀ 上一頁</button>${last ? `<button class="btn btn-start" onclick="online.tutDone()">完成</button>` : `<button class="btn btn-start" onclick="online.renderTutorial(${this.tut + 1})">下一頁 ▶</button>`}</div>
+            <button class="sm" style="margin-top:8px" onclick="online.tutDone()">跳過 [Esc]</button></div>`);
+        this._tutLen = S.length;
+    },
+    tutDone() { if (this.profile && !this.profile.tutorialDone) { this.profile.tutorialDone = true; this.queuePush(); } G.setState('LOBBY'); },
+
+    // ===== PK 對戰 =====
+    renderPK() {
+        const p = this.pk;
+        if (!p) { ui(`<div class="menu-overlay" style="width:min(92vw,420px)"><h2 class="shop-title">PK 對戰</h2><p class="muted">主控端建立房間後，把 4 位數房間密碼給對方；對方輸入密碼即可加入。確認場地與戰機後開戰，雙方比拚蒐集成語並發動攻擊。</p>
+            <button class="btn btn-start" onclick="online.createRoom()">建立房間（主控端）</button>
+            <div style="margin:12px 0">輸入房間密碼加入（客戶端）<input class="inp" id="pk-code" maxlength="4" inputmode="numeric" placeholder="4 位數房間密碼"><button class="btn" onclick="online.joinRoom(document.getElementById('pk-code').value)">加入房間</button></div>${BACK}</div>`); return; }
+        const r = p.room || {}, host = p.role === 'host', me = host ? 'host' : 'guest', both = r.guest && r.hostReady && r.guestReady;
+        const shipName = id => { const S = SHIPS.find(x => x.id === id); return S ? S.name : '—'; };
+        const owned = SHIPS.filter(S => G.fleet[S.id].own);
+        ui(`<div class="menu-overlay" style="width:min(94vw,520px)"><h2 class="shop-title">房間 <span style="color:var(--neon-gold);letter-spacing:.2em">${esc(p.code)}</span></h2>
+            <p class="muted">${host ? '你是主控端：把房間密碼告訴對方' : '你是客戶端：等待主控端開戰'}</p>
+            <div class="row"><span>場地：第 ${r.stage || 1} 關</span>${host ? `<button class="sm" onclick="online.pkStage(-1)">◀</button><button class="sm" onclick="online.pkStage(1)">▶</button>` : ''}</div>
+            <div style="height:70px;margin:6px 0;border-radius:8px;border:1px solid #334;background:linear-gradient(rgba(0,0,10,.4),rgba(0,0,10,.4)),url(assets/bg/stage${r.stage || 1}.jpg) center/cover"></div>
+            <div class="row"><span>主控端：${esc(r.hostName || '')}　${shipName(r.hostShip)}</span><b>${r.hostReady ? '已準備' : '未準備'}</b></div>
+            <div class="row"><span>客戶端：${r.guest ? esc(r.guestName) + '　' + shipName(r.guestShip) : '等待玩家加入…'}</span><b>${r.guest ? (r.guestReady ? '已準備' : '未準備') : ''}</b></div>
+            <h4>選擇戰機</h4><div>${owned.map(S => `<button class="chip ${G.shipId === S.id ? 'on' : ''}" onclick="online.pkShip('${S.id}')">${S.name}</button>`).join('')}</div>
+            <div style="display:flex;gap:8px;margin-top:10px"><button class="btn ${r[me + 'Ready'] ? '' : 'btn-start'}" onclick="online.pkReady()">${r[me + 'Ready'] ? '取消準備' : '準備'}</button>
+            ${host ? `<button class="btn btn-start" ${both ? '' : 'disabled'} onclick="online.pkStart()">開戰</button>` : ''}</div>
+            ${host && this.friends.length ? `<h4>邀請好友</h4>${this.friends.map(f => `<button class="chip" onclick="online.invite('${f.uid}')">${esc(f.name)}</button>`).join('')}` : ''}
+            <button class="btn" style="margin-top:10px" onclick="online.pkLeave(true)">離開房間</button></div>`);
+    },
+    roomRef(code) { return db.collection('rooms').doc(code); },
+    async createRoom() {
+        if (this.pk) return;
+        try {
+            for (let i = 0; i < 8; i++) {
+                const code = String(Math.floor(1000 + Math.random() * 9000)), ref = this.roomRef(code);
+                const ok = await db.runTransaction(async tx => {
+                    const s = await tx.get(ref);
+                    if (s.exists && s.data().state !== 'ended' && Date.now() - (s.data().createdAtMs || 0) < 2 * 3600 * 1000) return false;
+                    tx.set(ref, { code, host: this.user.uid, hostName: this.profile.name, guest: null, guestName: '', stage: 1, hostShip: G.shipId, guestShip: '', hostReady: false, guestReady: false, state: 'lobby', createdAtMs: Date.now() });
+                    return true;
+                });
+                if (ok) return this.enterRoom(code, 'host');
+            }
+            toast('建立房間失敗，請再試一次');
+        } catch (e) { toast(errMsg(e)); }
+    },
+    async joinRoom(code) {
+        code = (code || '').trim(); if (!/^\d{4}$/.test(code)) return toast('請輸入 4 位數房間密碼'); if (this.pk) return;
+        try {
+            const ref = this.roomRef(code), s = await ref.get();
+            if (!s.exists || s.data().state !== 'lobby') return toast('找不到這個房間，或已經開始');
+            const r = s.data(); if (r.guest && r.guest !== this.user.uid) return toast('房間已滿');
+            if (r.host === this.user.uid) return toast('你是這個房間的主控端');
+            await ref.update({ guest: this.user.uid, guestName: this.profile.name, guestShip: G.shipId, guestReady: false });
+            this.enterRoom(code, 'guest');
+        } catch (e) { toast(errMsg(e)); }
+    },
+    enterRoom(code, role) {
+        const p = this.pk = { code, role, room: null, started: false, over: false, castQ: [], seen: new Set(), lastHp: -1, lastPush: 0 };
+        p.unsub = this.roomRef(code).onSnapshot(s => {
+            if (!this.pk || this.pk !== p) return;
+            if (!s.exists) { if (!p.over) { toast('房間已關閉'); this.pkLeave(false); } return; }
+            p.room = s.data(); const r = p.room;
+            if (role === 'host' && r.guest === null && p.started) { /* 對手離開 */ }
+            if (r.state === 'playing' && !p.started) this.startMatch(); else if (r.state === 'ended' && !p.over) this.endMatch(r.winner); else if (G.gameState === 'PK') this.renderPK();
+        }, e => toast(errMsg(e)));
+        if (G.gameState !== 'PK') G.setState('PK'); else this.renderPK();
+    },
+    roomUpdate(patch) { if (this.pk) return this.roomRef(this.pk.code).update(patch).catch(e => toast(errMsg(e))); },
+    pkStage(d) { const r = this.pk.room; this.roomUpdate({ stage: Math.max(1, Math.min(9, (r.stage || 1) + d)) }); },
+    pkShip(id) { G.shipId = id; G.applyUpgrades(); G.save(); this.roomUpdate({ [this.pk.role + 'Ship']: id }); },
+    pkReady() { const k = this.pk.role + 'Ready'; this.roomUpdate({ [k]: !this.pk.room[k] }); },
+    pkStart() { const r = this.pk.room; if (r.guest && r.hostReady && r.guestReady) this.roomUpdate({ state: 'playing', startAt: Date.now() }); },
+    pkLeave(userAction) {
+        const p = this.pk; if (!p) return; this.pk = null;
+        try { p.unsub && p.unsub(); p.unsubEv && p.unsubEv(); } catch (e) {}
+        clearInterval(this._pkTimer); const h = $('pk-hud'); if (h) h.remove();
+        if (p.role === 'host') this.roomRef(p.code).delete().catch(() => {}); else if (!p.over) this.roomRef(p.code).update({ guest: null, guestName: '', guestReady: false }).catch(() => {});
+        G.pkMode = false; if (userAction && G.gameState === 'PK') this.renderPK();
+    },
+    startMatch() {
+        const p = this.pk, r = p.room; p.started = true; p.matchId = r.startAt;
+        $('game-container').insertAdjacentHTML('beforeend', '<div id="pk-hud"></div>');
+        const keep = { s: G.startStage, b: G.bestStage }; G.bestStage = 9; G.startStage = r.stage || 1; G.pkMode = true; G.pkTime = 0;
+        const myShip = r[p.role + 'Ship']; if (myShip && G.fleet[myShip] && G.fleet[myShip].own) G.shipId = myShip;
+        G.startNewGame(); G.startStage = keep.s; G.bestStage = keep.b;
+        p.unsubEv = this.roomRef(p.code).collection('events').where('matchId', '==', p.matchId).onSnapshot(s => s.docChanges().forEach(ch => {
+            if (ch.type !== 'added') return; const e = ch.doc.data(); if (e.by === this.user.uid || p.seen.has(ch.doc.id)) return; p.seen.add(ch.doc.id);
+            p.castQ.push(e); this.pkNext();
+        }), () => {});
+        clearInterval(this._pkTimer); this._pkTimer = setInterval(() => this.pkTick(), 250);
+    },
+    pkSend(idiom) { const p = this.pk; if (!p || !p.started) return; this.roomRef(p.code).collection('events').add({ matchId: p.matchId, by: this.user.uid, name: this.profile.name, word: idiom.word, effect: idiom.effect, desc: idiom.desc, ts: Date.now() }).catch(() => {}); },
+    pkNext() { const p = this.pk; if (p && p.castQ.length && !G.casting && G.gameState === 'PLAYING' && !p.over) { const e = p.castQ.shift(); G.startCast({ word: e.word, effect: e.effect, desc: e.desc }, e.name); } },
+    pkApply(idiom) {   // 對手發動的攻擊在這裡結算（我是被攻擊方）
+        const D = { BOMB_BOOST: 30, LASER_BEAM: 35, MISSILE: 25, PIERCE: 25 }[idiom.effect]; sfx.playIdiomFire(idiom.effect);
+        if (!D) return; if (idiom.effect === 'PIERCE') G.shield = Math.floor(G.shield / 2);
+        if (G.invincibleTimer > 1.05) { G.showFloatText('免疫', G.player.pos.x, G.player.pos.y - 50, '#7dffb0'); return; }
+        G.hurt(D); G.showFloatText('-' + D, G.player.pos.x, G.player.pos.y - 50, '#ff3366'); G.burst(G.player.pos.x, G.player.pos.y, 16);
+        if (idiom.effect === 'BOMB_BOOST') G.shock = { t: 0, x: G.player.pos.x, y: G.player.pos.y };
+        G.updateHUD(); if (G.hp <= 0) this.pkSelfDead();
+    },
+    pkTick() {
+        const p = this.pk; if (!p || !p.started || p.over) return;
+        const me = p.role, opp = me === 'host' ? 'guest' : 'host', r = p.room || {}, hp = Math.max(0, Math.round(G.hp));
+        if (hp !== p.lastHp || Date.now() - p.lastPush > 3000) { p.lastHp = hp; p.lastPush = Date.now(); this.roomUpdate({ [me + 'Hp']: hp, [me + 'Max']: Math.round(G.maxHp) }); }
+        const left = Math.max(0, 180 - G.pkTime), oh = r[opp + 'Hp'] === undefined ? 100 : r[opp + 'Hp'], om = r[opp + 'Max'] || 100, h = $('pk-hud');
+        if (h) h.innerHTML = `對手 ${esc(r[opp + 'Name'] || '')}　HP ${oh}　剩餘 ${Math.ceil(left)} 秒<div class="bar"><i style="width:${Math.min(100, oh / om * 100)}%"></i></div>`;
+        if (left <= 0) { const oppHp = r[opp + 'Hp'] === undefined ? om : r[opp + 'Hp']; const w = hp > oppHp ? this.user.uid : hp < oppHp ? (me === 'host' ? r.guest : r.host) : 'draw'; this.pkFinish(w); }
+        this.pkNext();
+    },
+    pkSelfDead() { const p = this.pk; if (!p || p.over) return; G.paused = true; const r = p.room || {}; this.pkFinish(p.role === 'host' ? r.guest : r.host); },
+    pkFinish(w) { const p = this.pk; if (!p || p.over || p.finishing) return; p.finishing = true; this.roomUpdate({ state: 'ended', winner: w || 'draw' }); setTimeout(() => { if (this.pk === p && !p.over) this.endMatch(w || 'draw'); }, 1500); },
+    endMatch(winner) {
+        const p = this.pk; if (!p || p.over) return; p.over = true; G.pkMode = false; G.paused = true; clearInterval(this._pkTimer);
+        const win = winner === this.user.uid, draw = winner === 'draw' || !winner;
+        if (!draw) this.stat(win ? 'pkWins' : 'pkLosses', 1);
+        sfx.playIdiomFire(win ? 'HEAL' : 'BOMB_BOOST');
+        G.dialog(`<h2 style="color:${draw ? '#fff' : win ? 'var(--neon-gold)' : '#ff6b6b'}">${draw ? '平手' : win ? '勝利！' : '落敗'}</h2><p>PK 對戰結束</p><button class="btn btn-start" onclick="online.pkExit()">返回大廳</button>`, () => this.pkExit());
+    },
+    pkExit() { G.closeDlg(); this.pkLeave(false); G.setState('LOBBY'); }
+};
+
+function msgHtml(m, me) { const d = new Date(m.ts || 0); return `<div class="msg ${me ? 'me' : ''}"><b>${esc(m.name)}</b> ${esc(m.text)}<small>${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}</small></div>`; }
+
+// ---------- 掛接到遊戲 ----------
+const wrap = (name, fn) => { const o = P[name]; P[name] = function (...a) { return fn.call(this, o, ...a); }; };
+const NEW = new Set(['LOGIN', 'RANK', 'FRIENDS', 'PK', 'DB', 'TUTORIAL', 'ADMIN']);
+wrap('setState', function (o, state) {
+    if (this.pkMode && (state === 'GAMEOVER' || state === 'VICTORY')) { online.pkSelfDead(); return; }
+    if (NEW.has(state) && !['LOGIN', 'TUTORIAL', 'DB'].includes(state) && !online.user) { toast('這個功能需要網路並登入'); return; }
+    if (NEW.has(state)) { o.call(this, 'LOBBY'); this.gameState = state; online.renderState(state); return; }
+    o.call(this, state); online.updateChatVis();
+    if (state === 'GAMEOVER') online.finishRun(false); else if (state === 'VICTORY') online.finishRun(true);
+});
+wrap('renderLobby', function (o) { o.call(this); const t = document.querySelector('.tiles'); if (t) t.insertAdjacentHTML('beforeend', online.extraTiles()); });
+wrap('save', function (o) { o.call(this); online.queuePush(); });
+wrap('dropDarkMatter', function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = this.darkMatter - b; if (d > 0) online.stat('totalDM', d); });
+['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); }));
+wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; });
+wrap('startTransition', function (o, n) { if (this.pkMode) { this.currentSub = 1; this.resetStage(); return; } o.call(this, n); });
+wrap('startCast', function (o, idiom, remote) {
+    o.call(this, idiom);
+    if (remote) { this.casting.remote = remote; const e = document.querySelector('#idiom-popup .ip-effect'); if (e) e.innerHTML = `<span style="color:#ff6b6b">對手 ${esc(remote)} 發動！</span> ${esc(e.textContent)}`; }
+    else if (this.pkMode) online.pkSend(idiom);
+});
+wrap('finishCast', function (o) { const c = this.casting; if (c && c.remote) { this.endCast(); online.pkApply(c.idiom); } else o.call(this); online.pkNext(); });
+wrap('leave', function (o) { if (this.pkMode) { this.closeDlg(); online.pkSelfDead(); return; } o.call(this); });
+wrap('openSettings', function (o) {
+    o.call(this); const box = document.querySelector('#dlg .box'); if (!box || !online.profile) return;
+    const last = box.querySelector('.btn-start'); const d = document.createElement('div');
+    d.innerHTML = `<p class="muted">帳號：${esc(online.profile.name)}（${esc(online.profile.username)}）</p><button class="btn" onclick="game.closeDlg();online.logout()">登出</button>`; box.insertBefore(d, last);
+});
+wrap('handleKey', function (o, e) {
+    const st = this.gameState;
+    if (NEW.has(st) && !this.dlgOpen) {
+        if (st === 'TUTORIAL') { if (e.code === 'ArrowRight' || e.code === 'Enter') { online.tut >= online._tutLen - 1 ? online.tutDone() : online.renderTutorial(online.tut + 1); } else if (e.code === 'ArrowLeft') online.renderTutorial(online.tut - 1); else if (e.code === 'Escape') online.tutDone(); return; }
+        if (e.code === 'Escape' && st !== 'LOGIN') { if (st === 'PK' && online.pk) return; this.setState('LOBBY'); } return;
+    }
+    o.call(this, e);
+});
+
+window.addEventListener('online', () => { if (online.offline) toast('已恢復網路：點大廳的「連線登入」即可同步進度', 5000); });
+
+// ---------- 啟動 ----------
+online.authReady = new Promise(res => {
+    if (!fbOk) return res();
+    auth.onAuthStateChanged(async u => { try { if (u) await online.onLogin(u); else online.onLogout(); } catch (e) { console.error(e); toast(errMsg(e)); } finally { res(); } });
+});
+})();
+
 </script>
 </body>
 </html>
