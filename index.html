@@ -161,7 +161,7 @@
         .buff { position:relative; overflow:hidden; min-width:96px; padding:3px 8px 6px; border-radius:8px; background:rgba(0,0,0,.65); border:1px solid var(--c); color:var(--c); font-size:.75rem; font-weight:bold; }
         .buff i { position:absolute; left:0; bottom:0; height:3px; background:var(--c); }
         .dlg { display:none; position:absolute; inset:0; z-index:60; background:rgba(0,0,10,.72); align-items:center; justify-content:center; }
-        .dlg .box { background:#0a0a1a; border:2px solid var(--neon-blue); border-radius:14px; padding:20px 26px; min-width:270px; max-width:90vw; text-align:center; box-shadow:0 0 25px rgba(0,242,255,.4); color:#fff; }
+        .dlg .box { max-height:90%; overflow-y:auto; background:#0a0a1a; border:2px solid var(--neon-blue); border-radius:14px; padding:20px 26px; min-width:270px; max-width:90vw; text-align:center; box-shadow:0 0 25px rgba(0,242,255,.4); color:#fff; }
         .dlg label { display:block; margin:12px 0; font-size:.9rem; text-align:left; } .dlg input[type=range] { width:100%; }
         .lob-title { margin:0; letter-spacing:.3em; text-shadow:0 0 18px var(--neon-blue); }
         .dmline { color:var(--neon-purple); margin:4px 0 8px; }
@@ -184,7 +184,7 @@
         @keyframes tileIn { from { opacity:0; transform:scale(.85) translateY(14px); } to { opacity:1; transform:none; } }
         @keyframes tileShift { 0%,100% { background-position:0% 50%; } 50% { background-position:100% 50%; } }
         @media (max-width:560px) { .tiles { grid-template-columns:repeat(2,1fr); } .tile.w2 { grid-column:span 2; } }
-        .splash { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:auto; cursor:pointer; overflow:hidden; z-index:50; background:radial-gradient(ellipse at center,#0d1b3d 0%,#050510 70%); }
+        .splash { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:auto; cursor:pointer; overflow:hidden; z-index:50; background:radial-gradient(ellipse at center,rgba(13,27,61,.32) 0%,rgba(5,5,16,.7) 78%); }
         .sp-tiles i { position:absolute; bottom:-80px; border:1px solid rgba(0,242,255,.4); background:rgba(0,242,255,.07); animation:spFloat linear infinite; }
         @keyframes spFloat { from { transform:translateY(0) rotate(0); opacity:0; } 10% { opacity:1; } to { transform:translateY(-120vh) rotate(200deg); opacity:0; } }
         .sp-title { font-size:clamp(2.6rem,10vw,5rem); letter-spacing:.25em; margin:0; color:#fff; animation:spGlow 3s ease-in-out infinite alternate; }
@@ -244,14 +244,19 @@ class RetroAudio {
         this.delayNode.connect(this.feedbackNode); this.feedbackNode.connect(this.delayNode);
         this.mainGain = this.ctx.createGain(); this.mainGain.gain.value = 0.8;
         this.delayNode.connect(this.mainGain); this.mainGain.connect(this.ctx.destination);
+        // 音樂專用匯流排（與音效分開調音量）
+        this.bgmGain = this.ctx.createGain(); this.bgmGain.gain.value = 0.8; this.bgmGain.connect(this.ctx.destination);
+        this.bgmDelay = this.ctx.createDelay(); this.bgmDelay.delayTime.value = 0.45; this.bgmFb = this.ctx.createGain(); this.bgmFb.gain.value = 0.35;
+        this.bgmDelay.connect(this.bgmFb); this.bgmFb.connect(this.bgmDelay); this.bgmDelay.connect(this.bgmGain);
         this.startSpaceBGM();
     }
     playTone(freq, type, duration, vol=0.1, useEcho=false) {
         if(!this.ctx) return;
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
         osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-        osc.connect(gain); gain.connect(this.mainGain);
-        if (useEcho) gain.connect(this.delayNode);
+        const dst = this._bgm ? this.bgmGain : this.mainGain, dly = this._bgm ? this.bgmDelay : this.delayNode;
+        osc.connect(gain); gain.connect(dst);
+        if (useEcho) gain.connect(dly);
         gain.gain.setValueAtTime(0, this.ctx.currentTime);
         gain.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.05);
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
@@ -329,16 +334,18 @@ class RetroAudio {
         let step = 0; let chordIdx = 0;
         this.bgmInterval = setInterval(() => {
             if(!this.ctx || this.ctx.state !== 'running') return;
+            this._bgm = true;
             if (step % 16 === 0) { chordIdx = Math.floor(step / 16) % chords.length; this.playTone(chords[chordIdx][0] / 2, 'triangle', 2.0, 0.12, true); }
             const note = chords[chordIdx][step % 4]; const finalNote = (step % 8 >= 4) ? note * 2 : note;
             this.playTone(finalNote, 'sine', 0.25, 0.04, true);
-            step++;
+            step++; this._bgm = false;
         }, 150);
     }
 }
 const sfx = new RetroAudio();
 
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
+const APP_VERSION = '20261108', APP_AUTHOR = '郭柏宏';
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
 function updateWorld() {
@@ -351,7 +358,7 @@ updateWorld();
 // ===== AI 圖片素材：放在 index.html 旁的 assets/ 資料夾，缺檔時自動使用內建向量圖 =====
 const ASSET_FILES = { player:'assets/player.png', scout:'assets/enemy_scout.png', fighter:'assets/enemy_fighter.png',
     tank:'assets/enemy_tank.png', boss:'assets/boss.png', block:'assets/idiom_block.png', dart:'assets/enemy_dart.png', swarm:'assets/enemy_swarm.png', sniper:'assets/enemy_sniper.png', bomber:'assets/enemy_bomber.png', guard:'assets/enemy_guard.png',
-    ship_wind:'assets/ship_wind.png', ship_bastion:'assets/ship_bastion.png', ship_blaze:'assets/ship_blaze.png', ship_storm:'assets/ship_storm.png' };
+    ship_wind:'assets/ship_wind.png', ship_bastion:'assets/ship_bastion.png', ship_blaze:'assets/ship_blaze.png', ship_storm:'assets/ship_storm.png', ship_lance:'assets/ship_lance.png' };
 for (let i = 1; i <= 9; i++) ASSET_FILES['boss_' + i] = `assets/boss_${i}.png`;   // 每關各自的 Boss 圖，缺檔用 boss.png 或向量圖
 const IMG = {};
 // 機種：hp/spd/dmg/int 為基礎值，base 為初始等級，cap 為該機種各能力的等級上限，fit 為對各類 Boss 的適性
@@ -365,7 +372,9 @@ const SHIPS = [
     { id:'blaze', name:'烈焰號', role:'高輸出', c:'#ff3366', h:170, s:1.05, r:15, price:1000, hp:85, spd:220, dmg:2.0, int:420,
       base:{ dmg:3, rate:0, hp:0, spd:1 }, cap:{ dmg:16, rate:4, hp:5, spd:5 }, fit:{ GLASS:2, TANK:3, BARRAGE:1 } },
     { id:'storm', name:'連射號', role:'射速快', c:'#ffea00', h:-120, s:1, r:15, price:1000, hp:90, spd:240, dmg:0.8, int:230,
-      base:{ dmg:1, rate:3, hp:0, spd:1 }, cap:{ dmg:5, rate:16, hp:6, spd:7 }, fit:{ GLASS:3, TANK:2, BARRAGE:1 } }
+      base:{ dmg:1, rate:3, hp:0, spd:1 }, cap:{ dmg:5, rate:16, hp:6, spd:7 }, fit:{ GLASS:3, TANK:2, BARRAGE:1 } },
+    { id:'lance', name:'穿甲號', role:'穿甲型', c:'#ff8a00', h:205, s:1.05, r:15, price:1200, hp:95, spd:230, dmg:1.6, int:340, pierce:true,
+      base:{ dmg:2, rate:0, hp:0, spd:0 }, cap:{ dmg:10, rate:6, hp:6, spd:6 }, fit:{ GLASS:1, TANK:3, BARRAGE:1 } }
 ];
 const SKINS = SHIPS;
 const BOSS_NAMES = { 1:'璃光', 2:'鐵幕', 3:'環星', 4:'金矛', 5:'霜牆', 6:'旋蝕', 7:'紫刃', 8:'赤殼', 9:'裂空' };
@@ -588,7 +597,7 @@ class ObjectPool {
     get() {
         let obj = this.pool.find(o => !o.active);
         if (!obj) { obj = this.createFn(); this.pool.push(obj); }
-        obj.active = true; obj.homing = false; obj.target = null; return obj;
+        obj.active = true; obj.homing = false; obj.target = null; obj.pierce = false; return obj;
     }
 }
 
@@ -663,7 +672,7 @@ class Boss extends Entity {
         if (this.shootTimer > fireRate) { this.shoot(spawnBullet, playerPos); this.shootTimer = 0; }
 
         this.meteorTimer += dt;
-        if (this.meteorTimer > 2.0) { spawnMeteor(this.pos.x, this.pos.y); this.meteorTimer = 0; }
+        if (this.meteorTimer > 4.0) { spawnMeteor(this.pos.x, this.pos.y); this.meteorTimer = 0; }
     }
 
     shoot(spawnBullet, pp) {
@@ -754,7 +763,7 @@ class Game {
         this.slots = [];       
         
         this.laserTimer = 0; this.invincibleTimer = 0; this.slowTimer = 0; this.paused = false; this.particles = [];
-        this.pierceTimer = 0; this.missileTimer = 0; this.missileCd = 0; this.allies = []; this.allyTimer = 0; this.bgClock = 0; this.runClock = 0; this.pkMode = false; this.pkTime = 0; this.dlgOpen = false; this.dlgConfirm = null; this.dlgResume = false; this.volMain = 1; this.volMusic = 0.5; this._buffHtml = '';
+        this.pierceTimer = 0; this.missileTimer = 0; this.missileCd = 0; this.allies = []; this.allyTimer = 0; this.dmgTexts = []; this.bgClock = 0; this.runClock = 0; this.pkMode = false; this.pkTime = 0; this.dlgOpen = false; this.dlgConfirm = null; this.dlgResume = false; this.volSfx = 1; this.volMusic = 0.5; this.clearT = 0; this.demo = null; this._buffHtml = '';
         this.fleet = {}; SHIPS.forEach(S => { this.fleet[S.id] = { own: S.price === 0, ...S.base }; }); this.shipId = 'star'; this.startStage = 1; this.bestStage = 1; this.st = null; this.hIdx = 0; this.shield = 0; this.shock = null; this.magnetLvl = 0; this.dmLvl = 0; this.skin = 0; this.casting = null;
 
         this.load(); this.loadVol(); this.applyUpgrades(); this.init();
@@ -811,7 +820,7 @@ class Game {
 
     setState(state) {
         this.gameState = state; this.paused = false; this.endCast(); if (state !== 'PLAYING') this.save();
-        document.getElementById('buff-bar').innerHTML = ''; this._buffHtml = ''; this.allies = []; this.allyTimer = 0;
+        document.getElementById('buff-bar').innerHTML = ''; this._buffHtml = ''; this.allies = []; this.allyTimer = 0; this.dmgTexts = [];
         if (state === 'PLAYING') { this.bestStage = Math.max(this.bestStage, this.currentStage); music.play(this.currentStage); loadBg(this.currentStage); loadBg(this.currentStage + 1); } else if (state === 'GAMEOVER' || state === 'VICTORY') music.playEnd(); else if (state !== 'INIT') music.toLobby();
         this.uiLayer.innerHTML = '';
         if (state === 'LOBBY') {
@@ -881,7 +890,7 @@ class Game {
             if (d > 1) { a.pos.x += dx / d * step; a.pos.y += dy / d * step; }
             a.pos.x = Math.max(20, Math.min(W - 20, a.pos.x)); a.pos.y = Math.max(40, Math.min(H - 30, a.pos.y));
             a.cd -= dt;
-            if (a.cd <= 0) { a.cd = a.iv; const b = this.bullets.get(); b.pos = new Vec2(a.pos.x, a.pos.y - 22); b.vel = new Vec2(0, -800); b.color = this.ship(a.sid).c; b.isPlayer = true; b.radius = 4; b.damage = a.dmg; }
+            if (a.cd <= 0) { a.cd = a.iv; const b = this.bullets.get(); b.pos = new Vec2(a.pos.x, a.pos.y - 22); b.vel = new Vec2(0, -800); b.color = this.ship(a.sid).c; b.isPlayer = true; b.radius = 4; b.damage = a.dmg; b.pierce = !!this.ship(a.sid).pierce; }
             for (let j = this.charItems.length - 1; j >= 0; j--) { const c = this.charItems[j]; if (Math.hypot(c.pos.x - a.pos.x, c.pos.y - a.pos.y) < 38) { this.collectChar(c.char); this.charItems.splice(j, 1); } }
             this.bullets.pool.forEach(b => { if (b.active && !b.isPlayer && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) < a.radius + b.radius + 4) { a.hp -= b.damage * 10; b.active = false; } });
             this.enemies.forEach(e => { if (Math.hypot(e.pos.x - a.pos.x, e.pos.y - a.pos.y) < a.radius + e.radius) a.hp -= 40 * dt; });
@@ -890,6 +899,73 @@ class Game {
         dead.forEach(a => { this.burst(a.pos.x, a.pos.y, 14); sfx.playExplosion(); });
         if (dead.length) this.allies = this.allies.filter(a => a.hp > 0);
     }
+    // ===== 初始畫面的自動演示（隨機關卡、戰機、敵機，暗化處理）=====
+    startDemo() {
+        const stage = 1 + Math.floor(Math.random() * 9); loadBg(stage);
+        return (this.demo = { t: 0, stage, enemies: [], bullets: [], parts: [], spawnT: 0.3, shootT: 0, switchT: 0, ship: SHIPS[Math.floor(Math.random() * SHIPS.length)],
+            pp: new Vec2(WORLD.w / 2, WORLD.h * 0.78), boss: null, bossT: 9 + Math.random() * 6, fade: 0 });
+    }
+    updateDemo(dt) {
+        const d = this.demo || this.startDemo(), W = WORLD.w, H = WORLD.h; d.t += dt; this.bgClock += dt;
+        d.switchT += dt;
+        if (d.switchT > 16) { d.switchT = 0; d.stage = 1 + Math.floor(Math.random() * 9); loadBg(d.stage); d.enemies = []; d.boss = null; d.bossT = 8 + Math.random() * 8; d.ship = SHIPS[Math.floor(Math.random() * SHIPS.length)]; d.fade = 1; }
+        d.fade = Math.max(0, d.fade - dt * 1.2);
+        // 借用真正的敵機邏輯來產生與移動敵機
+        const keep = { en: this.enemies, pp: this.player.pos, st: this.currentStage, sub: this.currentSub };
+        this.enemies = d.enemies; this.player.pos = d.pp; this.currentStage = d.stage; this.currentSub = 2;
+        d.spawnT -= dt; if (d.spawnT <= 0 && d.enemies.length < 10) { this.spawnEnemy(); d.spawnT = 1.0 + Math.random() * 0.9; d.enemies.forEach(e => { if (e.life === undefined) { e.life = 9 + Math.random() * 6; e.age = 0; } }); }
+        for (let i = d.enemies.length - 1; i >= 0; i--) {
+            const e = d.enemies[i]; e.age += dt;
+            if (e.age > e.life && !e.fleeing) { e.fleeing = true; e.mv = 'dive'; e.vel = new Vec2(0, -240); }
+            this.moveCustom(e, dt);
+            if (e.gone || (e.fleeing && e.pos.y < -80)) { d.enemies.splice(i, 1); continue; }
+            if (e.type !== 'DART' && !e.fleeing && e.pos.y > 20 && e.pos.y < H * 0.6) {
+                e.shootTimer += dt; if (e.shootTimer > e.shootInterval * 1.4) { e.shootTimer = 0; const a = Math.atan2(d.pp.y - e.pos.y, d.pp.x - e.pos.x); d.bullets.push({ x: e.pos.x, y: e.pos.y, vx: Math.cos(a) * 170, vy: Math.sin(a) * 170, c: e.color, foe: true }); }
+            }
+        }
+        if (!d.boss && (d.bossT -= dt) <= 0) { d.boss = new Boss(d.stage); d.boss.life = 14; d.boss.pos = new Vec2(W / 2, -160); d.bossT = 14 + Math.random() * 10; }
+        if (d.boss) { d.boss.life -= dt; d.boss.move(dt, W, d.pp); if (d.boss.life <= 0) { d.boss.cfg = { mv: 'sweep' }; d.boss.targetY = -260; if (d.boss.pos.y < -200) d.boss = null; } }
+        this.enemies = keep.en; this.player.pos = keep.pp; this.currentStage = keep.st; this.currentSub = keep.sub;
+        // 我方戰機自動瞄準射擊
+        let near = null, nd = 1e9; d.enemies.forEach(e => { const dx = Math.abs(e.pos.x - d.pp.x); if (e.pos.y > 0 && dx < nd) { nd = dx; near = e; } });
+        const tx = near ? near.pos.x : W / 2 + Math.sin(d.t * 0.8) * W * 0.28;
+        d.pp.x += Math.max(-300 * dt, Math.min(300 * dt, tx - d.pp.x)); d.pp.y = H * 0.78 + Math.sin(d.t * 0.7) * 24;
+        d.shootT -= dt; if (d.shootT <= 0) { d.shootT = 0.16; [-10, 10].forEach(o => d.bullets.push({ x: d.pp.x + o, y: d.pp.y - 24, vx: o * 1.2, vy: -820, c: d.ship.c, foe: false })); }
+        for (let i = d.bullets.length - 1; i >= 0; i--) {
+            const b = d.bullets[i]; b.x += b.vx * dt; b.y += b.vy * dt;
+            if (b.y < -30 || b.y > H + 30 || b.x < -30 || b.x > W + 30) { d.bullets.splice(i, 1); continue; }
+            if (!b.foe) {
+                const hit = d.enemies.find(e => Math.hypot(e.pos.x - b.x, e.pos.y - b.y) < e.radius + 5);
+                if (hit) { hit.hp -= 1.4; d.bullets.splice(i, 1); for (let k = 0; k < 3; k++) d.parts.push({ x: b.x, y: b.y, vx: (Math.random() - 0.5) * 200, vy: (Math.random() - 0.5) * 200, life: 0.3, c: '#fff' });
+                    if (hit.hp <= 0) { d.enemies.splice(d.enemies.indexOf(hit), 1); for (let k = 0; k < 16; k++) { const a = Math.random() * 6.28, v = 60 + Math.random() * 200; d.parts.push({ x: hit.pos.x, y: hit.pos.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.6, c: ['#ffea00', '#ff8800', '#ff3366', '#fff'][k % 4] }); } } }
+            }
+        }
+        d.parts.forEach(q => { q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; }); d.parts = d.parts.filter(q => q.life > 0);
+    }
+    drawDemo(ctx) {
+        const d = this.demo; if (!d) return; const W = WORLD.w, H = WORLD.h, bg = BG[d.stage];
+        if (bg) { const h = Math.ceil(bg.height * W / bg.width), off = (this.bgClock * 1000 / 18) % h; for (let y = off - h; y < H; y += h) ctx.drawImage(bg, 0, Math.floor(y), W, h + 1); }
+        else { ctx.fillStyle = '#fff'; for (let i = 0; i < 70; i++) ctx.fillRect((i * 97) % W, (this.bgClock * (30 + (i % 5) * 18) + i * 53) % H, 2, 2); }
+        const sprite = (im, cx, cy, box) => { ctx.save(); ctx.translate(cx, cy); fitDraw(ctx, im, box); ctx.restore(); };
+        d.enemies.forEach(e => { const im = IMG[e.type.toLowerCase()]; if (im) { ctx.save(); ctx.shadowBlur = 12; ctx.shadowColor = e.color; sprite(im, e.pos.x, e.pos.y, e.radius * 3.2 * (Math.max(im.width / im.height, im.height / im.width) > 2.2 ? 1.45 : 1)); ctx.restore(); } else { ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.y, e.radius, 0, 7); ctx.fill(); } });
+        if (d.boss) { const im = IMG['boss_' + d.boss.stage] || IMG.boss; if (im) { ctx.save(); ctx.shadowBlur = 25; ctx.shadowColor = d.boss.color || '#f36'; sprite(im, d.boss.pos.x, d.boss.pos.y, d.boss.size); ctx.restore(); } }
+        d.bullets.forEach(b => { ctx.fillStyle = b.c; ctx.beginPath(); ctx.arc(b.x, b.y, b.foe ? 4 : 3, 0, 7); ctx.fill(); });
+        const S = d.ship, sim = IMG['ship_' + S.id] || IMG.player;
+        ctx.save(); ctx.translate(d.pp.x, d.pp.y); ctx.scale(S.s, S.s);
+        if (sim) { ctx.shadowColor = S.c; ctx.shadowBlur = 18; if (!IMG['ship_' + S.id]) ctx.filter = `hue-rotate(${S.h}deg)`; fitDraw(ctx, sim, sim.width / sim.height > 1.3 ? 118 : 96); }
+        else { ctx.fillStyle = S.c; ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(24, 24); ctx.lineTo(-24, 24); ctx.closePath(); ctx.fill(); }
+        ctx.restore();
+        d.parts.forEach(q => { ctx.globalAlpha = Math.max(0, q.life * 2); ctx.fillStyle = q.c; ctx.fillRect(q.x, q.y, 3, 3); }); ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(0,0,10,0.46)'; ctx.fillRect(0, 0, W, H);                 // 暗化，避免影響前方畫面
+        if (d.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${d.fade})`; ctx.fillRect(0, 0, W, H); }
+    }
+
+    aboutDialog() {
+        this.dialog(`<h2 style="margin:0 0 6px;letter-spacing:.2em">成語戰機</h2><p class="muted">IDIOM FIGHTER</p>
+            <div class="res-rows"><div class="rrow"><span>設計製作</span><b>${APP_AUTHOR}</b></div><div class="rrow"><span>版本</span><b>${APP_VERSION}</b></div></div>
+            <button class="btn btn-start" onclick="game.closeDlg()">關閉 [Esc]</button>`);
+    }
+
     // ===== 離線資料包（Service Worker + Cache API）=====
     offlineInfo() { try { const i = JSON.parse(localStorage.getItem('idiomOfflineInfo') || 'null'); return i ? `已下載 ${i.n} 個檔案` : '下載後可完全離線遊玩'; } catch (e) { return ''; } }
     offlineList() {
@@ -991,20 +1067,21 @@ class Game {
     openSettings() {
         if (this.dlgOpen || this.gameState === 'INIT') return;
         this.dialog(`<h3>設定</h3>
-            <label>主音量（音效／大廳音樂）<input type="range" min="0" max="100" value="${Math.round(this.volMain * 100)}" oninput="game.setVol('main', this.value)"></label>
-            <label>關卡音樂音量<input type="range" min="0" max="100" value="${Math.round(this.volMusic * 100)}" oninput="game.setVol('music', this.value)"></label>
+            <label>音樂音量（大廳、關卡、結算音樂）<input type="range" min="0" max="100" value="${Math.round(this.volMusic * 100)}" oninput="game.setVol('music', this.value)"></label>
+            <label>音效音量（射擊、爆炸、招式聲）<input type="range" min="0" max="100" value="${Math.round(this.volSfx * 100)}" oninput="game.setVol('sfx', this.value)"></label>
             <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" ${localStorage.getItem('idiomFS') !== '0' ? 'checked' : ''} onchange="game.setAutoFS(this.checked)" style="width:auto;"> 開啟遊戲時自動全螢幕</label><button class="btn" onclick="game.toggleFullscreen()">全螢幕 ／ 離開全螢幕</button>
             <small style="color:#8aa;">快捷鍵：O 設定　H 回首頁（戰鬥中）　P／Esc 暫停</small>
             <button class="btn btn-start" onclick="game.closeDlg()">關閉 [Esc]</button>`);
     }
-    setVol(k, v) {
+    setVol(k, v) {   // 音樂與音效各自獨立調整
         const f = v / 100;
-        if (k === 'main') { this.volMain = f; this.applyVol(); } else { this.volMusic = f; music.vol = 0.8 * f; if (music.cur) music.cur.volume = music.vol; }
-        try { localStorage.setItem('idiomShooterVol', JSON.stringify({ a: this.volMain, m: this.volMusic })); } catch (e) {}
+        if (k === 'sfx') this.volSfx = f; else { this.volMusic = f; music.vol = 0.8 * f; if (music.cur) music.cur.volume = music.vol; }
+        this.applyVol(); try { localStorage.setItem('idiomShooterVol', JSON.stringify({ s: this.volSfx, m: this.volMusic })); } catch (e) {}
     }
-    applyVol() { if (sfx.ctx) sfx.mainGain.gain.value = 0.8 * this.volMain; }
+    applyVol() { if (sfx.ctx) { sfx.mainGain.gain.value = 0.8 * this.volSfx; if (sfx.bgmGain) sfx.bgmGain.gain.value = 1.6 * this.volMusic; } }
     loadVol() {
-        try { const v = JSON.parse(localStorage.getItem('idiomShooterVol') || 'null'); if (v && typeof v.a === 'number' && typeof v.m === 'number') { this.volMain = v.a; this.volMusic = v.m; } } catch (e) {}
+        try { const v = JSON.parse(localStorage.getItem('idiomShooterVol') || 'null');
+            if (v) { if (typeof v.s === 'number') this.volSfx = v.s; else if (typeof v.a === 'number') this.volSfx = v.a; if (typeof v.m === 'number') this.volMusic = v.m; } } catch (e) {}
         music.vol = 0.8 * this.volMusic;
     }
     dragBy(dx, dy) {   // 手指移動量累積成目標點（最多領先戰機 120px），戰機以固定速度追上去
@@ -1021,13 +1098,23 @@ class Game {
         }
         return e.shield;
     }
-    dmgEnt(e, n) {
+    dmgEnt(e, n, pf) {
         this.shieldOf(e);
-        if (this.pierceTimer > 0 && !e.pierced) {   // 穿甲彈：命中後該目標的裝甲（護盾）減半
-            e.pierced = true;
-            if (e.shield > 0) { e.shield = Math.round(e.shield / 2); this.showFloatText('穿甲!', e.pos.x, e.pos.y - 30, '#ffb347'); }
-        }
-        if (e.shield > 0) { const a = Math.min(e.shield, n); e.shield -= a; n -= a; } e.hp -= n; }
+        let pierce = 0;
+        if ((this.pierceTimer > 0 || pf) && e.shield > 0) { pierce = 2 + Math.random(); n *= pierce; }   // 穿甲彈：對有裝甲（護盾）的目標造成 2~3 倍傷害
+        const dealt = n;
+        if (e.shield > 0) { const a = Math.min(e.shield, n); e.shield -= a; n -= a; }
+        e.hp -= n;
+        e._acc = (e._acc || 0) + dealt; if (pierce) e._pierce = pierce;
+        if (e.hp <= 0 || this.bgClock - (e._last === undefined ? -1 : e._last) >= 0.12) { this.showDamage(e, e._acc, e._pierce); e._acc = 0; e._pierce = 0; e._last = this.bgClock; }
+    }
+    showDamage(e, v, pierce) {
+        if (!(v >= 0.05)) return;
+        this.dmgTexts.push({ x: e.pos.x + (Math.random() - 0.5) * 24, y: e.pos.y - (e.radius || 30) - 6, t: 0, text: (v >= 10 ? String(Math.round(v)) : v.toFixed(1)) + (pierce ? '!' : ''),
+            color: pierce ? '#ffb347' : (e.shield > 0 ? '#7ad7ff' : '#ffffff'), big: pierce ? 1.35 : 1 });
+        if (this.dmgTexts.length > 40) this.dmgTexts.shift();
+    }
+    updateDmgTexts(dt) { this.dmgTexts.forEach(d => { d.t += dt; d.y -= 22 * dt; }); this.dmgTexts = this.dmgTexts.filter(d => d.t < 0.95); }
     drawBars(ctx, x, y, w, hp, max, sh, maxSh, col) {   // 血條在上，護盾條在血條下方
         const f = Math.max(0, Math.min(1, hp / max)); ctx.shadowBlur = 0;
         ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(x - w / 2 - 1, y - 1, w + 2, 6);
@@ -1095,6 +1182,7 @@ class Game {
                         <div class="f2"><h4>推薦：${rec.ship.name}</h4><small>${ok ? '目前戰機很適合' : '點此或按 [R] 一鍵換裝'}</small>${rec.ideal ? `<small>商店有更合適的 ${rec.ideal.name}</small>` : ''}</div>
                     </div>
                 <div class="tile" style="--a:#0f2027;--b:#2c5364;--d:.46s" onclick="game.offlineDialog()"><h4>離線資料包</h4><small>${this.offlineInfo()}</small><span class="ico">⇩</span></div>
+                    <div class="tile" style="--a:#3a1c71;--b:#d76d77;--d:.5s" onclick="game.aboutDialog()"><h4>關於</h4><small>版本 ${APP_VERSION}</small><span class="ico">i</span></div>
                 </div>
                 <div class="roster">各關 Boss：${roster}</div>
             </div>`;
@@ -1141,7 +1229,7 @@ class Game {
     }
 
     renderShop() {
-        const heads = { 0: '戰機（購買後到「戰機管理」升級與出戰）', 5: '全體升級' };
+        const heads = { 0: '戰機（購買後到「戰機管理」升級與出戰）', [SHIPS.length]: '全體升級' };
         const html = this.shopRows().map((r, i) => `${heads[i] ? `<div style="color:var(--neon-gold);margin-top:8px;font-size:0.9rem;">${heads[i]}</div>` : ''}<button class="btn btn-shop" style="font-size:0.85rem;padding:5px;margin:4px auto;" ${r.dis ? 'disabled' : ''} onclick="game.buyItem(${i})">[${i + 1}] ${r.t}<br><small>${r.sub}</small></button>`).join('');
         this.uiLayer.innerHTML = `
             <div class="menu-overlay">
@@ -1173,7 +1261,7 @@ class Game {
     }
 
     startNewGame() {
-        sfx.init(); this.tryFullscreen(); this.applyUpgrades(); this.shield = 0; this.pierceTimer = 0; this.missileTimer = 0; this.allies = []; this.allyTimer = 0; this.runDM = 0; this.runKills = 0; this.runCasts = 0; this.currentStage = Math.min(this.startStage, this.bestStage); this.currentSub = 1; this.score = 0; 
+        sfx.init(); this.tryFullscreen(); this.applyUpgrades(); this.shield = 0; this.pierceTimer = 0; this.missileTimer = 0; this.allies = []; this.allyTimer = 0; this.runDM = 0; this.runKills = 0; this.runCasts = 0; this.clearT = 0; this.currentStage = Math.min(this.startStage, this.bestStage); this.currentSub = 1; this.score = 0; 
         this.hp = this.maxHp; this.slots = []; 
         this.fillEmptySlots(); // 遊戲開始時塞滿隨機成語任務
         this.resetStage(); this.setState('PLAYING');
@@ -1283,7 +1371,7 @@ class Game {
         if (this.boss) { const d = Math.min(300, this.boss.maxHp * 0.25); this.dmgEnt(this.boss, d); this.showFloatText(`Boss -${Math.round(d)}`, this.boss.pos.x, this.boss.pos.y + 70, '#ff3366'); }
         this.shock = { t: 0, x: this.player.pos.x, y: this.player.pos.y };
         for (let i = 0; i < 24; i++) this.burst(Math.random() * WORLD.w, Math.random() * WORLD.h, 8);
-        this.enemies.forEach(e => { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 2); this.runKills = (this.runKills || 0) + 1; sfx.playExplosion(); });
+        this.enemies.forEach(e => { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 2); this.runKills = (this.runKills || 0) + 1; this.enemyDrop(e, 0.5); sfx.playExplosion(); });
         this.enemies = []; this.showFloatText("全螢幕爆破!", WORLD.w/2, WORLD.h/2, "#ff00ff");
     }
     triggerLaser() { this.laserTimer = 3.0; }
@@ -1299,7 +1387,7 @@ class Game {
 
     loop(timestamp) {
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1); this.lastTime = timestamp;
-        if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); } else { this.bgClock += dt; this.runClock += dt; if (this.pkMode) this.pkTime += dt; this.update(dt); } } } else if (this.gameState === 'TRANSITION') { this.bgClock += dt; this.runClock += dt; this.updateTransition(dt); }
+        if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); } else { this.bgClock += dt; this.runClock += dt; if (this.pkMode) this.pkTime += dt; this.update(dt); } } } else if (this.gameState === 'TRANSITION') { this.bgClock += dt; this.runClock += dt; this.updateTransition(dt); } else if (this.gameState === 'INIT') this.updateDemo(dt);
         this.draw(); requestAnimationFrame((t) => this.loop(t));
     }
 
@@ -1365,8 +1453,8 @@ class Game {
             case 'formation': {   // 蜂群：整隊一起移動（橫列／V 字／旋轉圓環）
                 const f = e.form, n = f.n, c = f.i - (n - 1) / 2, cy = -40 + e.speed * t, cx = e.bx + Math.sin(t * 1.1 + e.ph) * 110;
                 let ox, oy;
-                if (f.kind === 'line') { ox = c * 42; oy = 0; } else if (f.kind === 'v') { ox = c * 42; oy = Math.abs(c) * 30; }
-                else { const a = t * 1.6 + f.i * Math.PI * 2 / n; ox = Math.cos(a) * 62; oy = Math.sin(a) * 62; }
+                if (f.kind === 'line') { ox = c * 60; oy = 0; } else if (f.kind === 'v') { ox = c * 60; oy = Math.abs(c) * 36; }
+                else { const a = t * 1.6 + f.i * Math.PI * 2 / n; ox = Math.cos(a) * 84; oy = Math.sin(a) * 84; }
                 e.cx = cx; e.cy = cy; e.pos.x = cl(cx + ox, e.radius, W - e.radius); e.pos.y = cy + oy; if (cy > H + 90) e.gone = true; break;
             }
             case 'mirror':   // 狙擊機：定位後與玩家「鏡像」移動
@@ -1393,14 +1481,14 @@ class Game {
         const pool = pools[st] || ['FIGHTER', 'SNIPER', 'BOMBER', 'TANK', 'GUARD', 'SWARM', 'DART'];
         const eType = pool[Math.floor(Math.random() * pool.length)];
         const D = {
-            SCOUT:   { speed: 50 + t * 28, hp: 1.5 + t * 1.4, r: 14, c: '#00ffcc', iv: Math.max(2.8, 5.5 - t * 0.4), mv: 'sway' },
-            FIGHTER: { speed: 40 + t * 18, hp: 3 + t * 3.2, r: 20, c: '#ffaa00', iv: Math.max(1.6, 3.2 - t * 0.25), mv: 'hunt' },
-            TANK:    { speed: 25 + t * 8, hp: 10 + t * 7, r: 30, c: '#ff3366', iv: Math.max(2.0, 4.2 - t * 0.3), mv: 'march' },
-            DART:    { speed: 150 + t * 22, hp: 1 + t * 0.9, r: 13, c: '#ff77ff', iv: 999, mv: 'dive' },
-            SWARM:   { speed: 55 + t * 14, hp: 1 + t * 0.8, r: 11, c: '#aaff44', iv: Math.max(3.5, 6.5 - t * 0.35), mv: 'formation' },
-            SNIPER:  { speed: 35 + t * 6, hp: 2.5 + t * 2.2, r: 17, c: '#66ccff', iv: Math.max(2.0, 3.8 - t * 0.25), mv: 'mirror' },
-            BOMBER:  { speed: 30 + t * 6, hp: 6 + t * 4.2, r: 24, c: '#ffcc66', iv: Math.max(1.4, 2.8 - t * 0.2), mv: 'lawn' },
-            GUARD:   { speed: 32 + t * 6, hp: 5 + t * 3.4, r: 21, c: '#66ffaa', iv: Math.max(1.0, 2.4 - t * 0.18), mv: 'patrol' }
+            SCOUT:   { speed: 50 + t * 28, hp: 1.5 + t * 1.4, r: 19, c: '#00ffcc', iv: Math.max(2.8, 5.5 - t * 0.4), mv: 'sway' },
+            FIGHTER: { speed: 40 + t * 18, hp: 3 + t * 3.2, r: 23, c: '#ffaa00', iv: Math.max(1.6, 3.2 - t * 0.25), mv: 'hunt' },
+            TANK:    { speed: 25 + t * 8, hp: 10 + t * 7, r: 33, c: '#ff3366', iv: Math.max(2.0, 4.2 - t * 0.3), mv: 'march' },
+            DART:    { speed: 150 + t * 22, hp: 1 + t * 0.9, r: 18, c: '#ff77ff', iv: 999, mv: 'dive' },
+            SWARM:   { speed: 55 + t * 14, hp: 1 + t * 0.8, r: 17, c: '#aaff44', iv: Math.max(3.5, 6.5 - t * 0.35), mv: 'formation' },
+            SNIPER:  { speed: 35 + t * 6, hp: 2.5 + t * 2.2, r: 21, c: '#66ccff', iv: Math.max(2.0, 3.8 - t * 0.25), mv: 'mirror' },
+            BOMBER:  { speed: 30 + t * 6, hp: 6 + t * 4.2, r: 27, c: '#ffcc66', iv: Math.max(1.4, 2.8 - t * 0.2), mv: 'lawn' },
+            GUARD:   { speed: 32 + t * 6, hp: 5 + t * 3.4, r: 24, c: '#66ffaa', iv: Math.max(1.0, 2.4 - t * 0.18), mv: 'patrol' }
         }[eType];
         const make = (x, y, extra) => {
             const e = { type: eType, pos: new Vec2(x, y), vel: new Vec2(0, 0), hp: D.hp, maxHp: D.hp, radius: D.r, color: D.c, diff: diff, speed: D.speed,
@@ -1414,7 +1502,7 @@ class Game {
             for (let i = 0; i < n; i++) make(x0, -40, { form: { kind, i, n }, ph });
         } else if (eType === 'DART') {   // 俯衝機：V 字編隊
             const n = st <= 2 ? 3 : 5;
-            for (let i = 0; i < n; i++) { const c = i - (n - 1) / 2, x = x0 + c * 46, y = -30 - Math.abs(c) * 38, a = Math.atan2(this.player.pos.y - y, this.player.pos.x - x); make(x, y, { vel: new Vec2(Math.cos(a) * D.speed, Math.sin(a) * D.speed) }); }
+            for (let i = 0; i < n; i++) { const c = i - (n - 1) / 2, x = x0 + c * 58, y = -30 - Math.abs(c) * 46, a = Math.atan2(this.player.pos.y - y, this.player.pos.x - x); make(x, y, { vel: new Vec2(Math.cos(a) * D.speed, Math.sin(a) * D.speed) }); }
         } else if (eType === 'GUARD') {   // 護衛機：成對巡邏
             const ph = Math.random() * 6; [0, Math.PI].forEach(o => make(x0, -30, { ph: ph + o }));
         } else make(Math.random() * (W - 60) + 30, -30);
@@ -1443,7 +1531,7 @@ class Game {
             const shootBullet = (offset, angle) => {
                 const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + offset, this.player.pos.y - 25);
                 b.vel = new Vec2(Math.sin(angle)*800, -Math.cos(angle)*800);
-                b.color = SKINS[this.skin].c; b.isPlayer = true; b.radius = 4 + (this.weaponLvl * 0.5); b.damage = dmg; b.homing = this.missileTimer > 0;
+                b.color = SKINS[this.skin].c; b.isPlayer = true; b.radius = 4 + (this.weaponLvl * 0.5); b.damage = dmg; b.homing = this.missileTimer > 0; b.pierce = !!SKINS[this.skin].pierce;
             };
             shootBullet(0, 0); 
             if (this.weaponLvl >= 3 || this.player.spreadFire > 0) { shootBullet(-15, -0.15); shootBullet(15, 0.15); }
@@ -1452,7 +1540,8 @@ class Game {
             this.player.lastShoot = Date.now(); sfx.playShoot(this.player.spreadFire > 0 ? 2 : this.player.rapidFire > 0 ? 1 : 0);
         }
 
-        if (!this.boss) {
+        if (this.clearT > 0) { this.clearT -= dt; if (this.clearT <= 0) { this.clearT = 0; this.startTransition(this.clearNext); } }
+        if (!this.boss && !(this.clearT > 0)) {
             if (this.currentSub < 3) {
                 if (this.enemiesSpawned < this.waveQuota) {
                     this.enemySpawnTimer -= dt;
@@ -1460,7 +1549,7 @@ class Game {
                     if (this.enemySpawnTimer <= 0 && this.enemies.length < maxOnScreen) {
                         this.spawnEnemy(); this.enemiesSpawned++; this.enemySpawnTimer = Math.max(0.5, 2.0 - this.currentStage * 0.15); 
                     }
-                } else if (this.enemies.length === 0) { this.startTransition(false); }
+                } else if (this.enemies.length === 0) { this.clearStage(false); }
             } else {
                 this.boss = new Boss(this.currentStage); document.getElementById('boss-bar').style.display = 'block'; sfx.playReady();
             }
@@ -1469,7 +1558,7 @@ class Game {
         // 掉落成語字塊：分析當前需要哪些字，提高掉落機率
         this.idiomBlockTimer += dt;
         if (this.idiomBlockTimer > 2.0) { // 稍微加快掉落速度
-            if (Math.random() < 0.7) this.spawnIdiomBlock(Math.random() * (WORLD.w-60) + 30, -50);
+            if (Math.random() < 0.35) this.spawnIdiomBlock(Math.random() * (WORLD.w-60) + 30, -50);
             this.idiomBlockTimer = 0;
         }
 
@@ -1477,8 +1566,8 @@ class Game {
             this.boss.update(dt, this.player.pos, () => { const b = this.bullets.get(); b.damage = this.boss.dmgMul; b.radius = 6; return b; }, (x,y) => this.spawnIdiomBlock(x,y));
             document.getElementById('boss-hp-fill').style.width = (this.boss.hp / this.boss.maxHp * 100) + "%";
             if (this.boss.hp <= 0) {
-                this.dropDarkMatter(this.boss.pos.x, this.boss.pos.y, this.boss.dmReward); this.runKills = (this.runKills || 0) + 1;
-                sfx.playExplosion(); this.boss = null; this.startTransition(true);
+                this.dropDarkMatter(this.boss.pos.x, this.boss.pos.y, this.boss.dmReward); this.runKills = (this.runKills || 0) + 1; this.enemyDrop({ type: 'BOSS', pos: this.boss.pos });
+                sfx.playExplosion(); this.boss = null; this.clearStage(true);
             }
         }
 
@@ -1508,12 +1597,12 @@ class Game {
                 
                 if (b.isPlayer) {
                     if (this.boss && Math.hypot(b.pos.x - this.boss.pos.x, b.pos.y - this.boss.pos.y) < this.boss.radius) {
-                        this.dmgEnt(this.boss, b.damage); b.active = false; sfx.playHit();
+                        this.dmgEnt(this.boss, b.damage, b.pierce); b.active = false; sfx.playHit();
                     }
                     this.enemies.forEach((e, i) => {
                         if (Math.hypot(b.pos.x - e.pos.x, b.pos.y - e.pos.y) < e.radius) {
-                            this.dmgEnt(e, b.damage); b.active = false; sfx.playHit();
-                            if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); this.runKills = (this.runKills || 0) + 1; sfx.playExplosion(); this.enemies.splice(i, 1); }
+                            this.dmgEnt(e, b.damage, b.pierce); b.active = false; sfx.playHit();
+                            if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); this.runKills = (this.runKills || 0) + 1; this.enemyDrop(e); sfx.playExplosion(); this.enemies.splice(i, 1); }
                         }
                     });
                     this.idiomBlocks.forEach((m, i) => {
@@ -1551,7 +1640,7 @@ class Game {
             if (this.boss && Math.abs(this.boss.pos.x - this.player.pos.x) < this.boss.radius + 25) this.dmgEnt(this.boss, 70 * dt);
             this.enemies.forEach((e, i) => {
                 if (Math.abs(e.pos.x - this.player.pos.x) < 25 && e.pos.y < this.player.pos.y) {
-                    this.dmgEnt(e, 50 * dt); if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp*1.5); this.runKills = (this.runKills || 0) + 1; sfx.playExplosion(); this.enemies.splice(i, 1); }
+                    this.dmgEnt(e, 50 * dt); if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp*1.5); this.runKills = (this.runKills || 0) + 1; this.enemyDrop(e); sfx.playExplosion(); this.enemies.splice(i, 1); }
                 }
             });
             this.idiomBlocks.forEach((m, i) => {
@@ -1575,6 +1664,7 @@ class Game {
         if (this.pierceTimer > 0) this.pierceTimer -= dt;
         if (this.missileTimer > 0) this.missileTimer -= dt;
         this.updateAllies(dt);
+        this.updateDmgTexts(dt);
         this.updateBuffs();
     }
 
@@ -1623,6 +1713,22 @@ class Game {
             const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 200;
             this.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.6 + Math.random() * 0.4, color: ['#ffea00','#ffaa00','#ff3366','#ffffff'][i % 4] });
         }
+    }
+
+    clearStage(next) {   // 區塊清除：倒數 5 秒（可以趁機撿字卡）後才前往下一關
+        if (this.pkMode) { this.startTransition(next); return; }
+        if (this.clearT > 0) return;
+        this.clearT = 5; this.clearNext = next; document.getElementById('boss-bar').style.display = 'none'; sfx.playReady();
+    }
+    randomChar(pNeed) {   // 有機率掉「目前還缺的字」，否則從全部成語隨機抽一個字
+        const need = [];
+        this.slots.forEach(sl => { if (sl.type === 'COLLECTING') for (const ch of sl.word) if (!sl.chars.includes(ch)) need.push(ch); });
+        if (need.length && Math.random() < pNeed) return need[Math.floor(Math.random() * need.length)];
+        const w = CONFIG.IDIOMS[Math.floor(Math.random() * CONFIG.IDIOMS.length)].word; return w[Math.floor(Math.random() * 4)];
+    }
+    enemyDrop(e, k = 1) {   // 擊落敵機：依機種機率掉落字卡（字元）；Boss 一次掉 3 個
+        const P = { SCOUT: 0.45, FIGHTER: 0.55, TANK: 1, DART: 0.35, SWARM: 0.25, SNIPER: 0.6, BOMBER: 0.7, GUARD: 0.6, BOSS: 1 }, n = e.type === 'BOSS' ? 3 : 1;
+        for (let i = 0; i < n; i++) if (Math.random() < (P[e.type] === undefined ? 0.5 : P[e.type]) * k) this.charItems.push({ pos: new Vec2(e.pos.x + (i - (n - 1) / 2) * 34, e.pos.y), char: this.randomChar(0.6) });
     }
 
     // 智能掉落：高機率掉落目前需要的字元
@@ -1678,6 +1784,7 @@ class Game {
     draw() {
         const ctx = this.ctx; ctx.setTransform(WORLD.k, 0, 0, WORLD.k, 0, 0);
         ctx.fillStyle = "#050510"; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+        if (this.gameState === 'INIT') { this.drawDemo(ctx); return; }
         const bg = BG[this.currentStage];
         if (bg && this.gameState !== 'LOBBY') {
             const W = WORLD.w, H = WORLD.h, h = Math.ceil(bg.height * W / bg.width);
@@ -1878,6 +1985,18 @@ class Game {
             this.enemies.forEach(e => { this.shieldOf(e); this.drawBars(ctx, e.pos.x, e.pos.y - e.radius * 1.7 - 6, e.radius * 2.4, e.hp, e.maxHp, e.shield, e.maxShield, e.color); });
             if (this.boss) { this.shieldOf(this.boss); this.drawBars(ctx, this.boss.pos.x, this.boss.pos.y - this.boss.size * 0.5 - 14, 150, this.boss.hp, this.boss.maxHp, this.boss.shield, this.boss.maxShield, '#ff3333'); }
             this.drawBars(ctx, this.player.pos.x, this.player.pos.y + 54 * SKINS[this.skin].s, 64, this.hp, this.maxHp, this.shield, this.maxHp, '#33ff88');
+            if (this.clearT > 0) {
+                ctx.save(); ctx.textAlign = 'center'; ctx.font = "bold 24px 'Microsoft JhengHei', Arial"; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.fillStyle = '#ffea00';
+                const msg = `區塊清除！${Math.ceil(this.clearT)} 秒後前往${this.clearNext ? '下一關' : '下一波'}`, sub = '趁現在撿起掉落的字卡';
+                ctx.strokeText(msg, WORLD.w / 2, WORLD.h * 0.3); ctx.fillText(msg, WORLD.w / 2, WORLD.h * 0.3);
+                ctx.font = "16px 'Microsoft JhengHei', Arial"; ctx.fillStyle = '#fff'; ctx.strokeText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.fillText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.restore();
+            }
+            this.dmgTexts.forEach(d => {   // 傷害數字：0.15 秒淡入 → 停留 0.5 秒 → 0.3 秒淡出
+                ctx.globalAlpha = d.t < 0.15 ? d.t / 0.15 : d.t < 0.65 ? 1 : Math.max(0, 1 - (d.t - 0.65) / 0.3);
+                ctx.font = `bold ${Math.round(18 * d.big)}px 'Microsoft JhengHei', Arial`; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+                ctx.strokeText(d.text, d.x, d.y); ctx.fillStyle = d.color; ctx.fillText(d.text, d.x, d.y);
+            });
+            ctx.globalAlpha = 1;
             this.particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life * 2); ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 3, 3); });
             ctx.globalAlpha = 1;
             if (this.shock) {
@@ -1915,7 +2034,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) window.
 'use strict';
 const CFG = { apiKey: "AIzaSyB4MxpM55hfJKIDYdkb6ftGJY4k-QECkBE", authDomain: "idiom-fighter.firebaseapp.com", projectId: "idiom-fighter",
     storageBucket: "idiom-fighter.firebasestorage.app", messagingSenderId: "224044128546", appId: "1:224044128546:web:60e8120c693cf5ae292d7b", measurementId: "G-8GX7DZVE9E" };
-const G = game, P = Game.prototype, SAVEKEY = 'idiomShooterSave', MIRROR = 'idiomMirror', MAIL = '@idiom-fighter.app';
+const G = game, P = Game.prototype, SAVEKEY = 'idiomShooterSave', MIRROR = 'idiomMirror', MAIL = '@idiom-fighter.app', ADMIN_USER = 'admin';
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n, l) => String(n).padStart(l, '0');
@@ -1958,6 +2077,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .tut img{max-height:120px;max-width:44%;object-fit:contain}kbd{display:inline-block;min-width:26px;padding:3px 7px;margin:2px;border:1px solid #fff;border-bottom-width:3px;border-radius:6px;background:#1a1f3a;color:#fff;font-family:monospace}
 .chip{display:inline-block;margin:3px;padding:3px 9px;border-radius:14px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.1);cursor:pointer;color:#fff;font-family:inherit}.chip.on{background:var(--neon-gold);color:#000;border-color:var(--neon-gold)}
 .dots i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#445;margin:0 3px}.dots i.on{background:var(--neon-blue)}
+.dx{display:flex;gap:10px;align-items:center;text-align:left;border:1px solid #334;border-radius:10px;padding:8px;margin:6px 0;background:rgba(0,0,20,.5)}.dx img{width:84px;height:84px;object-fit:contain;flex:none}.dx h3{margin:0 0 4px;font-size:1.05rem}.dx .t{font-size:.8rem;line-height:1.55;color:#cde}.dx .t b{color:var(--neon-blue)}
 </style>`);
 
 // ---------- Firebase ----------
@@ -2081,9 +2201,8 @@ const online = window.online = {
         return `<div class="tile live" style="--a:#f7971e;--b:#ffd200;--d:.48s;color:#222" onclick="game.setState('RANK')"><div class="f1"><h4>排行榜</h4><small>線上</small></div><div class="f2"><small>最高分</small><h4>${p.bestScore || 0}</h4></div></div>
             <div class="tile live" style="--a:#11998e;--b:#38ef7d;--d:.56s;color:#022" onclick="game.setState('FRIENDS')"><div class="f1"><h4>好友</h4><small>聊天 / 邀請</small></div><div class="f2"><small>好友 ${this.friends.length}</small><small>${this.reqIn.length ? this.reqIn.length + ' 筆邀請' : '無新邀請'}</small></div></div>
             <div class="tile" style="--a:#cb2d3e;--b:#ef473a;--d:.64s" onclick="game.setState('PK')"><h4>PK 對戰</h4><small>與好友對決</small><span class="ico">⚔</span></div>
-            <div class="tile" style="--a:#614385;--b:#516395;--d:.72s" onclick="game.setState('DB')"><h4>成語資料庫</h4><small>招式對照成語</small><span class="ico">字</span></div>
+            <div class="tile" style="--a:#614385;--b:#516395;--d:.72s" onclick="game.setState('DB')"><h4>圖鑑</h4><small>成語・戰機・Boss</small><span class="ico">字</span></div>
             <div class="tile" style="--a:#134e5e;--b:#71b280;--d:.8s" onclick="game.setState('TUTORIAL')"><h4>新手教學</h4><small>圖文說明</small><span class="ico">?</span></div>
-            ${this.isAdmin ? `<div class="tile" style="--a:#232526;--b:#ff512f;--d:.88s" onclick="game.setState('ADMIN')"><h4>管理員</h4><small>查看聊天紀錄</small></div>` : ''}
             <div class="tile w2" style="--a:#1d2b64;--b:#3a6073;--d:.96s" onclick="game.openSettings()"><h4>${esc(p.name || '')}</h4><small>帳號 ${esc(p.username || '')}　PK ${p.pkWins || 0} 勝 ${p.pkLosses || 0} 敗</small><button class="sm" style="position:relative;margin-top:6px" onclick="event.stopPropagation();${this.user ? 'online.logout()' : 'online.goLogin()'}">${this.user ? '登出' : '連線登入（同步進度）'}</button></div>`;
     },
 
@@ -2230,38 +2349,88 @@ const online = window.online = {
         } catch (e) { toast(errMsg(e)); }
     },
 
+    // ===== 管理員登入：用獨立的 Firebase 連線驗證，不影響目前的玩家登入 =====
+    async adminLogin() {
+        const msg = t => { const m = $('ad-msg'); if (m) m.textContent = t; };
+        const pw = ($('ad-pass') || {}).value || ''; if (!pw) return msg('請輸入管理員密碼');
+        if (!fbOk || !navigator.onLine) return msg('需要網路連線');
+        msg('驗證中…');
+        try {
+            if (!this.adminApp) { try { this.adminApp = firebase.app('admin'); } catch (e) { this.adminApp = firebase.initializeApp(CFG, 'admin'); } }
+            const aAuth = this.adminApp.auth();
+            try { await aAuth.setPersistence(firebase.auth.Auth.Persistence.NONE); } catch (e) {}
+            await aAuth.signInWithEmailAndPassword(ADMIN_USER + MAIL, pw);
+            this.adminDb = this.adminApp.firestore(); const f = $('ad-pass'); if (f) f.value = '';
+            G.closeDlg(); G.setState('ADMIN');
+        } catch (e) { this.adminDb = null; msg(({ 'auth/user-not-found': '管理員帳號尚未建立（請看設定說明）', 'auth/wrong-password': '管理員密碼錯誤', 'auth/invalid-credential': '管理員密碼錯誤', 'auth/invalid-login-credentials': '管理員密碼錯誤' }[e && e.code]) || errMsg(e)); }
+    },
+    adminLogout() { try { if (this._adUnsub) { this._adUnsub(); this._adUnsub = null; } this.adminApp && this.adminApp.auth().signOut(); } catch (e) {} this.adminDb = null; G.setState('LOBBY'); },
+
     // ===== 管理員 =====
     async renderAdmin(tab, id) {
-        if (!this.isAdmin) return G.setState('LOBBY');
+        if (!this.isAdmin && !this.adminDb) return G.setState('LOBBY');
+        const adb = this.adminDb || db;
         const T = [['lobby', '大廳'], ['group', '群組聊天'], ['dm', '好友私聊']];
         ui(`<div class="menu-overlay" style="width:min(94vw,560px)"><h2 class="shop-title">管理員：聊天紀錄</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderAdmin('${t[0]}')">${t[1]}</button>`).join('')}</div>
-            <div class="lst" id="ad-list">載入中…</div><h4 id="ad-title"></h4><div class="lst" id="ad-msgs" style="min-height:120px"></div>${BACK}</div>`);
+            <div class="lst" id="ad-list">載入中…</div><h4 id="ad-title"></h4><div class="lst" id="ad-msgs" style="min-height:120px"></div><button class="sm red" onclick="online.adminLogout()">登出管理員</button>${BACK}</div>`);
         if (this._adUnsub) { this._adUnsub(); this._adUnsub = null; }
         try {
-            if (tab === 'lobby') { $('ad-list').innerHTML = ''; return this.adView(db.collection('lobbyChat'), '大廳'); }
-            const s = await db.collection(tab === 'group' ? 'groups' : 'dms').limit(100).get();
+            if (tab === 'lobby') { $('ad-list').innerHTML = ''; return this.adView(adb.collection('lobbyChat'), '大廳'); }
+            const s = await adb.collection(tab === 'group' ? 'groups' : 'dms').limit(100).get();
             $('ad-list').innerHTML = s.docs.length ? s.docs.map(d => { const x = d.data(); const label = tab === 'group' ? `${x.name}（${Object.values(x.memberNames || {}).join('、')}）` : Object.values(x.names || {}).join(' ⇄ ');
                 return `<div class="row"><span>${esc(label)}</span><button class="sm" onclick="online.adOpen('${tab}','${d.id}')">查看</button></div>`; }).join('') : '<p class="muted">沒有資料</p>';
         } catch (e) { $('ad-list').textContent = errMsg(e); }
     },
-    adOpen(tab, id) { this.adView(db.collection(tab === 'group' ? 'groups' : 'dms').doc(id).collection('messages'), id); },
+    adOpen(tab, id) { this.adView((this.adminDb || db).collection(tab === 'group' ? 'groups' : 'dms').doc(id).collection('messages'), id); },
     adView(ref, title) {
         if (this._adUnsub) this._adUnsub(); $('ad-title').textContent = title;
         this._adUnsub = ref.orderBy('ts', 'desc').limit(100).onSnapshot(s => { const b = $('ad-msgs'); if (!b) return; b.innerHTML = s.docs.map(d => msgHtml(d.data(), false)).reverse().join('') || '<p class="muted">沒有訊息</p>'; b.scrollTop = b.scrollHeight; }, e => { const b = $('ad-msgs'); if (b) b.textContent = errMsg(e); });
     },
 
     // ===== 成語資料庫 =====
-    renderDB(eff, word) {
+    renderDB(eff, word) { this.renderDex('idiom', eff, word); },
+    renderDex(tab, a, b) {
+        tab = tab || 'idiom';
+        const T = [['idiom', '成語圖鑑'], ['ship', '我方戰機'], ['enemy', '敵方戰機'], ['boss', 'Boss']];
+        const body = { idiom: () => this.dexIdiom(a, b), ship: () => this.dexShips(), enemy: () => this.dexEnemies(), boss: () => this.dexBosses() }[tab]();
+        ui(`<div class="menu-overlay" style="width:min(95vw,700px)"><h2 class="shop-title">圖鑑</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderDex('${t[0]}')">${t[1]}</button>`).join('')}</div>${body}${BACK}</div>`);
+    },
+    dexIdiom(eff, word) {
         const DOC = { BOMB_BOOST: ['全螢幕爆破', '清空畫面敵彈與小型敵機並有爆炸動畫；對 Boss 傷害最高為其滿血的 1/4。'], INVINCIBLE: ['無敵', '10 秒內不會受到傷害。'],
-            SHIELD: ['護盾', '獲得 50 點護盾（可累積），會一直存在直到把傷害抵掉。'], PIERCE: ['穿甲彈', '30 秒內，命中的敵機護盾（裝甲）減半。'],
+            SHIELD: ['護盾', '獲得 50 點護盾（可累積），會一直存在直到把傷害抵掉。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
             MISSILE: ['追蹤導彈', '10 秒內主炮子彈會自動追蹤：先打血量少的敵機，沒有敵機才打字卡。'], LASER_BEAM: ['貫穿雷射', '3 秒的直線雷射，持續貫穿傷害。'],
             HEAL: ['治療', '立刻回復 30 點血量。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。'] };
         eff = eff || 'BOMB_BOOST'; const list = CONFIG.IDIOMS.filter(i => i.effect === eff), info = word && IDIOM_INFO[word];
-        ui(`<div class="menu-overlay" style="width:min(94vw,640px)"><h2 class="shop-title">成語資料庫</h2>
-            <div class="tabs">${Object.keys(DOC).map(k => `<button class="${k === eff ? 'on' : ''}" onclick="online.renderDB('${k}')">${DOC[k][0]}</button>`).join('')}</div>
+        return `<div class="tabs">${Object.keys(DOC).map(k => `<button class="${k === eff ? 'on' : ''}" onclick="online.renderDex('idiom','${k}')">${DOC[k][0]}</button>`).join('')}</div>
             <p style="color:var(--neon-gold)"><b>${DOC[eff][0]}</b>　${DOC[eff][1]}</p>
-            <div>${list.map(i => `<button class="chip ${i.word === word ? 'on' : ''}" onclick="online.renderDB('${eff}','${i.word}')">${i.word}</button>`).join('')}</div>
-            <div style="text-align:left;min-height:90px;margin-top:8px;padding:10px;border:1px solid #334;border-radius:10px">${info ? `<h3 style="margin:0 0 6px;color:var(--neon-gold)">${word}</h3><p><b style="color:var(--neon-blue)">意思</b>　${info[0]}</p><p><b style="color:var(--neon-blue)">造句</b>　${info[1]}</p>` : '<span class="muted">點選成語查看意思與造句（共 ' + list.length + ' 個）</span>'}</div>${BACK}</div>`);
+            <div>${list.map(i => `<button class="chip ${i.word === word ? 'on' : ''}" onclick="online.renderDex('idiom','${eff}','${i.word}')">${i.word}</button>`).join('')}</div>
+            <div style="text-align:left;min-height:90px;margin-top:8px;padding:10px;border:1px solid #334;border-radius:10px">${info ? `<h3 style="margin:0 0 6px;color:var(--neon-gold)">${word}</h3><p><b style="color:var(--neon-blue)">意思</b>　${info[0]}</p><p><b style="color:var(--neon-blue)">造句</b>　${info[1]}</p>` : '<span class="muted">點選成語查看意思與造句（共 ' + list.length + ' 個，全部成語 ' + CONFIG.IDIOMS.length + ' 個）</span>'}</div>`;
+    },
+    dexShips() {
+        const TRAIT = { star: '均衡型：各項能力上限相同，適合新手。', wind: '機動靈巧：體型小、移動速度上限最高，但火力與裝甲上限低。適合對付玻璃砲型 Boss。', bastion: '重裝厚皮：血量與裝甲上限最高，移動較慢。最適合對付彈幕型 Boss。',
+            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', lance: '穿甲型：子彈自帶穿甲彈，對有裝甲（護盾）的敵人固定造成 2～3 倍傷害，對沒有裝甲的敵人則是一般傷害。適合鐵甲型 Boss、坦克與護衛機。' };
+        return '<div class="lst">' + SHIPS.map(S => { const own = G.fleet && G.fleet[S.id] && G.fleet[S.id].own, c = S.cap;
+            return `<div class="dx"><img src="${S.id === 'star' ? 'assets/player.png' : 'assets/ship_' + S.id + '.png'}" onerror="this.style.visibility='hidden'"><div><h3 style="color:${S.c}">${S.name} <small style="color:#aaa">${S.role}</small></h3>
+                <div class="t"><b>初始</b> 血量 ${S.hp}・移速 ${S.spd}・傷害 ${S.dmg}・射速 ${(1000 / S.int).toFixed(1)}/秒<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}<br>${TRAIT[S.id]}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '商店 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
+    },
+    dexEnemies() {
+        const E = [['SCOUT', '偵察機', '第 1 關起', '緩慢下降並大幅左右擺盪', '單發慢彈（頻率最低之一）', '血量低，新手關主力', 1.5],
+            ['DART', '俯衝機', '第 1 關第 2 波起', '3～5 台排成 V 字編隊，朝你的位置直線衝刺', '不開火，靠撞擊', '速度最快、血量很低', 1],
+            ['SWARM', '蜂群機', '第 2 關起', '整隊陣列一起移動：橫列、V 字或旋轉圓環（4～6 台）', '依隊形：直射、瞄準或向外放射，每台頻率很低', '體型小但成群出現', 1],
+            ['FIGHTER', '戰鬥機', '第 2 關起', '下降到定位後，橫向追著你的位置跑', '三連發瞄準彈', '第 4 關起帶 25% 護盾', 3],
+            ['SNIPER', '狙擊機', '第 3 關起', '定位後與你「鏡像」移動（你往左它往右）', '蓄力 0.9 秒、顯示紅色瞄準線後高速狙擊', '蓄力時不會移動', 2.5],
+            ['BOMBER', '轟炸機', '第 4 關起', '橫掃整個畫面，到邊緣就往下一排', '三向彈、五向彈、慢速大炸彈輪替', '射擊頻率高、體型大', 6],
+            ['TANK', '坦克', '第 5 關起', '沉重地直線推進並駐守，只有輕微橫移', '重砲五向齊射（頻率低、彈大）', '帶 40% 護盾，血量最高', 10],
+            ['GUARD', '護衛機', '第 5 關起', '成對繞圈巡邏', '兩次雙發瞄準彈（雙擊）', '帶 60% 護盾', 5]];
+        return '<div class="lst">' + E.map(e => `<div class="dx"><img src="assets/enemy_${e[0].toLowerCase()}.png" onerror="this.style.visibility='hidden'"><div><h3>${e[1]} <small style="color:#aaa">${e[2]}</small></h3>
+            <div class="t"><b>移動</b> ${e[3]}<br><b>攻擊</b> ${e[4]}<br><b>特色</b> ${e[5]}・第 1 關基準血量 ${e[6]}</div></div></div>`).join('') + '</div>';
+    },
+    dexBosses() {
+        const MV = { hover: '懸停漂移', sweep: '左右橫掃', orbit: '橢圓環繞', dash: '隨機衝刺', chase: '追蹤玩家', zigzag: '快速折返' }, SH = { aim: '瞄準單發', aim3: '三連瞄準', burst: '扇形彈', ring: '環形彈', spiral: '螺旋彈', rain: '雨狀彈', wall: '彈牆（留缺口）' };
+        const MULT = { GLASS: 0.45, TANK: 1.5, BARRAGE: 1, FINAL: 1 };
+        return '<div class="lst">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(st => { const ty = BOSS_TYPES[st], inf = BOSS_INFO[ty], cfg = BOSS_CFG[st], hp = Math.round((st === 9 ? 5000 : 150 + (st - 1) * 350) * MULT[ty]);
+            return `<div class="dx"><img src="assets/boss_${st}.png" onerror="this.style.visibility='hidden'"><div><h3>第 ${st} 關　${bossLabel(st)}</h3>
+                <div class="t">${inf.desc}<br><b>移動</b> ${MV[cfg.mv]}　<b>攻擊</b> ${cfg.sh.map(x => SH[x]).join('、')}<br><b>血量</b> 約 ${hp}　<b>建議</b> ${inf.tip}</div></div></div>`; }).join('') + '</div>';
     },
 
     // ===== 新手教學 =====
@@ -2274,7 +2443,7 @@ const online = window.online = {
             ['打字卡、撿字元', `${im('assets/idiom_block.png', 'max-height:90px')}<span style="font-size:2rem">➜</span><span style="font-size:2.4rem;color:var(--neon-blue)">破</span>`, '射擊天上掉下來的字卡，會掉出一個字，飛過去撿起來。字卡只是機關，碰到不會受傷。'],
             ['湊成語、發動招式', `${slotMock}<span style="font-size:1.6rem">➜</span><span><kbd>1</kbd>~<kbd>6</kbd> 或 <kbd>Space</kbd></span>`, '字元集滿四字就會發光，按對應數字鍵（手機直接點）發動。每個招式都有 10 個以上的相關成語。'],
             ['時間凍結與成語演示', `<div style="border:2px solid var(--neon-gold);border-radius:10px;padding:10px 16px;text-align:center"><div style="font-size:1.8rem;color:var(--neon-gold);letter-spacing:.2em">破釜沉舟</div><div class="muted">意思或造句 5 秒</div></div>`, '發動後全場凍結 5 秒（敵機、子彈、背景都不會動），畫面會逐字浮現該成語的意思或造句，結束後才發動招式。'],
-            ['九種招式', `<div style="text-align:left;line-height:1.7;font-size:.9rem">爆破・無敵・護盾<br>穿甲彈・追蹤導彈・貫穿雷射<br>治療・時緩・呼叫友軍</div>`, '到大廳的「成語資料庫」可以查每個招式對應哪些成語，點成語還能看意思與造句。'],
+            ['九種招式', `<div style="text-align:left;line-height:1.7;font-size:.9rem">爆破・無敵・護盾<br>穿甲彈・追蹤導彈・貫穿雷射<br>治療・時緩・呼叫友軍</div>`, '到大廳的「圖鑑」可以查成語、我方與敵方戰機、Boss，點成語還能看意思與造句。'],
             ['血條與護盾', `${im('assets/player.png', 'max-height:80px')}<div style="width:90px"><div style="height:8px;background:#33ff88"></div><div style="height:6px;margin-top:3px;background:#4dd2ff;width:60%"></div></div>`, '血條在戰機後方，護盾在血條下方；受到傷害時護盾先抵掉。敵機的血條在它上方。'],
             ['敵機與 Boss', `${im('assets/enemy_scout.png', 'max-height:70px')}${im('assets/enemy_bomber.png', 'max-height:70px')}${im('assets/boss_1.png', 'max-height:110px')}`, `小關有多種敵機（俯衝、蜂群、狙擊、轟炸、護衛…）。Boss 各有名字與類型：${bossLabel(1)}皮薄但傷害高、${bossLabel(2)}血厚、${bossLabel(3)}彈幕密集。`],
             ['暗物質、商店與戰機', `${im('assets/ship_wind.png', 'max-height:80px')}${im('assets/ship_bastion.png', 'max-height:80px')}${im('assets/ship_blaze.png', 'max-height:80px')}`, '打敗敵人得到暗物質，可到「軍械庫」買戰機，到「戰機管理」升級；每種戰機能力上限不同。出戰前大廳會推薦適合的戰機。'],
@@ -2412,7 +2581,7 @@ const wrap = (name, fn) => { const o = P[name]; P[name] = function (...a) { retu
 const NEW = new Set(['LOGIN', 'RANK', 'FRIENDS', 'PK', 'DB', 'TUTORIAL', 'ADMIN']);
 wrap('setState', function (o, state) {
     if (this.pkMode && (state === 'GAMEOVER' || state === 'VICTORY')) { online.pkSelfDead(); return; }
-    if (NEW.has(state) && !['LOGIN', 'TUTORIAL', 'DB'].includes(state) && !online.user) { toast('這個功能需要網路並登入'); return; }
+    if (NEW.has(state) && !['LOGIN', 'TUTORIAL', 'DB'].includes(state) && !online.user && !(state === 'ADMIN' && online.adminDb)) { toast('這個功能需要網路並登入'); return; }
     if (NEW.has(state)) { o.call(this, 'LOBBY'); this.gameState = state; online.renderState(state); return; }
     o.call(this, state); online.updateChatVis();
     if (state === 'GAMEOVER') online.finishRun(false); else if (state === 'VICTORY') online.finishRun(true);
@@ -2431,9 +2600,13 @@ wrap('startCast', function (o, idiom, remote) {
 wrap('finishCast', function (o) { const c = this.casting; if (c && c.remote) { this.endCast(); online.pkApply(c.idiom); } else o.call(this); online.pkNext(); });
 wrap('leave', function (o) { if (this.pkMode) { this.closeDlg(); online.pkSelfDead(); return; } o.call(this); });
 wrap('openSettings', function (o) {
-    o.call(this); const box = document.querySelector('#dlg .box'); if (!box || !online.profile) return;
-    const last = box.querySelector('.btn-start'); const d = document.createElement('div');
-    d.innerHTML = `<p class="muted">帳號：${esc(online.profile.name)}（${esc(online.profile.username)}）</p><button class="btn" onclick="game.closeDlg();online.logout()">登出</button>`; box.insertBefore(d, last);
+    o.call(this); const box = document.querySelector('#dlg .box'); if (!box) return;
+    const last = box.querySelector('.btn-start'), d = document.createElement('div');
+    d.innerHTML = `${online.profile ? `<p class="muted">帳號：${esc(online.profile.name)}（${esc(online.profile.username)}）</p>${online.user ? '<button class="btn" onclick="game.closeDlg();online.logout()">登出</button>' : ''}` : ''}
+        <div style="margin-top:8px;border-top:1px solid #334;padding-top:8px;text-align:left"><label>管理員登入<input class="inp" id="ad-pass" type="password" placeholder="輸入管理員密碼" autocomplete="off"></label>
+        <button class="btn" onclick="online.adminLogin()">登入管理員</button>${online.adminDb ? '<button class="btn btn-start" onclick="game.closeDlg();game.setState(\'ADMIN\')">進入管理員介面</button>' : ''}<div id="ad-msg" class="lg-msg"></div></div>`;
+    box.insertBefore(d, last);
+    const pw = d.querySelector('#ad-pass'); if (pw) pw.onkeydown = e => { if (e.key === 'Enter') online.adminLogin(); };
 });
 wrap('handleKey', function (o, e) {
     const st = this.gameState;

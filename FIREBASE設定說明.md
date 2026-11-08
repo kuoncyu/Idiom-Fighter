@@ -17,13 +17,15 @@ Firestore → **Rules** → 把本資料夾的 `firestore.rules` 全部貼上 �
 Authentication → Settings → **Authorized domains**，加入你放遊戲的網域（例如 `你的帳號.github.io`）。
 `localhost` 預設已授權。請用 https 網址或 localhost 開啟遊戲，直接雙擊 index.html（file://）可能無法登入。
 
-## 5. 建立管理員
-1. 先在遊戲裡註冊一個帳號（例如 `admin`）。
-2. Firestore → Data → 新增集合 **admins** → 文件 ID 填入該帳號的 **UID**
-   （Authentication → Users 可以複製 UID），欄位可以隨意（例如 `role` = `admin`）。
-3. 用該帳號重新登入，大廳會多出「管理員」磚，可查看大廳、所有群組、所有好友私聊。
-
-管理員資格只認 `admins` 集合，沒有寫死在遊戲程式裡，玩家端也無法自行加入。
+## 5. 建立管理員（設定 → 管理員登入）
+管理員密碼**不寫在程式碼裡**，而是設定成 Firebase 管理員帳號的登入密碼，由 Firebase 伺服器驗證。
+1. 先在遊戲註冊頁建立帳號，**帳號必須是 `admin`**，密碼設成你的管理員密碼（至少 6 碼）。
+2. Authentication → Users 複製 `admin` 帳號的 **UID**。
+3. Firestore → Data → 新增集合 **admins** → 文件 ID 貼上該 UID，欄位可以隨意（例如 `role` = `admin`）。
+4. 遊戲內：設定 → 管理員登入 → 輸入密碼（畫面只會顯示 ••••••••）→ 進入管理員介面，可看大廳、所有群組、所有好友私聊。
+- 管理員登入使用獨立的連線，不會登出目前的玩家帳號；關閉頁面後需要重新輸入密碼。
+- 真正的保護是 Firebase 帳號密碼加上 Firestore 規則（只有 `admins` 集合裡的 UID 才讀得到所有聊天），瀏覽器端的程式碼本來就無法完全保密，所以不要把密碼寫進程式。
+- 請先自己註冊 `admin` 並建立 `admins` 文件，避免別人搶先註冊這個帳號名稱。
 
 ## 資料結構（供參考）
 - `users/{uid}`：暱稱、最高分、累積／花費暗物質、全關破關時間（`bestClearMs`、`clearKey`）、PK 勝敗、遊戲存檔
@@ -61,3 +63,6 @@ Authentication → Settings → **Authorized domains**，加入你放遊戲的�
 
 ## 暗物質
 暗物質獲得量由 `index.html` 裡的 `DM_RATE`（目前 0.5）控制，商店價格未變。
+
+## 圖片檔補充
+- 新機種「穿甲號」的圖放 `assets/ship_lance.png`（機頭朝上、透明背景），沒有圖時會用星藍號的圖換成橘色。
