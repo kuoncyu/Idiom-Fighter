@@ -356,7 +356,7 @@ const sfx = new RetroAudio();
 document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !e.repeat && (e.key.length === 1 || e.key === 'Backspace')) { try { sfx.playType(); } catch (_) {} } }, true);
 
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
-const APP_VERSION = '20261111-8', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261111-9', APP_AUTHOR = '郭柏宏';
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
 function updateWorld() {
@@ -388,8 +388,8 @@ const SHIPS = [
       base:{ dmg:1, rate:3, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:5, rate:16, hp:6, spd:7, pen:5, crit:8, cov:4 }, fit:{ GLASS:3, TANK:2, BARRAGE:1 } },
     { id:'lance', pat:'lane', name:'穿甲號', role:'穿甲型', c:'#ff8a00', h:205, s:1.05, r:15, price:1200, hp:95, spd:230, dmg:1.6, int:340, pierce:true,
       base:{ dmg:2, rate:0, hp:0, spd:0, pen:3, crit:0, cov:0 }, cap:{ dmg:10, rate:6, hp:6, spd:6, pen:16, crit:8, cov:6 }, fit:{ GLASS:1, TANK:3, BARRAGE:1 } },
-    { id:'assassin', pat:'back', name:'暗殺號', role:'爆擊刺客', c:'#ff5ec4', h:0, s:0.95, r:13, price:1500, hp:75, spd:270, dmg:1.1, int:300, critMax:0.85,
-      base:{ dmg:1, rate:1, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:7, rate:8, hp:5, spd:9, pen:8, crit:16, cov:4 }, fit:{ GLASS:3, TANK:1, BARRAGE:1 } }    ,{ id:'nova', pat:'ring', name:'環陣號', role:'全向火網', c:'#9dff6a', h:90, s:1, r:15, price:2200, hp:80, spd:235, dmg:0.7, int:340,
+    { id:'assassin', pat:'snipe', name:'暗殺號', role:'狙擊刺客', c:'#ff5ec4', h:0, s:0.95, r:13, price:1500, hp:75, spd:270, dmg:1.1, int:300, critMax:0.85,
+      base:{ dmg:1, rate:0, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:7, rate:8, hp:5, spd:9, pen:8, crit:16, cov:4 }, fit:{ GLASS:3, TANK:1, BARRAGE:1 } }    ,{ id:'nova', pat:'ring', name:'環陣號', role:'全向火網', c:'#9dff6a', h:90, s:1, r:15, price:2200, hp:80, spd:235, dmg:0.7, int:340,
       base:{ dmg:1, rate:0, hp:0, spd:0, pen:0, crit:0, cov:0 }, cap:{ dmg:6, rate:8, hp:6, spd:8, pen:5, crit:8, cov:16 }, fit:{ GLASS:2, TANK:1, BARRAGE:2 } }
 ];
 const SKINS = SHIPS;
@@ -403,11 +403,11 @@ const COV_INFO = {
     wide: ['正面＋側面', '正前方之外，升級後依序加開前方斜射、左右側面、側後方子彈（最多 7 發），能打到兩側的敵人。'],
     big: ['巨型單發', '永遠只有一發子彈，但每升 1 級子彈變大 12%（滿級約 2 倍），判定範圍也跟著變大。'],
     lane: ['穿透平行線', '只朝正前方射擊，升級後增加間隔較寬的平行穿透彈道（最多 4 條），可同時貫穿多排敵人。'],
-    back: ['正面＋背刺', '升到 2 級加開前方斜向子彈，4 級起向左右後方斜射，專門解決繞到背後的敵人。'],
-    ring: ['全向火網', '每升 3 級依序擴大：前方 3 發 → 5 發扇面 → 左右側 → 斜前方 → 斜後方，滿級 16 向四面八方（8 個方位）同時放射，共 12 發；但單發威力低於其他戰機。']
+    snipe: ['狙擊鎖定', '機身左右各有一門低威力附炮往前射擊（足以打掉字卡方塊）。主火力是狙擊：停留不動讓瞄準星蓄滿即鎖定發射，同時鎖定目標數 1 → 2（2 級）→ 3（4 級），優先順序 Boss → 敵機 → 字卡。'],
+    ring: ['全向火網', '每升 3 級依序擴大：前方 3 發 → 5 發扇面 → 左右側 → 斜前方 → 斜後方（11 發），滿級 16 發平均散佈在圓周 16 個方向同時放射；但單發威力低於其他戰機。']
 };
-function patternShots(S, lv) {
-    lv = Math.max(0, lv || 0); const out = [], add = (a, o = 0, rs = 1) => out.push({ a, o, rs }), both = (a, o = 0) => { add(-a, -o); add(a, o); };
+function patternShots(S, lv, solo) {   // solo：沒有狙擊系統可用的場合（僚機、PK），暗殺號改多射一發正面主炮
+    lv = Math.max(0, lv || 0); const out = [], add = (a, o = 0, rs = 1, dm = 1) => out.push({ a, o, rs, dm }), both = (a, o = 0) => { add(-a, -o); add(a, o); };
     switch (S && S.pat) {
         case 'fan': { add(0); const k = Math.min(3, Math.floor(lv / 2)); for (let i = 1; i <= k; i++) both(0.15 * i, 10 * i + 5); break; }
         case 'twin': { const n = 1 + Math.floor(lv / 2); for (let i = 0; i < n; i++) add(0, (i - (n - 1) / 2) * 11); break; }
@@ -415,13 +415,16 @@ function patternShots(S, lv) {
         case 'wide': add(0); if (lv >= 1) both(0.18, 14); if (lv >= 3) both(1.35, 24); if (lv >= 5) both(1.95, 24); break;
         case 'big': add(0, 0, 1 + 0.12 * lv); break;
         case 'lane': { const n = 1 + Math.floor(lv / 2); for (let i = 0; i < n; i++) add(0, (i - (n - 1) / 2) * 24); break; }
-        case 'back': add(0); if (lv >= 2) both(0.25, 12); if (lv >= 4) both(2.6, 12); break;
-        case 'ring': add(0); both(0.2, 12); if (lv >= 3) both(0.4, 22); if (lv >= 6) both(Math.PI / 2, 24); if (lv >= 9) both(Math.PI / 4, 20); if (lv >= 12) both(Math.PI * 3 / 4, 20); if (lv >= 16) add(Math.PI, 0); break;
+        case 'snipe': add(0, -20, 0.8, SNIPE_SIDE_DM); add(0, 20, 0.8, SNIPE_SIDE_DM); if (solo) add(0); break;   // 附炮：左右兩側往前，威力很低
+        case 'ring': if (lv >= 16) { for (let i = 0; i < 16; i++) add(i / 16 * Math.PI * 2); break; }   // 滿級：16 發平均分佈圓周
+            add(0); both(0.2, 12); if (lv >= 3) both(0.4, 22); if (lv >= 6) both(Math.PI / 2, 24); if (lv >= 9) both(Math.PI / 4, 20); if (lv >= 12) both(Math.PI * 3 / 4, 20); break;
         default: add(0);
     }
     return out;
 }
-function covLabel(S, lv) { const sh = patternShots(S, lv); return S.pat === 'big' ? '大彈×' + sh[0].rs.toFixed(2) : sh.length + ' 發'; }
+const SNIPE_SIDE_DM = 0.6, SNIPE_K = 10, SNIPE_CRIT_BONUS = 0.3, SNIPE_T0 = 3, SNIPE_T1 = 1;   // 附炮傷害倍率／狙擊傷害倍率／鎖定爆擊加成／基礎與滿級鎖定秒數
+function snipeN(lv) { lv = lv || 0; return lv >= 4 ? 3 : lv >= 2 ? 2 : 1; }
+function covLabel(S, lv) { if (S.pat === 'snipe') return snipeN(lv) + ' 目標'; const sh = patternShots(S, lv); return S.pat === 'big' ? '大彈×' + sh[0].rs.toFixed(2) : sh.length + ' 發'; }
 const CRIT_BASE = 0.2, SHOW = 100, DEF_PER_LV = 0.12, MIN_DMG_K = 0.15;   // SHOW：畫面上傷害／血量數字的倍率；每級裝甲＝12（顯示值）防禦；穿甲後最低仍有 15% 傷害
 const ARMOR_LV = { SCOUT: 0, DART: 0, SWARM: 0, FIGHTER: 1, SNIPER: 2, BOMBER: 2, TANK: 5, GUARD: 7 }, BOSS_ARMOR = { GLASS: 2, BARRAGE: 4, TANK: 8, FINAL: 10 };
 // 子彈火力分級：大小 3 種（小中大）× 七彩 7 色（紅最弱 → 紫最強）＝ 21 級；小紅最弱、大紫最強
@@ -831,7 +834,7 @@ class Game {
         this.slots = [];       
         
         this.laserTimer = 0; this.invincibleTimer = 0; this.slowTimer = 0; this.paused = false; this.particles = [];
-        this.pierceTimer = 0; this.missileTimer = 0; this.missileCd = 0; this.allies = []; this.allyTimer = 0; this.dmgTexts = []; this.bgClock = 0; this.runClock = 0; this.pkMode = false; this.pkTime = 0; this.dlgOpen = false; this.dlgConfirm = null; this.dlgResume = false; this.volSfx = 1; this.volMusic = 0.5; this.clearT = 0; this.demo = null; this._buffHtml = '';
+        this.pierceTimer = 0; this.missileTimer = 0; this.missileCd = 0; this.allies = []; this.allyTimer = 0; this.dmgTexts = []; this.snipe = { c: 0, t: [], fx: [] }; this.bgClock = 0; this.runClock = 0; this.pkMode = false; this.pkTime = 0; this.dlgOpen = false; this.dlgConfirm = null; this.dlgResume = false; this.volSfx = 1; this.volMusic = 0.5; this.clearT = 0; this.demo = null; this._buffHtml = '';
         this.fleet = {}; SHIPS.forEach(S => { this.fleet[S.id] = { own: S.price === 0, ...S.base }; }); this.shipId = 'star'; this.startStage = 1; this.bestStage = 1; this.st = null; this.hIdx = 0; this.shield = 0; this.shock = null; this.magnetLvl = 0; this.dmLvl = 0; this.skin = 0; this.casting = null;
 
         this.load(); this.loadVol(); this.applyUpgrades(); this.init();
@@ -967,8 +970,8 @@ class Game {
             a.cd -= dt;
             if (a.cd <= 0) {
                 a.cd = a.iv;
-                const shot = (off, ang, rs) => { const b = this.bullets.get(); b.pos = new Vec2(a.pos.x + off, a.pos.y - 22); b.vel = new Vec2(Math.sin(ang) * 800, -Math.cos(ang) * 800); b.isPlayer = true; b.homing = false; b.damage = a.dmg; b.pen = a.pen; b.crit = a.crit; styleBullet(b, a.dmg); if (rs && rs !== 1) b.radius *= rs; b.pierce = !!this.ship(a.sid).pierce; };
-                patternShots(this.ship(a.sid), a.cv).forEach(sh => shot(sh.o, sh.a, sh.rs));   // 與本機相同的火力覆蓋彈道
+                const shot = (off, ang, rs, dm) => { const b = this.bullets.get(); b.pos = new Vec2(a.pos.x + off, a.pos.y - 22); b.vel = new Vec2(Math.sin(ang) * 800, -Math.cos(ang) * 800); b.isPlayer = true; b.homing = false; b.damage = a.dmg * (dm || 1); b.pen = a.pen; b.crit = a.crit; styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; b.pierce = !!this.ship(a.sid).pierce; };
+                patternShots(this.ship(a.sid), a.cv, true).forEach(sh => shot(sh.o, sh.a, sh.rs, sh.dm));   // 與本機相同的火力覆蓋彈道
             }
             for (let j = this.charItems.length - 1; j >= 0; j--) { const c = this.charItems[j]; if (Math.hypot(c.pos.x - a.pos.x, c.pos.y - a.pos.y) < 38) { this.collectChar(c.char); this.charItems.splice(j, 1); } }
             this.bullets.pool.forEach(b => { if (b.active && !b.isPlayer && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) < a.radius + b.radius + 4) { a.hp -= b.damage * 10; b.active = false; } });
@@ -1327,13 +1330,60 @@ class Game {
         }
         return e._armor;
     }
+    snipeNeedOf(id) { const S = this.ship(id), L = this.fleet[id] || {}; return SNIPE_T0 - (SNIPE_T0 - SNIPE_T1) * Math.min(1, (L.rate || 0) / S.cap.rate); }   // 鎖定所需停留秒數：基礎 3 秒，射速升到頂 1 秒
+    snipePick(n) {   // 鎖定順序：Boss → 敵機 → 字卡（同類取離自己最近的）
+        const P = this.player.pos, out = [], vis = o => o.pos.y > 20 && o.pos.y < WORLD.h && o.pos.x > 0 && o.pos.x < WORLD.w && o.hp > 0;
+        const near = (a, b) => Math.hypot(a.pos.x - P.x, a.pos.y - P.y) - Math.hypot(b.pos.x - P.x, b.pos.y - P.y);
+        if (this.boss && vis(this.boss)) out.push({ k: 'b', o: this.boss });
+        this.enemies.filter(vis).sort(near).forEach(o => { if (out.length < n) out.push({ k: 'e', o }); });
+        this.idiomBlocks.filter(vis).sort(near).forEach(o => { if (out.length < n) out.push({ k: 'm', o }); });
+        return out.slice(0, n);
+    }
+    snipeUpdate(dt) {
+        const sn = this.snipe, P = this.player, need = this.snipeNeedOf(this.shipId);
+        const mv = sn.px === undefined ? 0 : Math.hypot(P.pos.x - sn.px, P.pos.y - sn.py) / Math.max(dt, 0.001); sn.px = P.pos.x; sn.py = P.pos.y;
+        sn.fx.forEach(f => f.t += dt); sn.fx = sn.fx.filter(f => f.t < 0.22);
+        sn.t = this.snipePick(snipeN(this.covLv));
+        if (!sn.t.length) sn.c = Math.max(0, sn.c - dt / need);
+        else if (mv > 25) sn.c = Math.max(0, sn.c - 2 * dt / need);   // 移動：瞄準星快速退散，要停下來才會蓄滿
+        else sn.c = Math.min(1, sn.c + dt / need);
+        if (sn.c < 1 || !sn.t.length) return;
+        const n = this.st.dmg * SNIPE_K, src = { pen: this.st.pen, crit: Math.min(1, this.st.crit + SNIPE_CRIT_BONUS) };
+        sn.t.forEach(t => {
+            const o = t.o; sn.fx.push({ x1: P.pos.x, y1: P.pos.y - 20, x2: o.pos.x, y2: o.pos.y, t: 0 }); this.burst(o.pos.x, o.pos.y, 5);
+            if (t.k === 'm') { o.hp -= n; if (o.hp <= 0) { const i = this.idiomBlocks.indexOf(o); if (i >= 0) { this.blockBreak(o); sfx.playExplosion(); this.idiomBlocks.splice(i, 1); } } return; }
+            this.dmgEnt(o, n, false, true, src);
+            if (t.k === 'e' && o.hp <= 0) { const i = this.enemies.indexOf(o); if (i >= 0) { this.dropDarkMatter(o.pos.x, o.pos.y, o.maxHp * 1.5); this.runKills = (this.runKills || 0) + 1; this.enemyDrop(o); sfx.playExplosion(); this.enemies.splice(i, 1); } }
+        });
+        sfx.playHit(); sn.c = 0; sn.t = [];
+    }
+    drawSnipe(ctx) {
+        const sn = this.snipe, P = this.player.pos, c = sn.c, full = c >= 0.999, col = full ? '#ffffff' : '#ff5ec4';
+        ctx.save(); ctx.lineCap = 'round';
+        sn.t.forEach(({ o }) => {
+            const r0 = o.radius || 30, rr = r0 * (2.4 - 1.3 * c) + 4;
+            ctx.strokeStyle = col; ctx.shadowColor = '#ff5ec4'; ctx.shadowBlur = 8;
+            ctx.globalAlpha = 0.2 + 0.6 * c; ctx.lineWidth = 1 + 2 * c; ctx.setLineDash(full ? [] : [8, 8]);
+            ctx.beginPath(); ctx.moveTo(P.x, P.y - 20); ctx.lineTo(o.pos.x, o.pos.y); ctx.stroke(); ctx.setLineDash([]);
+            ctx.globalAlpha = 0.45 + 0.55 * c; ctx.lineWidth = 2 + 2 * c;
+            ctx.beginPath(); ctx.arc(o.pos.x, o.pos.y, rr, 0, Math.PI * 2); ctx.stroke();
+            const a = rr + 8, b = rr - 8; ctx.beginPath();
+            ctx.moveTo(o.pos.x - a, o.pos.y); ctx.lineTo(o.pos.x - b, o.pos.y); ctx.moveTo(o.pos.x + a, o.pos.y); ctx.lineTo(o.pos.x + b, o.pos.y);
+            ctx.moveTo(o.pos.x, o.pos.y - a); ctx.lineTo(o.pos.x, o.pos.y - b); ctx.moveTo(o.pos.x, o.pos.y + a); ctx.lineTo(o.pos.x, o.pos.y + b); ctx.stroke();
+        });
+        ctx.shadowBlur = 0; ctx.globalAlpha = 0.9; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,0.15)';   // 機身周圍的蓄力環
+        ctx.beginPath(); ctx.arc(P.x, P.y, 44, 0, Math.PI * 2); ctx.stroke();
+        if (c > 0) { ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(P.x, P.y, 44, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * c); ctx.stroke(); }
+        sn.fx.forEach(f => { const k = 1 - f.t / 0.22; ctx.globalAlpha = k; ctx.shadowColor = '#ff5ec4'; ctx.shadowBlur = 16; ctx.strokeStyle = '#ff5ec4'; ctx.lineWidth = 9 * k + 2; ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3 * k + 1; ctx.stroke(); });
+        ctx.restore();
+    }
     dmgEnt(e, n, pf, hit, src) {
         this.shieldOf(e);
         let pierce = 0, crit = 0;
         if (hit) {
             n += Math.random() * 0.99;   // 顯示傷害 ×100 後個位、十位隨機（7 → 700~799）
             if (src && Math.random() < (src.crit || 0)) { crit = 1.5 + Math.random() * 1.5; n *= crit; }   // 爆擊：原傷害 1.5~3 倍
-            const def = Math.max(0, this.armorLv(e) - ((src && src.pen) || 0)) * DEF_PER_LV;   // 防禦力＝裝甲等級－穿甲等級，最低 0
+            const def = (src && src.pierce) ? 0 : Math.max(0, this.armorLv(e) - ((src && src.pen) || 0)) * DEF_PER_LV;   // 防禦力＝裝甲等級－穿甲等級，最低 0；穿甲號的子彈無視裝甲（防禦視為 0）
             n = Math.max(n * MIN_DMG_K, n - def);
         }
         if ((this.pierceTimer > 0 || pf) && e.shield > 0) { pierce = 2 + Math.random(); n *= pierce; if (hit) n += (e.maxHp || 0) * 0.01; }   // 穿甲彈：對有護盾的目標造成 2~3 倍傷害，另外損失目標總血量 1%
@@ -1434,7 +1484,7 @@ class Game {
                     </div>
                     <div class="tile w2" style="--a:#b026ff;--b:#ff3366" onclick="game.openHangar()">
                         ${im(img)}
-                        <div class="f1"><h4>戰機管理 [H]</h4><small>${S.name}｜${S.role}</small><small>傷害 ${Math.round(st.dmg * SHOW)}　射速 ${(1000 / st.iv).toFixed(1)}/秒</small><small>血量 ${Math.round(st.hp * SHOW)}　移速 ${Math.round(st.spd)}</small><small>穿甲 ${st.pen}　爆擊 ${Math.round(st.crit * 100)}%</small></div>
+                        <div class="f1"><h4>戰機管理 [H]</h4><small>${S.name}｜${S.role}</small><small>傷害 ${Math.round(st.dmg * SHOW)}　${S.pat === 'snipe' ? '鎖定 ' + this.snipeNeedOf(S.id).toFixed(1) + ' 秒' : '射速 ' + (1000 / st.iv).toFixed(1) + '/秒'}</small><small>血量 ${Math.round(st.hp * SHOW)}　移速 ${Math.round(st.spd)}</small><small>穿甲 ${st.pen}　爆擊 ${Math.round(st.crit * 100)}%</small></div>
                     </div>
                     <div class="tile" style="--a:#ffcc00;--b:#ff7a00" onclick="game.setState('SHOP')"><h4>軍械改裝工廠</h4><small>[S]</small><small>持有 ${this.darkMatter} DM</small><span class="ico">⚒</span></div>
                     <div class="tile" style="--a:#2b3a67;--b:#4b5b8f" onclick="game.openSettings()"><h4>設定</h4><small>[O]</small><small>音量・離線・關於</small><span class="ico">⚙</span></div>
@@ -1518,7 +1568,7 @@ class Game {
     }
 
     startNewGame() {
-        sfx.init(); this.tryFullscreen(); this.applyUpgrades(); this.shield = 0; this.pierceTimer = 0; this.missileTimer = 0; this.allies = []; this.allyTimer = 0; this.runDM = 0; this.runKills = 0; this.runCasts = 0; this.clearT = 0; this.idleT = 0; this.idleGain = 0; this.idleAnchor = null; this.currentStage = Math.min(this.startStage, this.bestStage); this.currentSub = 1; this.score = 0; 
+        sfx.init(); this.tryFullscreen(); this.applyUpgrades(); this.shield = 0; this.pierceTimer = 0; this.missileTimer = 0; this.allies = []; this.allyTimer = 0; this.runDM = 0; this.runKills = 0; this.runCasts = 0; this.clearT = 0; this.snipe = { c: 0, t: [], fx: [] }; this.idleT = 0; this.idleGain = 0; this.idleAnchor = null; this.currentStage = Math.min(this.startStage, this.bestStage); this.currentSub = 1; this.score = 0; 
         this.hp = this.maxHp; this.slots = []; 
         this.fillEmptySlots(); // 遊戲開始時塞滿隨機成語任務
         this.resetStage(); this.setState('PLAYING');
@@ -1806,16 +1856,17 @@ class Game {
         const fireRate = this.player.rapidFire > 0 ? Math.min(50, this.st.interval) : this.st.interval;
         if (Date.now() - this.player.lastShoot > fireRate) {
             const dmg = this.st.dmg;
-            const shootBullet = (offset, angle, rs) => {
+            const shootBullet = (offset, angle, rs, dm) => {
                 const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + offset, this.player.pos.y - 25);
                 b.vel = new Vec2(Math.sin(angle)*800, -Math.cos(angle)*800);
-                b.isPlayer = true; b.damage = dmg; b.pen = this.st.pen; b.crit = this.st.crit; b.turn = 0; b.target = null; styleBullet(b, dmg); if (rs && rs !== 1) b.radius *= rs; b.homing = this.missileTimer > 0; b.pierce = !!SKINS[this.skin].pierce;
+                b.isPlayer = true; b.damage = dmg * (dm || 1); b.pen = this.st.pen; b.crit = this.st.crit; b.turn = 0; b.target = null; styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; b.homing = this.missileTimer > 0; b.pierce = !!SKINS[this.skin].pierce;
             };
-            const shots = patternShots(SKINS[this.skin], this.covLv);   // 依戰機的火力覆蓋等級決定彈道
-            shots.forEach(sh => shootBullet(sh.o, sh.a, sh.rs));
+            const shots = patternShots(SKINS[this.skin], this.covLv, this.pkMode);   // 依戰機的火力覆蓋等級決定彈道
+            shots.forEach(sh => shootBullet(sh.o, sh.a, sh.rs, sh.dm));
             if (this.player.spreadFire > 0) [[-15, -0.15], [15, 0.15], [-25, -0.3], [25, 0.3], [-35, -0.45], [35, 0.45]].forEach(([o, a]) => { if (!shots.some(sh => Math.abs(sh.a - a) < 0.02)) shootBullet(o, a); });   // 散射道具：額外加開扇形
             this.player.lastShoot = Date.now(); sfx.playShoot(this.player.spreadFire > 0 ? 2 : this.player.rapidFire > 0 ? 1 : 0);
         }
+        if (!this.pkMode && SKINS[this.skin].pat === 'snipe') this.snipeUpdate(dt); else if (this.snipe) { this.snipe.c = 0; this.snipe.t = []; this.snipe.fx = []; }
 
         if (!this.pkMode && !this.boss && !(this.clearT > 0)) {   // PK 不出現 NPC 戰機與 Boss
             if (this.currentSub < 3) {
@@ -2297,6 +2348,7 @@ class Game {
             });
             this.enemies.forEach(e => { this.shieldOf(e); this.drawBars(ctx, e.pos.x, e.pos.y - e.radius * 1.7 - 6, e.radius * 2.4, e.hp, e.maxHp, e.shield, e.maxShield, e.color); });
             if (this.boss) { this.shieldOf(this.boss); this.drawBars(ctx, this.boss.pos.x, this.boss.pos.y - this.boss.size * 0.5 - 14, 150, this.boss.hp, this.boss.maxHp, this.boss.shield, this.boss.maxShield, '#ff3333'); }
+            if (this.snipe && SKINS[this.skin].pat === 'snipe') this.drawSnipe(ctx);
             this.drawBars(ctx, this.player.pos.x, this.player.pos.y + 54 * SKINS[this.skin].s, 64, this.hp, this.maxHp, this.shield, this.maxHp, '#33ff88');
             if (this.clearT > 0) {
                 ctx.save(); ctx.textAlign = 'center'; ctx.font = "22px 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif"; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.fillStyle = '#ffea00';
@@ -3020,10 +3072,10 @@ const online = window.online = {
     },
     dexShips() {
         const TRAIT = { star: '均衡型：各項能力上限接近，適合新手。', wind: '機動靈巧：體型小、移動速度上限最高，但火力與裝甲上限低。適合對付玻璃砲型 Boss。', bastion: '重裝厚皮：血量與裝甲上限最高，移動較慢。最適合對付彈幕型 Boss。',
-            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '爆擊刺客：爆擊率上限高達 85%（需把「爆擊」升到 16 級；基礎 20%），爆擊時造成 1.5～3 倍傷害。火力與裝甲偏低，適合對付玻璃砲型 Boss。', lance: '穿甲型：初始穿甲等級 3、上限 16，可大幅抵銷敵人的裝甲等級；子彈另外自帶穿甲彈，對有裝甲（護盾）的敵人固定造成 2～3 倍傷害，對沒有裝甲的敵人則是一般傷害。適合鐵甲型 Boss、坦克與護衛機。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。升滿後可同時向四面八方放射子彈，不怕被包夾；代價是單發威力低於其他戰機。適合對付玻璃砲型 Boss 與成群的小怪。' };
+            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：子彈無視敵人的裝甲（防禦視為 0），並且對有護盾的目標固定造成 2～3 倍傷害。適合鐵甲型 Boss、坦克與護衛機。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。升滿後 16 發子彈平均散佈在圓周各方向同時放射，不怕被包夾；代價是單發威力低於其他戰機。適合對付玻璃砲型 Boss 與成群的小怪。' };
         return '<div class="lst">' + SHIPS.map(S => { const own = G.fleet && G.fleet[S.id] && G.fleet[S.id].own, c = S.cap;
             return `<div class="dx"><img src="${S.id === 'star' ? 'assets/player.png' : 'assets/ship_' + S.id + '.png'}" onerror="this.style.visibility='hidden'"><div><h3 style="color:${S.c}">${S.name} <small style="color:#aaa">${S.role}</small></h3>
-                <div class="t"><b>初始</b> 血量 ${S.hp * SHOW}・移速 ${S.spd}・傷害 ${Math.round(S.dmg * SHOW)}・基礎爆擊率 20%（上限 ${Math.round((S.critMax || 0.5) * 100)}%）・射速 ${(1000 / S.int).toFixed(1)}/秒<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}・穿甲 ${c.pen}・爆擊 ${c.crit}・火力覆蓋 ${c.cov}<br><b>火力覆蓋・${COV_INFO[S.pat][0]}</b>（初始 ${covLabel(S, S.base.cov)} → 滿級 ${covLabel(S, c.cov)}）：${COV_INFO[S.pat][1]}<br>${TRAIT[S.id]}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '軍械改裝工廠 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
+                <div class="t"><b>初始</b> 血量 ${S.hp * SHOW}・移速 ${S.spd}・傷害 ${Math.round(S.dmg * SHOW)}・基礎爆擊率 20%（上限 ${Math.round((S.critMax || 0.5) * 100)}%）・${S.pat === 'snipe' ? '狙擊鎖定 3 秒（射速滿級 1 秒）' : '射速 ' + (1000 / S.int).toFixed(1) + '/秒'}<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}・穿甲 ${c.pen}・爆擊 ${c.crit}・火力覆蓋 ${c.cov}<br><b>火力覆蓋・${COV_INFO[S.pat][0]}</b>（初始 ${covLabel(S, S.base.cov)} → 滿級 ${covLabel(S, c.cov)}）：${COV_INFO[S.pat][1]}<br>${TRAIT[S.id]}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '軍械改裝工廠 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
     },
     dexEnemies() {
         const E = [['SCOUT', '偵察機', '第 1 關起', '緩慢下降並大幅左右擺盪', '單發慢彈（頻率最低之一）', '血量低，新手關主力', 1.5],
@@ -3192,9 +3244,9 @@ const online = window.online = {
             p.ghostR = S.r || 15; g.cd -= dt * 1000;
             if (g.cd <= 0) {
                 g.cd = Math.max(55, S.iv);
-                const shoot = (off, ang, rs) => { const b = G.bullets.get(); b.pos = new Vec2(g.x + off, g.y + 25); b.vel = new Vec2(Math.sin(ang) * 800, Math.cos(ang) * 800);
-                    b.isPlayer = false; b.pk = true; b.damage = S.dmg; b.pen = S.pen || 0; b.crit = S.crit || 0; styleBullet(b, S.dmg); if (rs && rs !== 1) b.radius *= rs; };
-                const GS = S.pt && SHIPS.find(x => x.id === S.pt); if (GS) patternShots(GS, S.cv).forEach(sh => shoot(sh.o, sh.a, sh.rs)); else { shoot(0, 0); if (S.wl >= 3) { shoot(-15, -0.15); shoot(15, 0.15); } if (S.wl >= 6) { shoot(-25, -0.3); shoot(25, 0.3); } }
+                const shoot = (off, ang, rs, dm) => { const b = G.bullets.get(); b.pos = new Vec2(g.x + off, g.y + 25); b.vel = new Vec2(Math.sin(ang) * 800, Math.cos(ang) * 800);
+                    b.isPlayer = false; b.pk = true; b.damage = S.dmg * (dm || 1); b.pen = S.pen || 0; b.crit = S.crit || 0; b.pierce = !!(S.pt && (SHIPS.find(x => x.id === S.pt) || {}).pierce); styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; };
+                const GS = S.pt && SHIPS.find(x => x.id === S.pt); if (GS) patternShots(GS, S.cv, true).forEach(sh => shoot(sh.o, sh.a, sh.rs, sh.dm)); else { shoot(0, 0); if (S.wl >= 3) { shoot(-15, -0.15); shoot(15, 0.15); } if (S.wl >= 6) { shoot(-25, -0.3); shoot(25, 0.3); } }
             }
         }
         // 成語字塊：以房間開戰時間當亂數種子，雙方畫面產生同樣的字塊；數量為一般關卡的 2 倍（每秒 35%，一般是每 2 秒 35%）
@@ -3208,7 +3260,7 @@ const online = window.online = {
     },
     pkDmg(b) {   // 對手子彈打到我：爆擊、穿甲、裝甲與一般戰鬥相同
         let n = b.damage + Math.random() * 0.99; if (Math.random() < (b.crit || 0)) n *= 1.5 + Math.random() * 1.5;
-        const def = Math.max(0, (G.fleet[G.shipId].hp || 0) - (b.pen || 0)) * DEF_PER_LV;
+        const def = b.pierce ? 0 : Math.max(0, (G.fleet[G.shipId].hp || 0) - (b.pen || 0)) * DEF_PER_LV;
         return Math.max(n * MIN_DMG_K, n - def);
     },
     pkPop(id) { const p = this.pk; if (!p || !p.started) return; this.roomRef(p.code).collection('events').add({ matchId: p.matchId, type: 'pop', by: this.user.uid, id, ts: Date.now() }).catch(() => {}); },
