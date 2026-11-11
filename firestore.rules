@@ -22,9 +22,10 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if signedIn();
       allow create, update: if signedIn() && ((request.auth.uid == uid && notBanned()) || isAdmin());
-      match /friends/{fid} { allow read, write: if signedIn() && request.auth.uid == uid; }
+      allow delete: if isAdmin();   // 管理員刪除帳號
+      match /friends/{fid} { allow read, write: if signedIn() && request.auth.uid == uid; allow delete: if isAdmin(); }
       match /invites/{code} {
-        allow read, delete: if signedIn() && request.auth.uid == uid;
+        allow read, delete: if signedIn() && (request.auth.uid == uid || isAdmin());
         allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
       }
     }
@@ -40,6 +41,7 @@ service cloud.firestore {
     match /presence/{uid} {
       allow read: if signedIn();
       allow write: if signedIn() && request.auth.uid == uid && notBanned();
+      allow delete: if isAdmin();
     }
 
     // 大廳聊天

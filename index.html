@@ -356,7 +356,7 @@ const sfx = new RetroAudio();
 document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !e.repeat && (e.key.length === 1 || e.key === 'Backspace')) { try { sfx.playType(); } catch (_) {} } }, true);
 
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
-const APP_VERSION = '20261111-4', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261111-8', APP_AUTHOR = '郭柏宏';
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
 function updateWorld() {
@@ -369,30 +369,59 @@ updateWorld();
 // ===== AI 圖片素材：放在 index.html 旁的 assets/ 資料夾，缺檔時自動使用內建向量圖 =====
 const ASSET_FILES = { player:'assets/player.png', scout:'assets/enemy_scout.png', fighter:'assets/enemy_fighter.png',
     tank:'assets/enemy_tank.png', boss:'assets/boss.png', block:'assets/idiom_block.png', dart:'assets/enemy_dart.png', swarm:'assets/enemy_swarm.png', sniper:'assets/enemy_sniper.png', bomber:'assets/enemy_bomber.png', guard:'assets/enemy_guard.png',
-    ship_wind:'assets/ship_wind.png', ship_bastion:'assets/ship_bastion.png', ship_blaze:'assets/ship_blaze.png', ship_storm:'assets/ship_storm.png', ship_lance:'assets/ship_lance.png', ship_assassin:'assets/ship_assassin.png' };
+    ship_wind:'assets/ship_wind.png', ship_bastion:'assets/ship_bastion.png', ship_blaze:'assets/ship_blaze.png', ship_storm:'assets/ship_storm.png', ship_lance:'assets/ship_lance.png', ship_assassin:'assets/ship_assassin.png', ship_nova:'assets/ship_nova.png' };
 for (let i = 1; i <= 9; i++) ASSET_FILES['boss_' + i] = `assets/boss_${i}.png`;   // 每關各自的 Boss 圖，缺檔用 boss.png 或向量圖
 // 所有文字都不加光暈：畫布文字繪製時暫時關閉 shadow
 ['fillText', 'strokeText'].forEach(n => { const o = CanvasRenderingContext2D.prototype[n]; CanvasRenderingContext2D.prototype[n] = function (...a) { const b = this.shadowBlur; this.shadowBlur = 0; try { return o.apply(this, a); } finally { this.shadowBlur = b; } }; });
 const IMG = {};
 // 機種：hp/spd/dmg/int 為基礎值，base 為初始等級，cap 為該機種各能力的等級上限，fit 為對各類 Boss 的適性
 const SHIPS = [
-    { id:'star', name:'星藍號', role:'均衡型', c:'#00f2ff', h:0, s:1, r:15, price:0, hp:100, spd:240, dmg:1.3, int:320,
-      base:{ dmg:1, rate:0, hp:0, spd:0, pen:0, crit:0 }, cap:{ dmg:8, rate:8, hp:8, spd:8, pen:8, crit:8 }, fit:{ GLASS:2, TANK:2, BARRAGE:2 } },
-    { id:'wind', name:'疾風號', role:'機動靈巧', c:'#00ffcc', h:-20, s:0.9, r:12, price:600, hp:70, spd:300, dmg:0.9, int:290,
-      base:{ dmg:1, rate:1, hp:0, spd:2, pen:0, crit:0 }, cap:{ dmg:5, rate:6, hp:4, spd:14, pen:5, crit:8 }, fit:{ GLASS:3, TANK:1, BARRAGE:2 } },
-    { id:'bastion', name:'堡壘號', role:'重裝厚皮', c:'#b026ff', h:100, s:1.2, r:18, price:800, hp:170, spd:190, dmg:1.0, int:380,
-      base:{ dmg:1, rate:0, hp:3, spd:0, pen:0, crit:0 }, cap:{ dmg:6, rate:5, hp:16, spd:4, pen:4, crit:8 }, fit:{ GLASS:1, TANK:2, BARRAGE:3 } },
-    { id:'blaze', name:'烈焰號', role:'高輸出', c:'#ff3366', h:170, s:1.05, r:15, price:1000, hp:85, spd:220, dmg:2.0, int:420,
-      base:{ dmg:3, rate:0, hp:0, spd:1, pen:0, crit:0 }, cap:{ dmg:16, rate:4, hp:5, spd:5, pen:8, crit:8 }, fit:{ GLASS:2, TANK:3, BARRAGE:1 } },
-    { id:'storm', name:'連射號', role:'射速快', c:'#ffea00', h:-120, s:1, r:15, price:1000, hp:90, spd:240, dmg:0.8, int:230,
-      base:{ dmg:1, rate:3, hp:0, spd:1, pen:0, crit:0 }, cap:{ dmg:5, rate:16, hp:6, spd:7, pen:5, crit:8 }, fit:{ GLASS:3, TANK:2, BARRAGE:1 } },
-    { id:'lance', name:'穿甲號', role:'穿甲型', c:'#ff8a00', h:205, s:1.05, r:15, price:1200, hp:95, spd:230, dmg:1.6, int:340, pierce:true,
-      base:{ dmg:2, rate:0, hp:0, spd:0, pen:3, crit:0 }, cap:{ dmg:10, rate:6, hp:6, spd:6, pen:16, crit:8 }, fit:{ GLASS:1, TANK:3, BARRAGE:1 } },
-    { id:'assassin', name:'暗殺號', role:'爆擊刺客', c:'#ff5ec4', h:0, s:0.95, r:13, price:1500, hp:75, spd:270, dmg:1.1, int:300, critMax:0.85,
-      base:{ dmg:1, rate:1, hp:0, spd:1, pen:0, crit:0 }, cap:{ dmg:7, rate:8, hp:5, spd:9, pen:8, crit:16 }, fit:{ GLASS:3, TANK:1, BARRAGE:1 } }
+    { id:'star', pat:'fan', name:'星藍號', role:'均衡型', c:'#00f2ff', h:0, s:1, r:15, price:0, hp:100, spd:240, dmg:1.3, int:320,
+      base:{ dmg:1, rate:0, hp:0, spd:0, pen:0, crit:0, cov:2 }, cap:{ dmg:8, rate:8, hp:8, spd:8, pen:8, crit:8, cov:6 }, fit:{ GLASS:2, TANK:2, BARRAGE:2 } },
+    { id:'wind', pat:'twin', name:'疾風號', role:'機動靈巧', c:'#00ffcc', h:-20, s:0.9, r:12, price:600, hp:70, spd:300, dmg:0.9, int:290,
+      base:{ dmg:1, rate:1, hp:0, spd:2, pen:0, crit:0, cov:0 }, cap:{ dmg:5, rate:6, hp:4, spd:14, pen:5, crit:8, cov:4 }, fit:{ GLASS:3, TANK:1, BARRAGE:2 } },
+    { id:'bastion', pat:'wide', name:'堡壘號', role:'重裝厚皮', c:'#b026ff', h:100, s:1.2, r:18, price:800, hp:170, spd:190, dmg:1.0, int:380,
+      base:{ dmg:1, rate:0, hp:3, spd:0, pen:0, crit:0, cov:1 }, cap:{ dmg:6, rate:5, hp:16, spd:4, pen:4, crit:8, cov:6 }, fit:{ GLASS:1, TANK:2, BARRAGE:3 } },
+    { id:'blaze', pat:'big', name:'烈焰號', role:'高輸出', c:'#ff3366', h:170, s:1.05, r:15, price:1000, hp:85, spd:220, dmg:2.0, int:420,
+      base:{ dmg:3, rate:0, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:16, rate:4, hp:5, spd:5, pen:8, crit:8, cov:8 }, fit:{ GLASS:2, TANK:3, BARRAGE:1 } },
+    { id:'storm', pat:'focus', name:'連射號', role:'射速快', c:'#ffea00', h:-120, s:1, r:15, price:1000, hp:90, spd:240, dmg:0.8, int:230,
+      base:{ dmg:1, rate:3, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:5, rate:16, hp:6, spd:7, pen:5, crit:8, cov:4 }, fit:{ GLASS:3, TANK:2, BARRAGE:1 } },
+    { id:'lance', pat:'lane', name:'穿甲號', role:'穿甲型', c:'#ff8a00', h:205, s:1.05, r:15, price:1200, hp:95, spd:230, dmg:1.6, int:340, pierce:true,
+      base:{ dmg:2, rate:0, hp:0, spd:0, pen:3, crit:0, cov:0 }, cap:{ dmg:10, rate:6, hp:6, spd:6, pen:16, crit:8, cov:6 }, fit:{ GLASS:1, TANK:3, BARRAGE:1 } },
+    { id:'assassin', pat:'back', name:'暗殺號', role:'爆擊刺客', c:'#ff5ec4', h:0, s:0.95, r:13, price:1500, hp:75, spd:270, dmg:1.1, int:300, critMax:0.85,
+      base:{ dmg:1, rate:1, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:7, rate:8, hp:5, spd:9, pen:8, crit:16, cov:4 }, fit:{ GLASS:3, TANK:1, BARRAGE:1 } }    ,{ id:'nova', pat:'ring', name:'環陣號', role:'全向火網', c:'#9dff6a', h:90, s:1, r:15, price:2200, hp:80, spd:235, dmg:0.7, int:340,
+      base:{ dmg:1, rate:0, hp:0, spd:0, pen:0, crit:0, cov:0 }, cap:{ dmg:6, rate:8, hp:6, spd:8, pen:5, crit:8, cov:16 }, fit:{ GLASS:2, TANK:1, BARRAGE:2 } }
 ];
 const SKINS = SHIPS;
-const STAT_KEYS = [['dmg', '火力'], ['rate', '射速'], ['hp', '裝甲'], ['spd', '機動'], ['pen', '穿甲'], ['crit', '爆擊']];
+const STAT_KEYS = [['dmg', '火力'], ['rate', '射速'], ['hp', '裝甲'], ['spd', '機動'], ['pen', '穿甲'], ['crit', '爆擊'], ['cov', '火力覆蓋']];
+// ===== 火力覆蓋：每種戰機有自己的射擊方式，覆蓋等級越高，彈道越多／越寬／越大顆 =====
+// 角度 a：0＝正前方，正負 π/2＝左右側，π＝正後方；o＝發射位置橫向偏移；rs＝子彈大小倍率
+const COV_INFO = {
+    fan: ['扇形散射', '正前方為主，每升 2 級加開一對左右斜向子彈，扇面逐漸變寬（最多 7 發）。'],
+    twin: ['雙管直射', '只朝正前方射擊，升級後增加並排的平行槍管（最多 3 條），彈道窄但集中。'],
+    focus: ['窄角集束', '只朝正前方射擊，升級後加開貼近中線的窄角子彈（最多 5 發），適合集中輸出。'],
+    wide: ['正面＋側面', '正前方之外，升級後依序加開前方斜射、左右側面、側後方子彈（最多 7 發），能打到兩側的敵人。'],
+    big: ['巨型單發', '永遠只有一發子彈，但每升 1 級子彈變大 12%（滿級約 2 倍），判定範圍也跟著變大。'],
+    lane: ['穿透平行線', '只朝正前方射擊，升級後增加間隔較寬的平行穿透彈道（最多 4 條），可同時貫穿多排敵人。'],
+    back: ['正面＋背刺', '升到 2 級加開前方斜向子彈，4 級起向左右後方斜射，專門解決繞到背後的敵人。'],
+    ring: ['全向火網', '每升 3 級依序擴大：前方 3 發 → 5 發扇面 → 左右側 → 斜前方 → 斜後方，滿級 16 向四面八方（8 個方位）同時放射，共 12 發；但單發威力低於其他戰機。']
+};
+function patternShots(S, lv) {
+    lv = Math.max(0, lv || 0); const out = [], add = (a, o = 0, rs = 1) => out.push({ a, o, rs }), both = (a, o = 0) => { add(-a, -o); add(a, o); };
+    switch (S && S.pat) {
+        case 'fan': { add(0); const k = Math.min(3, Math.floor(lv / 2)); for (let i = 1; i <= k; i++) both(0.15 * i, 10 * i + 5); break; }
+        case 'twin': { const n = 1 + Math.floor(lv / 2); for (let i = 0; i < n; i++) add(0, (i - (n - 1) / 2) * 11); break; }
+        case 'focus': { add(0); const k = Math.min(2, Math.floor(lv / 2)); for (let i = 1; i <= k; i++) both(0.05 * i, 6 * i); break; }
+        case 'wide': add(0); if (lv >= 1) both(0.18, 14); if (lv >= 3) both(1.35, 24); if (lv >= 5) both(1.95, 24); break;
+        case 'big': add(0, 0, 1 + 0.12 * lv); break;
+        case 'lane': { const n = 1 + Math.floor(lv / 2); for (let i = 0; i < n; i++) add(0, (i - (n - 1) / 2) * 24); break; }
+        case 'back': add(0); if (lv >= 2) both(0.25, 12); if (lv >= 4) both(2.6, 12); break;
+        case 'ring': add(0); both(0.2, 12); if (lv >= 3) both(0.4, 22); if (lv >= 6) both(Math.PI / 2, 24); if (lv >= 9) both(Math.PI / 4, 20); if (lv >= 12) both(Math.PI * 3 / 4, 20); if (lv >= 16) add(Math.PI, 0); break;
+        default: add(0);
+    }
+    return out;
+}
+function covLabel(S, lv) { const sh = patternShots(S, lv); return S.pat === 'big' ? '大彈×' + sh[0].rs.toFixed(2) : sh.length + ' 發'; }
 const CRIT_BASE = 0.2, SHOW = 100, DEF_PER_LV = 0.12, MIN_DMG_K = 0.15;   // SHOW：畫面上傷害／血量數字的倍率；每級裝甲＝12（顯示值）防禦；穿甲後最低仍有 15% 傷害
 const ARMOR_LV = { SCOUT: 0, DART: 0, SWARM: 0, FIGHTER: 1, SNIPER: 2, BOMBER: 2, TANK: 5, GUARD: 7 }, BOSS_ARMOR = { GLASS: 2, BARRAGE: 4, TANK: 8, FINAL: 10 };
 // 子彈火力分級：大小 3 種（小中大）× 七彩 7 色（紅最弱 → 紫最強）＝ 21 級；小紅最弱、大紫最強
@@ -908,7 +937,7 @@ class Game {
     applyUpgrades() {
         const S = this.ship(), st = this.statsOf(S.id);
         this.st = { dmg: st.dmg, interval: st.iv, pen: st.pen, crit: st.crit }; this.maxHp = st.hp; this.player.speed = st.spd; this.player.radius = S.r;
-        this.weaponLvl = this.fleet[S.id].dmg; this.skin = SHIPS.indexOf(S);
+        this.weaponLvl = this.fleet[S.id].dmg; this.covLv = this.fleet[S.id].cov || 0; this.skin = SHIPS.indexOf(S);
     }
         summonAllies() {   // 呼叫友軍：已擁有（不含目前出戰）的戰機；若沒有其他戰機，派出基礎僚機
         const others = SHIPS.filter(S => this.fleet[S.id].own && S.id !== this.shipId);
@@ -916,7 +945,7 @@ class Game {
         this.allies = list.map((S, i) => {
             const st = this.statsOf(S.id), hp = Math.round(st.hp);
             return { sid: S.id, slot: i, pos: new Vec2(this.player.pos.x + (i - (list.length - 1) / 2) * 80, WORLD.h + 70 + i * 16), enter: true,
-                hp, maxHp: hp, pen: st.pen, crit: st.crit, dmg: st.dmg, iv: st.iv / 1000, spd: st.spd, wl: this.fleet[S.id].dmg, cd: 0, radius: S.r + 2 };   // 數值與該戰機完全相同
+                hp, maxHp: hp, pen: st.pen, crit: st.crit, dmg: st.dmg, iv: st.iv / 1000, spd: st.spd, wl: this.fleet[S.id].dmg, cv: this.fleet[S.id].cov || 0, cd: 0, radius: S.r + 2 };   // 數值與該戰機完全相同
         });
         this.allyTimer = 15; this.showFloatText('友軍出動！', this.player.pos.x, this.player.pos.y - 90, '#7ad7ff');
     }
@@ -938,8 +967,8 @@ class Game {
             a.cd -= dt;
             if (a.cd <= 0) {
                 a.cd = a.iv;
-                const shot = (off, ang) => { const b = this.bullets.get(); b.pos = new Vec2(a.pos.x + off, a.pos.y - 22); b.vel = new Vec2(Math.sin(ang) * 800, -Math.cos(ang) * 800); b.isPlayer = true; b.homing = false; b.damage = a.dmg; b.pen = a.pen; b.crit = a.crit; styleBullet(b, a.dmg); b.pierce = !!this.ship(a.sid).pierce; };
-                shot(0, 0); if (a.wl >= 3) { shot(-15, -0.15); shot(15, 0.15); } if (a.wl >= 6) { shot(-25, -0.3); shot(25, 0.3); }   // 與本機相同的火力等級彈道
+                const shot = (off, ang, rs) => { const b = this.bullets.get(); b.pos = new Vec2(a.pos.x + off, a.pos.y - 22); b.vel = new Vec2(Math.sin(ang) * 800, -Math.cos(ang) * 800); b.isPlayer = true; b.homing = false; b.damage = a.dmg; b.pen = a.pen; b.crit = a.crit; styleBullet(b, a.dmg); if (rs && rs !== 1) b.radius *= rs; b.pierce = !!this.ship(a.sid).pierce; };
+                patternShots(this.ship(a.sid), a.cv).forEach(sh => shot(sh.o, sh.a, sh.rs));   // 與本機相同的火力覆蓋彈道
             }
             for (let j = this.charItems.length - 1; j >= 0; j--) { const c = this.charItems[j]; if (Math.hypot(c.pos.x - a.pos.x, c.pos.y - a.pos.y) < 38) { this.collectChar(c.char); this.charItems.splice(j, 1); } }
             this.bullets.pool.forEach(b => { if (b.active && !b.isPlayer && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) < a.radius + b.radius + 4) { a.hp -= b.damage * 10; b.active = false; } });
@@ -1417,22 +1446,22 @@ class Game {
         const KS = STAT_KEYS;
         const cards = SHIPS.map((S, i) => {
             const F = this.fleet[S.id], st = this.statsOf(S.id), own = F.own;
-            const val = { dmg: Math.round(st.dmg * SHOW), rate: (1000 / st.iv).toFixed(1) + '/秒', hp: Math.round(st.hp * SHOW), spd: Math.round(st.spd), pen: st.pen, crit: Math.round(st.crit * 100) + '%' };
+            const val = { dmg: Math.round(st.dmg * SHOW), rate: (1000 / st.iv).toFixed(1) + '/秒', hp: Math.round(st.hp * SHOW), spd: Math.round(st.spd), pen: st.pen, crit: Math.round(st.crit * 100) + '%', cov: covLabel(S, F.cov) };
             const rows = KS.map(([k, n], j) => {
                 const lv = F[k], max = S.cap[k], cost = (lv + 1) * 80, full = lv >= max;
                 return `<div class="st"><span>${n}</span><div class="bar" style="background:linear-gradient(90deg,#2a2f4a ${max / 16 * 100}%,#0b0b14 0);"><i style="width:${lv / 16 * 100}%;"></i></div><b>${val[k]}</b>${own ? `<button ${full || this.darkMatter < cost ? 'disabled' : ''} onclick="event.stopPropagation();game.upgrade('${S.id}','${k}')">[${j + 1}] ${full ? 'MAX' : cost}</button>` : ''}</div>`;
             }).join('');
             const img = S.id === 'star' ? 'assets/player.png' : `assets/ship_${S.id}.png`;
             return `<div class="card ${i === this.hIdx ? 'sel' : ''} ${S.id === this.shipId ? 'eq' : ''} ${own ? '' : 'locked'}" onclick="game.hSel(${i})">
-                <img src="${img}" onerror="this.style.visibility='hidden'"><h3 style="color:${S.c};">${S.name}</h3><div style="font-size:0.8rem;color:#aaa;">${S.role}　等級上限 火${S.cap.dmg}/速${S.cap.rate}/甲${S.cap.hp}/動${S.cap.spd}/穿${S.cap.pen}/爆${S.cap.crit}</div>
+                <img src="${img}" onerror="this.style.visibility='hidden'"><h3 style="color:${S.c};">${S.name}</h3><div style="font-size:0.8rem;color:#aaa;">${S.role}　等級上限 火${S.cap.dmg}/速${S.cap.rate}/甲${S.cap.hp}/動${S.cap.spd}/穿${S.cap.pen}/爆${S.cap.crit}/覆${S.cap.cov}</div>
                 ${own ? rows : `<div class="st" style="color:var(--neon-gold);">尚未擁有・軍械改裝工廠 ${S.price} DM</div>${rows}`}</div>`;
         }).join('');
         this.uiLayer.innerHTML = `
             <div class="menu-overlay" style="width:min(96vw,1100px);max-width:none;">
                 <h2 class="shop-title" style="margin-bottom:4px;">戰機管理</h2>
-                <p style="color:var(--neon-purple); margin:4px 0;">持有暗物質: <b>${this.darkMatter} DM</b>　<small style="color:#aaa;">←／→ 選卡　1~6 升級　Enter 出戰　Esc 返回</small></p>
+                <p style="color:var(--neon-purple); margin:4px 0;">持有暗物質: <b>${this.darkMatter} DM</b>　<small style="color:#aaa;">←／→ 選卡　1~${KS.length} 升級　Enter 出戰　Esc 返回</small></p>
                 <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin:6px 0;">${this.radarSvg(SHIPS[this.hIdx])}
-                    <div style="text-align:left;font-size:.85rem;line-height:1.7;color:#ccd;"><b style="color:${SHIPS[this.hIdx].c};font-size:1.05rem;">${SHIPS[this.hIdx].name}</b>　${SHIPS[this.hIdx].role}<br>雷達圖滿格＝16 級<br><span style="color:${SHIPS[this.hIdx].c}">■</span> 目前等級　<span style="color:#889">┅</span> 等級上限</div></div>
+                    <div style="text-align:left;font-size:.85rem;line-height:1.7;color:#ccd;"><b style="color:${SHIPS[this.hIdx].c};font-size:1.05rem;">${SHIPS[this.hIdx].name}</b>　${SHIPS[this.hIdx].role}<br>雷達圖滿格＝16 級<br><b>火力覆蓋：${COV_INFO[SHIPS[this.hIdx].pat][0]}</b><br><span style="color:#9ab;font-size:.8rem;display:inline-block;max-width:260px;line-height:1.5">${COV_INFO[SHIPS[this.hIdx].pat][1]}</span><br><span style="color:${SHIPS[this.hIdx].c}">■</span> 目前等級　<span style="color:#889">┅</span> 等級上限</div></div>
                 <div class="cards">${cards}</div>
                 <button class="btn btn-shop" onclick="game.hEquip()">設為出戰戰機 [Enter]</button>
                 <button class="btn btn-start" style="margin-top:6px;" onclick="game.setState('LOBBY')">返回大廳 [Esc]</button>
@@ -1444,7 +1473,7 @@ class Game {
         SHIPS.forEach(X => {
             const o = this.fleet[X.id].own, c = X.cap;
             rows.push({ t: `${X.name}｜${X.role}`, dis: o || this.darkMatter < X.price,
-                sub: `${o ? '已擁有（到「戰機管理」升級／出戰）' : X.price + ' DM'}・上限 火${c.dmg} 速${c.rate} 甲${c.hp} 動${c.spd} 穿${c.pen} 爆${c.crit}`,
+                sub: `${o ? '已擁有（到「戰機管理」升級／出戰）' : X.price + ' DM'}・上限 火${c.dmg} 速${c.rate} 甲${c.hp} 動${c.spd} 穿${c.pen} 爆${c.crit} 覆${c.cov}`,
                 run: () => { this.darkMatter -= X.price; this.fleet[X.id].own = true; } });
         });
         [['成語列', '同時收集的成語數', this.maxSlots, 6, this.maxSlots * 50, () => { this.maxSlots++; this.fillEmptySlots(); }],
@@ -1777,15 +1806,14 @@ class Game {
         const fireRate = this.player.rapidFire > 0 ? Math.min(50, this.st.interval) : this.st.interval;
         if (Date.now() - this.player.lastShoot > fireRate) {
             const dmg = this.st.dmg;
-            const shootBullet = (offset, angle) => {
+            const shootBullet = (offset, angle, rs) => {
                 const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + offset, this.player.pos.y - 25);
                 b.vel = new Vec2(Math.sin(angle)*800, -Math.cos(angle)*800);
-                b.isPlayer = true; b.damage = dmg; b.pen = this.st.pen; b.crit = this.st.crit; b.turn = 0; b.target = null; styleBullet(b, dmg); b.homing = this.missileTimer > 0; b.pierce = !!SKINS[this.skin].pierce;
+                b.isPlayer = true; b.damage = dmg; b.pen = this.st.pen; b.crit = this.st.crit; b.turn = 0; b.target = null; styleBullet(b, dmg); if (rs && rs !== 1) b.radius *= rs; b.homing = this.missileTimer > 0; b.pierce = !!SKINS[this.skin].pierce;
             };
-            shootBullet(0, 0); 
-            if (this.weaponLvl >= 3 || this.player.spreadFire > 0) { shootBullet(-15, -0.15); shootBullet(15, 0.15); }
-            if (this.weaponLvl >= 6 || this.player.spreadFire > 0) { shootBullet(-25, -0.3); shootBullet(25, 0.3); }
-            if (this.player.spreadFire > 0) { shootBullet(-35, -0.45); shootBullet(35, 0.45); }
+            const shots = patternShots(SKINS[this.skin], this.covLv);   // 依戰機的火力覆蓋等級決定彈道
+            shots.forEach(sh => shootBullet(sh.o, sh.a, sh.rs));
+            if (this.player.spreadFire > 0) [[-15, -0.15], [15, 0.15], [-25, -0.3], [25, 0.3], [-35, -0.45], [35, 0.45]].forEach(([o, a]) => { if (!shots.some(sh => Math.abs(sh.a - a) < 0.02)) shootBullet(o, a); });   // 散射道具：額外加開扇形
             this.player.lastShoot = Date.now(); sfx.playShoot(this.player.spreadFire > 0 ? 2 : this.player.rapidFire > 0 ? 1 : 0);
         }
 
@@ -1962,7 +1990,7 @@ class Game {
         else if (st === 'HANGAR') {
             if (e.code === 'ArrowLeft' || e.code === 'KeyA') this.hSel((this.hIdx + SHIPS.length - 1) % SHIPS.length);
             else if (e.code === 'ArrowRight' || e.code === 'KeyD') this.hSel((this.hIdx + 1) % SHIPS.length);
-            else if (num >= 1 && num <= 6) this.upgrade(SHIPS[this.hIdx].id, STAT_KEYS[num - 1][0]);
+            else if (num >= 1 && num <= STAT_KEYS.length) this.upgrade(SHIPS[this.hIdx].id, STAT_KEYS[num - 1][0]);
             else if (enter || e.code === 'KeyE') this.hEquip();
             else if (e.code === 'Escape' || e.code === 'KeyB') this.setState('LOBBY');
         }
@@ -2832,13 +2860,14 @@ const online = window.online = {
     async renderAdmin(tab, id) {
         if (!this.isAdmin && !this.adminDb) return G.setState('LOBBY');
         const adb = this.adminDb || db;
-        const T = [['users', '玩家管理'], ['lobby', '大廳'], ['group', '群組聊天'], ['dm', '好友私聊']];
+        const T = [['users', '玩家管理'], ['rank', '排行榜紀錄'], ['lobby', '大廳'], ['group', '群組聊天'], ['dm', '好友私聊']];
         tab = tab || 'users';
-        const usersBody = `<div class="row" style="gap:6px"><input class="inp" id="ad-q" placeholder="輸入玩家帳號（登入用帳號）" style="margin:0" onkeydown="if(event.key==='Enter')online.adFind()"><button class="sm" onclick="online.adFind()">搜尋</button></div><p id="ad-umsg" class="muted"></p><div id="ad-user" style="text-align:left"></div>`;
+        const usersBody = `<div class="row" style="gap:6px;margin-bottom:6px"><select class="inp" id="ad-sel" style="margin:0;flex:1" onchange="online.adPick(this.value)"><option value="">載入帳號清單中…</option></select><button class="sm" onclick="online.adList(true)" title="重新整理清單">↻</button></div><div class="row" style="gap:6px"><input class="inp" id="ad-q" placeholder="輸入玩家帳號（登入用帳號）" style="margin:0" onkeydown="if(event.key==='Enter')online.adFind()"><button class="sm" onclick="online.adFind()">搜尋</button></div><p id="ad-umsg" class="muted"></p><div id="ad-user" style="text-align:left"></div>`;
         ui(`<div class="menu-overlay" style="width:min(94vw,600px);max-height:92vh;overflow-y:auto"><h2 class="shop-title">管理員</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderAdmin('${t[0]}')">${t[1]}</button>`).join('')}</div>
-            ${tab === 'users' ? usersBody : `<div class="lst" id="ad-list">載入中…</div><h4 id="ad-title"></h4><div class="lst" id="ad-msgs" style="min-height:120px"></div>`}<button class="sm red" onclick="online.adminLogout()">登出管理員</button>${BACK}</div>`);
+            ${tab === 'users' ? usersBody : tab === 'rank' ? '<div id="ad-rk">載入中…</div>' : `<div class="lst" id="ad-list">載入中…</div><h4 id="ad-title"></h4><div class="lst" id="ad-msgs" style="min-height:120px"></div>`}<button class="sm red" onclick="online.adminLogout()">登出管理員</button>${BACK}</div>`);
         if (this._adUnsub) { this._adUnsub(); this._adUnsub = null; }
-        if (tab === 'users') { if (this._adT) this.adCard(); return; }
+        if (tab === 'users') { this.adList(); if (this._adT) this.adCard(); return; }
+        if (tab === 'rank') return this.adRank();
         try {
             if (tab === 'lobby') { $('ad-list').innerHTML = ''; return this.adView(adb.collection('lobbyChat'), '大廳'); }
             const s = await adb.collection(tab === 'group' ? 'groups' : 'dms').limit(100).get();
@@ -2848,6 +2877,62 @@ const online = window.online = {
     },
     // ----- 玩家管理：設定暗物質／免費升級戰機／重置／黑名單 -----
     adDefaultSave() { const f = {}; SHIPS.forEach(S => { f[S.id] = Object.assign({ own: S.price === 0 }, S.base); }); return { dm: 0, s: 1, m: 0, d: 0, f, i: 'star', b: 1, t: 1 }; },
+    // ----- 排行榜紀錄：管理員手動刪除某一筆排行榜紀錄 -----
+    async adRank(board, st) {
+        board = board || (this._adRk && this._adRk.board) || 'bestScore'; st = st || (this._adRk && this._adRk.st) || 1; this._adRk = { board, st };
+        const box = $('ad-rk'); if (!box) return; const adb = this.adminDb || db;
+        const T = [['bestScore', '最高分數'], ['totalDM', '累積暗物質'], ['spentDM', '花費排行'], ['clear', '全關破關時間'], ['stage', '各關卡']];
+        const sub = board === 'stage' ? `<div class="tabs">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button class="${n === st ? 'on' : ''}" onclick="online.adRank('stage',${n})">第${n}關</button>`).join('')}</div>` : '';
+        box.innerHTML = `<div class="tabs">${T.map(t => `<button class="${t[0] === board ? 'on' : ''}" onclick="online.adRank('${t[0]}')">${t[1]}</button>`).join('')}</div>${sub}<div class="lst" id="ad-rk-list">載入中…</div><p class="muted" id="ad-rk-msg">按「刪除」會清除該玩家在這個榜上的這一筆紀錄（玩家其他資料不受影響）。</p>`;
+        try {
+            const q = board === 'stage' ? adb.collection('users').orderBy('s' + st + 'Key', 'asc').limit(50) : board === 'clear' ? adb.collection('users').orderBy('clearKey', 'asc').limit(50) : adb.collection('users').orderBy(board, 'desc').limit(50);
+            const s = await q.get(); if (!$('ad-rk-list') || !this._adRk || this._adRk.board !== board || this._adRk.st !== st) return;
+            this._adRkRows = s.docs.map(d => ({ uid: d.id, x: d.data() })).filter(r => (board === 'stage' ? r.x['s' + st + 'Ms'] : board === 'clear' ? r.x.bestClearMs : r.x[board]) !== undefined && (board === 'stage' || board === 'clear' || r.x[board] > 0));
+            $('ad-rk-list').innerHTML = this._adRkRows.length ? this._adRkRows.map((r, i) => { const x = r.x, v = board === 'stage' ? fmtTime(x['s' + st + 'Ms']) : board === 'clear' ? fmtTime(x.bestClearMs) : (x[board] || 0);
+                return `<div class="row"><b class="n">${i + 1}</b><span>${esc(x.name || '')} <small style="color:#aaa">${esc(x.username || '')}${x.hideRank || x.username === ADMIN_USER ? '・不上榜' : ''}</small></span><b>${v}</b><button class="sm red" onclick="online.adRkDel(${i})">刪除</button></div>`; }).join('') : '<p class="muted">這個榜目前沒有紀錄</p>';
+        } catch (e) { const l = $('ad-rk-list'); if (l) l.textContent = errMsg(e); }
+    },
+    async adRkDel(i) {
+        const r = (this._adRkRows || [])[i], rk = this._adRk, adb = this.adminDb || db, m = $('ad-rk-msg'); if (!r || !rk) return;
+        const x = r.x, board = rk.board, st = rk.st, del = firebase.firestore.FieldValue.delete();
+        const label = { bestScore: '最高分數', totalDM: '累積暗物質', spentDM: '花費排行', clear: '全關破關時間', stage: `第 ${st} 關` }[board];
+        if (!confirm(`確定要刪除「${x.name || x.username || r.uid}」在【${label}】榜上的紀錄嗎？\n此動作無法復原。`)) return;
+        const now = Date.now(), upd = { adminAt: now, updatedAt: now };
+        if (board === 'stage') { upd['s' + st + 'Ms'] = del; upd['s' + st + 'Key'] = del; upd['s' + st + 'Ship'] = del; }
+        else if (board === 'clear') { upd.bestClearMs = del; upd.clearAt = del; upd.clearKey = del; upd.clearShip = del; }
+        else upd[board] = 0;
+        try { await adb.collection('users').doc(r.uid).set(upd, { merge: true }); await this.adRank(board, st); const mm = $('ad-rk-msg'); if (mm) mm.textContent = `已刪除「${x.name || x.username}」的${label}紀錄`; }
+        catch (e) { if (m) m.textContent = errMsg(e); }
+    },
+    async adList(force) {   // 帳號下拉選單：列出現有帳號（依帳號排序，最多 500 筆）
+        const sel = $('ad-sel'); if (!sel) return; const adb = this.adminDb || db;
+        try {
+            if (force || !this._adUsers) { sel.innerHTML = '<option value="">載入帳號清單中…</option>'; const s = await adb.collection('users').limit(500).get(); this._adUsers = s.docs.map(d => { const x = d.data(); return { uid: d.id, username: x.username || '', name: x.name || '' }; }).sort((a, b) => (a.username || a.name).localeCompare(b.username || b.name)); }
+            const cur = this._adT ? this._adT.uid : '', box = $('ad-sel'); if (!box) return;
+            box.innerHTML = `<option value="">— 選擇現有帳號（共 ${this._adUsers.length} 個）—</option>` + this._adUsers.map(u => `<option value="${esc(u.uid)}" ${u.uid === cur ? 'selected' : ''}>${esc(u.username || '（無帳號）')}　${esc(u.name)}</option>`).join('');
+        } catch (e) { sel.innerHTML = '<option value="">清單載入失敗</option>'; const m = $('ad-umsg'); if (m) m.textContent = errMsg(e); }
+    },
+    async adPick(uid) {
+        const m = $('ad-umsg'); if (!uid) { this._adT = null; const b = $('ad-user'); if (b) b.innerHTML = ''; return; }
+        try { if (m) m.textContent = '載入中…'; await this.adLoad(uid); if (m) m.textContent = ''; const u = (this._adUsers || []).find(x => x.uid === uid), q = $('ad-q'); if (q && u) q.value = u.username; } catch (e) { if (m) m.textContent = errMsg(e); }
+    },
+    async adDelete() {   // 刪除帳號：清除玩家資料、好友、邀請與上線狀態
+        const T = this._adT, adb = this.adminDb || db, m = $('ad-umsg'); if (!T) return;
+        const nm = T.d.username || T.d.name || T.uid;
+        if (!confirm(`確定要刪除帳號「${nm}」嗎？\n\n玩家資料、存檔、暗物質、戰機、好友與紀錄都會永久刪除，無法復原。`)) return;
+        const typed = prompt(`請再輸入要刪除的帳號「${nm}」以確認：`); if (typed === null) return;
+        if (typed.trim().toLowerCase() !== String(nm).toLowerCase()) { if (m) m.textContent = '輸入的帳號不符，已取消刪除'; return; }
+        try {
+            if (m) m.textContent = '刪除中…';
+            const U = adb.collection('users').doc(T.uid);
+            for (const sub of ['friends', 'invites']) { const s = await U.collection(sub).get(); await Promise.all(s.docs.map(d => d.ref.delete())); }
+            try { await adb.collection('presence').doc(T.uid).delete(); } catch (e) {}
+            await U.delete();
+            this._adUsers = (this._adUsers || []).filter(u => u.uid !== T.uid); this._adT = null;
+            const b = $('ad-user'); if (b) b.innerHTML = ''; const q = $('ad-q'); if (q) q.value = '';
+            this.adList(); if (m) m.textContent = `已刪除帳號「${nm}」`;
+        } catch (e) { if (m) m.textContent = errMsg(e); }
+    },
     async adFind() {
         const adb = this.adminDb || db, q = (($('ad-q') || {}).value || '').trim().toLowerCase(), m = $('ad-umsg'); if (!q) return;
         m.textContent = '搜尋中…'; $('ad-user').innerHTML = '';
@@ -2864,7 +2949,7 @@ const online = window.online = {
         this._adT = { uid, d, save, ban: b.exists ? b.data() : null }; this.adCard();
     },
     adCard() {
-        const T = this._adT, box = $('ad-user'); if (!T || !box) return; const d = T.d, sv = T.save, K = [['dmg', '火力'], ['rate', '射速'], ['hp', '裝甲'], ['spd', '機動']];
+        const T = this._adT, box = $('ad-user'); if (!T || !box) return; const d = T.d, sv = T.save, K = [['dmg', '火力'], ['rate', '射速'], ['hp', '裝甲'], ['spd', '機動'], ['cov', '覆蓋']];
         box.innerHTML = `<div style="padding:10px;border:1px solid #334;border-radius:10px;margin-bottom:8px">
             <h3 style="margin:0 0 4px;color:var(--neon-gold)">${esc(d.name || '')} <small style="color:#aaa">帳號 ${esc(d.username || '')}</small></h3>
             <div class="muted">最高分 ${d.bestScore || 0}・累積暗物質 ${d.totalDM || 0}・PK ${d.pkWins || 0} 勝 ${d.pkLosses || 0} 敗${T.ban ? '<br><b style="color:var(--neon-red)">★ 黑名單停權中：' + esc(T.ban.reason || '（無原因）') + '</b>' : ''}</div></div>
@@ -2874,7 +2959,7 @@ const online = window.online = {
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${K.map(([k, n]) => `<span>${n} <button class="sm" onclick="online.adShip('${S.id}','${k}',-1)">−</button> ${f[k]}/${S.cap[k]} <button class="sm" onclick="online.adShip('${S.id}','${k}',1)">＋</button></span>`).join('')}<button class="sm" onclick="online.adShip('${S.id}','max')">全部升滿</button></div></div>`; }).join('')}
             <div style="margin:10px 0;padding:8px;border:1px solid #522;border-radius:8px"><b>黑名單／停權</b>
                 ${T.ban ? `<button class="sm" onclick="online.adUnban()">解除停權</button>` : `<textarea class="inp" id="ad-reason" rows="2" maxlength="200" placeholder="輸入被封原因（玩家登入時會看到）"></textarea><button class="sm red" onclick="online.adBan()">加入黑名單</button>`}</div>
-            <button class="sm red" onclick="online.adReset()">重置此帳號（回到全新狀態）</button>`;
+            <button class="sm red" onclick="online.adReset()">重置此帳號（回到全新狀態）</button> <button class="sm red" onclick="online.adDelete()">刪除此帳號</button>`;
     },
     async adWrite(extra, okMsg) {
         const T = this._adT, adb = this.adminDb || db, m = $('ad-umsg'); if (!T) return;
@@ -2887,7 +2972,7 @@ const online = window.online = {
     adSetDM() { const v = Math.max(0, Math.floor(+($('ad-dm') || {}).value || 0)); this._adT.save.dm = v; this.adSaveSave(`已把暗物質設為 ${v}`); },
     adShip(id, k, v) {
         const S = SHIPS.find(x => x.id === id), f = this._adT.save.f[id];
-        if (k === 'own') f.own = !!v; else if (k === 'max') { f.own = true; ['dmg', 'rate', 'hp', 'spd'].forEach(x => f[x] = S.cap[x]); }
+        if (k === 'own') f.own = !!v; else if (k === 'max') { f.own = true; ['dmg', 'rate', 'hp', 'spd', 'cov'].forEach(x => f[x] = S.cap[x]); }
         else f[k] = Math.max(S.base[k] || 0, Math.min(S.cap[k], (f[k] || 0) + v));
         this.adSaveSave('戰機已更新（未扣暗物質）');
     },
@@ -2934,11 +3019,11 @@ const online = window.online = {
             <div style="text-align:left;min-height:90px;margin-top:8px;padding:10px;border:1px solid #334;border-radius:10px">${info ? `<h3 style="margin:0 0 6px;color:var(--neon-gold)">${word}</h3><p><b style="color:var(--neon-blue)">解釋</b>　${info[0]}</p><p><b style="color:var(--neon-blue)">造句</b>　${info[1]}</p>` : '<span class="muted">點選成語查看解釋與造句（共 ' + list.length + ' 個，全部成語 ' + CONFIG.IDIOMS.length + ' 個）</span>'}</div>`;
     },
     dexShips() {
-        const TRAIT = { star: '均衡型：各項能力上限相同，適合新手。', wind: '機動靈巧：體型小、移動速度上限最高，但火力與裝甲上限低。適合對付玻璃砲型 Boss。', bastion: '重裝厚皮：血量與裝甲上限最高，移動較慢。最適合對付彈幕型 Boss。',
-            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '爆擊刺客：爆擊率上限高達 85%（需把「爆擊」升到 16 級；基礎 20%），爆擊時造成 1.5～3 倍傷害。火力與裝甲偏低，適合對付玻璃砲型 Boss。', lance: '穿甲型：初始穿甲等級 3、上限 16，可大幅抵銷敵人的裝甲等級；子彈另外自帶穿甲彈，對有裝甲（護盾）的敵人固定造成 2～3 倍傷害，對沒有裝甲的敵人則是一般傷害。適合鐵甲型 Boss、坦克與護衛機。' };
+        const TRAIT = { star: '均衡型：各項能力上限接近，適合新手。', wind: '機動靈巧：體型小、移動速度上限最高，但火力與裝甲上限低。適合對付玻璃砲型 Boss。', bastion: '重裝厚皮：血量與裝甲上限最高，移動較慢。最適合對付彈幕型 Boss。',
+            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '爆擊刺客：爆擊率上限高達 85%（需把「爆擊」升到 16 級；基礎 20%），爆擊時造成 1.5～3 倍傷害。火力與裝甲偏低，適合對付玻璃砲型 Boss。', lance: '穿甲型：初始穿甲等級 3、上限 16，可大幅抵銷敵人的裝甲等級；子彈另外自帶穿甲彈，對有裝甲（護盾）的敵人固定造成 2～3 倍傷害，對沒有裝甲的敵人則是一般傷害。適合鐵甲型 Boss、坦克與護衛機。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。升滿後可同時向四面八方放射子彈，不怕被包夾；代價是單發威力低於其他戰機。適合對付玻璃砲型 Boss 與成群的小怪。' };
         return '<div class="lst">' + SHIPS.map(S => { const own = G.fleet && G.fleet[S.id] && G.fleet[S.id].own, c = S.cap;
             return `<div class="dx"><img src="${S.id === 'star' ? 'assets/player.png' : 'assets/ship_' + S.id + '.png'}" onerror="this.style.visibility='hidden'"><div><h3 style="color:${S.c}">${S.name} <small style="color:#aaa">${S.role}</small></h3>
-                <div class="t"><b>初始</b> 血量 ${S.hp * SHOW}・移速 ${S.spd}・傷害 ${Math.round(S.dmg * SHOW)}・基礎爆擊率 20%（上限 ${Math.round((S.critMax || 0.5) * 100)}%）・射速 ${(1000 / S.int).toFixed(1)}/秒<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}・穿甲 ${c.pen}・爆擊 ${c.crit}<br>${TRAIT[S.id]}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '軍械改裝工廠 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
+                <div class="t"><b>初始</b> 血量 ${S.hp * SHOW}・移速 ${S.spd}・傷害 ${Math.round(S.dmg * SHOW)}・基礎爆擊率 20%（上限 ${Math.round((S.critMax || 0.5) * 100)}%）・射速 ${(1000 / S.int).toFixed(1)}/秒<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}・穿甲 ${c.pen}・爆擊 ${c.crit}・火力覆蓋 ${c.cov}<br><b>火力覆蓋・${COV_INFO[S.pat][0]}</b>（初始 ${covLabel(S, S.base.cov)} → 滿級 ${covLabel(S, c.cov)}）：${COV_INFO[S.pat][1]}<br>${TRAIT[S.id]}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '軍械改裝工廠 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
     },
     dexEnemies() {
         const E = [['SCOUT', '偵察機', '第 1 關起', '緩慢下降並大幅左右擺盪', '單發慢彈（頻率最低之一）', '血量低，新手關主力', 1.5],
@@ -3066,7 +3151,7 @@ const online = window.online = {
         const myShip = r[me + 'Ship']; if (myShip && G.fleet[myShip] && G.fleet[myShip].own) G.shipId = myShip;
         G.startNewGame(); G.startStage = keep.s; G.bestStage = keep.b;
         p.ghost = { x: WORLD.w / 2, y: 150, tx: WORLD.w / 2, ty: 150, cd: 600 }; p.gt = null; p.bk = 1;   // 對手（在我的畫面上方，面朝下）
-        this.roomUpdate({ [me + 'St']: { dmg: G.st.dmg, iv: G.st.interval, pen: G.st.pen, crit: G.st.crit, wl: G.weaponLvl, r: G.player.radius } });   // 讓對手畫面能模擬我的子彈
+        this.roomUpdate({ [me + 'St']: { dmg: G.st.dmg, iv: G.st.interval, pen: G.st.pen, crit: G.st.crit, wl: G.weaponLvl, pt: G.ship().id, cv: G.covLv || 0, r: G.player.radius } });   // 讓對手畫面能模擬我的子彈
         // 對手位置：用「主控端視角」的比例座標傳送；客戶端的畫面整個旋轉 180°，所以雙方都看到對方在上方、面對面
         p.unsubPos = this.roomRef(p.code).collection('pos').doc(opp).onSnapshot(s => { const d = s.exists && s.data(); if (d) p.gt = me === 'host' ? { x: d.x, y: d.y } : { x: 1 - d.x, y: 1 - d.y }; }, () => {});
         p.unsubEv = this.roomRef(p.code).collection('events').where('matchId', '==', p.matchId).onSnapshot(s => s.docChanges().forEach(ch => {
@@ -3107,9 +3192,9 @@ const online = window.online = {
             p.ghostR = S.r || 15; g.cd -= dt * 1000;
             if (g.cd <= 0) {
                 g.cd = Math.max(55, S.iv);
-                const shoot = (off, ang) => { const b = G.bullets.get(); b.pos = new Vec2(g.x + off, g.y + 25); b.vel = new Vec2(Math.sin(ang) * 800, Math.cos(ang) * 800);
-                    b.isPlayer = false; b.pk = true; b.damage = S.dmg; b.pen = S.pen || 0; b.crit = S.crit || 0; styleBullet(b, S.dmg); };
-                shoot(0, 0); if (S.wl >= 3) { shoot(-15, -0.15); shoot(15, 0.15); } if (S.wl >= 6) { shoot(-25, -0.3); shoot(25, 0.3); }
+                const shoot = (off, ang, rs) => { const b = G.bullets.get(); b.pos = new Vec2(g.x + off, g.y + 25); b.vel = new Vec2(Math.sin(ang) * 800, Math.cos(ang) * 800);
+                    b.isPlayer = false; b.pk = true; b.damage = S.dmg; b.pen = S.pen || 0; b.crit = S.crit || 0; styleBullet(b, S.dmg); if (rs && rs !== 1) b.radius *= rs; };
+                const GS = S.pt && SHIPS.find(x => x.id === S.pt); if (GS) patternShots(GS, S.cv).forEach(sh => shoot(sh.o, sh.a, sh.rs)); else { shoot(0, 0); if (S.wl >= 3) { shoot(-15, -0.15); shoot(15, 0.15); } if (S.wl >= 6) { shoot(-25, -0.3); shoot(25, 0.3); } }
             }
         }
         // 成語字塊：以房間開戰時間當亂數種子，雙方畫面產生同樣的字塊；數量為一般關卡的 2 倍（每秒 35%，一般是每 2 秒 35%）
