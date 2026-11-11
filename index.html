@@ -2359,7 +2359,9 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .sm{padding:3px 8px;border-radius:6px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.12);color:#fff;cursor:pointer;font-size:.8rem;font-family:inherit}.sm.red{border-color:#ff6b6b}
 #toast{position:absolute;top:14%;left:50%;transform:translateX(-50%);z-index:70;background:rgba(5,5,16,.95);border:1px solid var(--neon-gold);color:var(--neon-gold);padding:8px 16px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90vw;text-align:center}
 #chat-fab{position:absolute;right:14px;bottom:14px;z-index:40;width:52px;height:52px;border-radius:50%;border:2px solid var(--neon-blue);background:rgba(5,5,16,.92);color:#fff;font-size:1.5rem;cursor:pointer;display:none;box-shadow:0 0 14px rgba(0,242,255,.5)}
-#chat-fab i{position:absolute;top:-4px;right:-4px;background:#ff3366;color:#fff;border-radius:10px;font-size:.7rem;padding:1px 6px;font-style:normal;display:none}
+#chat-fab i{position:absolute;top:-6px;right:-6px;min-width:20px;box-sizing:border-box;text-align:center;background:#ff3366;color:#fff;border:1px solid #fff;border-radius:11px;font-size:.7rem;font-weight:bold;line-height:1.3;padding:1px 5px;font-style:normal;display:none}
+.tbd{display:inline-block;margin-left:4px;min-width:16px;box-sizing:border-box;background:#ff3366;color:#fff;border-radius:9px;font-size:.65rem;padding:0 4px;font-style:normal}
+.fnum{color:var(--neon-gold);min-width:1.8em;text-align:right}.fname{cursor:pointer;text-decoration:underline dotted #667}.msg b.mn{cursor:pointer}
 #chat-panel{position:absolute;right:14px;bottom:76px;z-index:40;width:min(92vw,340px);height:min(62vh,430px);display:none;flex-direction:column;background:rgba(5,5,16,.97);border:2px solid var(--neon-blue);border-radius:12px;overflow:hidden;font-size:.9rem}
 #chat-panel .ch-head{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:rgba(0,242,255,.15)}
 #chat-panel .ch-head button{background:none;border:1px solid #fff;color:#fff;border-radius:6px;cursor:pointer}
@@ -2458,7 +2460,7 @@ const online = window.online = {
         toast('管理員已調整你的帳號資料', 4000);
     },
     onLogout() {
-        this.unsubs.forEach(f => { try { f(); } catch (e) {} }); this.unsubs = []; this.stopChat(); this.chat.notes = []; this.onl = {}; this.onlSet = null; this.fTop = {};
+        this.unsubs.forEach(f => { try { f(); } catch (e) {} }); this.unsubs = []; this.stopChat(); this.stopWatch(); this.chat.notes = []; this.onl = {}; this.onlSet = null; this.fTop = {};
         this.user = null; this.profile = null; this.isAdmin = false; this.friends = []; this.reqIn = []; this.invites = []; this.groups = [];
         localStorage.removeItem(SAVEKEY); G.resetProgress();
         const f = $('chat-fab'), p = $('chat-panel'); if (f) f.style.display = 'none'; if (p) p.style.display = 'none';
@@ -2554,7 +2556,10 @@ const online = window.online = {
     async showPlayer(uid) {   // 點在線名單的人名：查看該玩家各項數據
         try {
             const s = await db.collection('users').doc(uid).get(); if (!s.exists) return toast('找不到這位玩家的資料');
-            G.dialog(`<h3 style="margin:0 0 4px;color:var(--neon-gold)">${esc(s.data().name || '')}</h3>${this.statsBody(s.data())}<button class="btn btn-start" onclick="game.closeDlg()">關閉</button>`);
+            const nm = s.data().name || '', me = this.user.uid, isF = this.friends.some(f => f.uid === uid);
+            G.dialog(`<h3 style="margin:0 0 4px;color:var(--neon-gold)">${esc(nm)}</h3>${this.statsBody(s.data())}
+                ${uid === me ? '' : isF ? '<p class="muted">已經是好友</p>' : `<button class="btn" data-n="${esc(nm)}" onclick="online.sendReq('${esc(uid)}', this.dataset.n)">加好友</button>`}
+                <button class="btn btn-start" onclick="game.closeDlg()">關閉</button>`);
         } catch (e) { toast(errMsg(e)); }
     },
 
@@ -2632,9 +2637,9 @@ const online = window.online = {
         });
     },
     friendTag(uid) {
-        const c = this.fTop[uid], x = this.onl[uid], sid = (c && c.top) || (x && x.top), dot = `<span class="fdot ${this.isOnline(uid) ? 'on' : ''}"></span>`;
-        if (!sid) return dot; const S = SHIPS.find(v => v.id === sid) || SHIPS[0];
-        return `${dot}<img class="fshp" src="${shipImg(S.id)}" onerror="this.style.display='none'"><small style="color:${S.c}">${S.name}</small> `;
+        const c = this.fTop[uid], x = this.onl[uid], sid = (c && c.top) || (x && x.top);
+        if (!sid) return ''; const S = SHIPS.find(v => v.id === sid) || SHIPS[0];
+        return `<img class="fshp" src="${shipImg(S.id)}" onerror="this.style.display='none'"><small style="color:${S.c}">${S.name}</small> `;
     },
 
     // ===== 好友 =====
@@ -2642,14 +2647,14 @@ const online = window.online = {
         const uid = this.user.uid, U = db.collection('users').doc(uid), on = (q, f) => this.unsubs.push(q.onSnapshot(f, () => {}));
         on(U, s => { const d = s.exists && s.data(); if (!d || s.metadata.hasPendingWrites) return; if ((d.adminAt || 0) > (this._adminSeen || 0)) { if (['PLAYING', 'TRANSITION'].includes(G.gameState)) { this._pendingAdmin = d; this._adminSeen = d.adminAt; } else this.applyAdminDoc(d); } });
         on(db.collection('banned').doc(uid), s => { if (s.exists) this.kick(s.data()); });
-        on(U.collection('friends'), s => { this.friends = s.docs.map(d => Object.assign({ uid: d.id }, d.data())); this.loadFriendTops(); this.refresh(); this.chatSel(); });
+        on(U.collection('friends'), s => { this.friends = s.docs.map(d => Object.assign({ uid: d.id }, d.data())); this.loadFriendTops(); this.syncWatch(); this.refresh(); this.chatSel(); });
         on(db.collection('friendRequests').where('to', '==', uid).where('status', '==', 'pending'), s => { this.reqIn = s.docs.map(d => Object.assign({ id: d.id }, d.data())); this.refresh(); });
         on(db.collection('friendRequests').where('from', '==', uid).where('status', '==', 'accepted'), s => s.docs.forEach(d => { const x = d.data();
             U.collection('friends').doc(x.to).set({ name: x.toName, ts: Date.now() }).then(() => d.ref.delete()).catch(() => {}); }));
         on(U.collection('invites'), s => { const old = new Set(this.invites.map(i => i.code)); this.invites = s.docs.map(d => d.data());
             this.invites.forEach(i => { if (!old.has(i.code) && old.size + 1) toast(`${i.fromName} 邀請你 PK！房間密碼 ${i.code}`, 5000); }); this.refresh(); });
-        on(db.collection('groups').where('members', 'array-contains', uid), s => { this.groups = s.docs.map(d => Object.assign({ id: d.id }, d.data())); this.chatSel(); });
-        this.startPresence();
+        on(db.collection('groups').where('members', 'array-contains', uid), s => { this.groups = s.docs.map(d => Object.assign({ id: d.id }, d.data())); this.syncWatch(); this.chatSel(); });
+        this.startPresence(); this.syncWatch();
     },
     renderFriends() {
         const keep = ($('fr-in') || {}).value || '', me = this.user.uid;
@@ -2657,7 +2662,7 @@ const online = window.online = {
             <div class="row"><input class="inp" id="fr-in" style="flex:1;margin:0" placeholder="輸入對方帳號加好友" value="${esc(keep)}"><button class="sm" onclick="online.addFriend(document.getElementById('fr-in').value)">送出邀請</button></div>
             ${this.invites.length ? `<h4>PK 邀請</h4>` + this.invites.map(i => `<div class="row"><span>${esc(i.fromName)} 邀請你 PK（${esc(i.code)}）</span><button class="sm" onclick="online.acceptInvite('${esc(i.code)}')">加入</button><button class="sm red" onclick="online.dropInvite('${esc(i.code)}')">拒絕</button></div>`).join('') : ''}
             ${this.reqIn.length ? `<h4>好友邀請</h4>` + this.reqIn.map(r => `<div class="row"><span>${esc(r.fromName)}</span><button class="sm" onclick="online.acceptReq('${r.id}')">接受</button><button class="sm red" onclick="online.declineReq('${r.id}')">拒絕</button></div>`).join('') : ''}
-            <h4>好友列表（${this.friends.length}）</h4><div class="lst">${this.friends.length ? this.friends.map(f => `<div class="row"><span>${this.friendTag(f.uid)}${esc(f.name)}</span><button class="sm" onclick="online.openChat('dm','${f.uid}')">聊天</button><button class="sm" onclick="online.invite('${f.uid}')">邀請 PK</button><button class="sm red" onclick="online.removeFriend('${f.uid}')">刪除</button></div>`).join('') : '<p class="muted">還沒有好友，輸入對方帳號試試</p>'}</div>${BACK}</div>`);
+            <h4>好友列表（${this.friends.length}）</h4><div class="lst">${this.friends.length ? this.friends.map((f, i) => `<div class="row"><b class="fnum">${i + 1}.</b><span class="fname" onclick="online.showPlayer('${f.uid}')" title="點擊查看好友資料">${this.friendTag(f.uid)}${esc(f.name)}</span><button class="sm" onclick="online.openChat('dm','${f.uid}')">聊天${this.unr && this.unr['dm:' + f.uid] ? '（' + (this.unr['dm:' + f.uid] > 99 ? '99+' : this.unr['dm:' + f.uid]) + '）' : ''}</button><button class="sm" onclick="online.invite('${f.uid}')">邀請 PK</button><button class="sm red" onclick="online.removeFriend('${f.uid}')">刪除</button></div>`).join('') : '<p class="muted">還沒有好友，輸入對方帳號試試</p>'}</div>${BACK}</div>`);
         const inp = $('fr-in'); if (inp) inp.onkeydown = e => { if (e.key === 'Enter') this.addFriend(inp.value); };
     },
     async addFriend(name) {
@@ -2671,6 +2676,13 @@ const online = window.online = {
             await db.collection('friendRequests').doc(me + '_' + t.id).set({ from: me, to: t.id, fromName: this.profile.name, toName: t.data().name, status: 'pending', ts: Date.now() });
             toast('已送出好友邀請');
         } catch (e) { toast(errMsg(e)); }
+    },
+    async sendReq(tid, tname) {   // 從玩家資料視窗直接送出好友邀請
+        const me = this.user.uid; if (tid === me) return;
+        if (this.friends.some(f => f.uid === tid)) return toast('已經是好友了');
+        if (this.reqIn.some(r => r.from === tid)) return toast('對方已經邀請你了，請到「好友」頁面接受');
+        try { await db.collection('friendRequests').doc(me + '_' + tid).set({ from: me, to: tid, fromName: this.profile.name, toName: tname || '', status: 'pending', ts: Date.now() }); toast('已送出好友邀請'); }
+        catch (e) { toast(errMsg(e)); }
     },
     async acceptReq(id) {
         const r = this.reqIn.find(x => x.id === id); if (!r) return;
@@ -2690,6 +2702,34 @@ const online = window.online = {
         } catch (e) { toast(errMsg(e)); }
     },
 
+    // ===== 未讀訊息：大廳、每位好友、每個群組都會背景監聽，紅點顯示總數（最多 99+）=====
+    thKey(th) { return th.k === 'lobby' ? 'lobby' : th.k === 'dm' ? 'dm:' + th.peer : 'group:' + th.id; },
+    saveRead() { try { localStorage.setItem('idiomRead:' + this.user.uid, JSON.stringify(this.readAt)); } catch (e) {} },
+    syncWatch() {
+        if (!this.user) return; this.watch = this.watch || {};
+        if (!this.readAt) { try { this.readAt = JSON.parse(localStorage.getItem('idiomRead:' + this.user.uid) || '{}'); } catch (e) { this.readAt = {}; } }
+        const keys = new Set();
+        [{ k: 'lobby' }, ...this.friends.map(f => ({ k: 'dm', peer: f.uid })), ...this.groups.map(g => ({ k: 'group', id: g.id }))].forEach(th => {
+            const key = this.thKey(th); keys.add(key); if (this.watch[key]) return;
+            if (this.readAt[key] === undefined) { this.readAt[key] = Date.now(); this.saveRead(); }   // 第一次看到的對話，舊訊息視為已讀
+            const w = this.watch[key] = { msgs: [], unsub: null };
+            w.unsub = this.chatRef(th).orderBy('ts', 'desc').limit(60).onSnapshot(sn => { w.msgs = sn.docs.map(d => d.data()); this.recount(); }, () => {});
+        });
+        Object.keys(this.watch).forEach(k => { if (!keys.has(k)) { this.watch[k].unsub(); delete this.watch[k]; } });
+    },
+    stopWatch() { Object.values(this.watch || {}).forEach(w => { try { w.unsub(); } catch (e) {} }); this.watch = {}; this.readAt = null; this.unr = {}; },
+    recount() {
+        if (!this.user || !this.readAt) return; const c = this.chat, me = this.user.uid, W = this.watch || {};
+        if (c.open && c.th) { const key = this.thKey(c.th), w = W[key], latest = w && w.msgs[0] ? (w.msgs[0].ts || 0) : 0; this.readAt[key] = Math.max(this.readAt[key] || 0, latest || Date.now()); this.saveRead(); }   // 正在看的對話＝已讀
+        const per = { lobby: 0, dm: 0, group: 0 }, unr = {}; let total = 0;
+        Object.keys(W).forEach(key => { const r = this.readAt[key] || 0, n = W[key].msgs.filter(m => m.uid !== me && (m.ts || 0) > r).length; if (n) { unr[key] = n; total += n; per[key.split(':')[0]] += n; } });
+        const changed = JSON.stringify(unr) !== JSON.stringify(this.unr || {}); this.unr = unr;
+        const fmt = n => n > 99 ? '99+' : String(n), b = $('chat-badge'); if (b) { b.textContent = fmt(total); b.style.display = total ? 'block' : 'none'; }
+        const NM = { lobby: '大廳', dm: '好友', group: '群組' };
+        document.querySelectorAll('#chat-panel .ch-tabs button').forEach(bt => { const n = per[bt.dataset.t] || 0; bt.innerHTML = NM[bt.dataset.t] + (n ? `<i class="tbd">${fmt(n)}</i>` : ''); });
+        if (changed) { if (c.open && c.tab !== 'lobby') this.chatSel(); if (G.gameState === 'FRIENDS') this.refresh(); }
+    },
+
     // ===== 聊天 =====
     mountChat() {
         if ($('chat-fab')) return;
@@ -2705,11 +2745,11 @@ const online = window.online = {
     updateChatVis() { const f = $('chat-fab'); if (!f) return; const show = this.user && !['INIT', 'LOGIN', 'PLAYING', 'TRANSITION'].includes(G.gameState); f.style.display = show ? 'block' : 'none'; if (!show) { $('chat-panel').style.display = 'none'; } else if (this.chat.open) $('chat-panel').style.display = 'flex'; },
     toggleChat(v) {
         const c = this.chat; c.open = v === undefined ? !c.open : v; $('chat-panel').style.display = c.open ? 'flex' : 'none';
-        if (c.open) { c.unread = 0; $('chat-badge').style.display = 'none'; if (!c.th) this.openChat(c.tab); }
+        if (c.open) { if (!c.th) this.openChat(c.tab); this.recount(); }
     },
     stopChat() { const c = this.chat; if (c.unsub) { c.unsub(); c.unsub = null; } c.th = null; c.msgs = []; c.open = false; },
     openChat(tab, peer) {
-        const c = this.chat; c.tab = tab; c.open = true; c.unread = 0; $('chat-badge').style.display = 'none'; $('chat-panel').style.display = 'flex';
+        const c = this.chat; c.tab = tab; c.open = true; $('chat-panel').style.display = 'flex';
         document.querySelectorAll('#chat-panel .ch-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
         this.chatSel(peer);
     },
@@ -2720,11 +2760,11 @@ const online = window.online = {
         else if (c.tab === 'dm') {
             if (!this.friends.length) { sel.innerHTML = '<span class="muted">加好友後才能私訊</span>'; this.subChat(null); return; }
             const cur = peer || (c.th && c.th.k === 'dm' ? c.th.peer : this.friends[0].uid);
-            sel.innerHTML = `<select id="ch-friend">${this.friends.map(f => `<option value="${f.uid}" ${f.uid === cur ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select>`;
+            sel.innerHTML = `<select id="ch-friend">${this.friends.map(f => `<option value="${f.uid}" ${f.uid === cur ? 'selected' : ''}>${esc(f.name)}${(this.unr || {})['dm:' + f.uid] ? '（' + Math.min(99, this.unr['dm:' + f.uid]) + '）' : ''}</option>`).join('')}</select>`;
             $('ch-friend').onchange = e => this.chatSel(e.target.value); this.subChat({ k: 'dm', peer: cur });
         } else {
             const cur = (c.th && c.th.k === 'group' && this.groups.some(g => g.id === c.th.id)) ? c.th.id : (this.groups[0] && this.groups[0].id);
-            sel.innerHTML = `${this.groups.length ? `<select id="ch-group">${this.groups.map(g => `<option value="${g.id}" ${g.id === cur ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select>` : '<span class="muted">還沒有群組</span>'}<button class="sm" id="ch-new">＋建立群組</button>`;
+            sel.innerHTML = `${this.groups.length ? `<select id="ch-group">${this.groups.map(g => `<option value="${g.id}" ${g.id === cur ? 'selected' : ''}>${esc(g.name)}${(this.unr || {})['group:' + g.id] ? '（' + Math.min(99, this.unr['group:' + g.id]) + '）' : ''}</option>`).join('')}</select>` : '<span class="muted">還沒有群組</span>'}<button class="sm" id="ch-new">＋建立群組</button>`;
             if ($('ch-group')) $('ch-group').onchange = e => this.subChat({ k: 'group', id: e.target.value });
             $('ch-new').onclick = () => this.groupForm(); this.subChat(cur ? { k: 'group', id: cur } : null);
         }
@@ -2751,7 +2791,6 @@ const online = window.online = {
         if (!th) return;
         c.unsub = this.chatRef(th).orderBy('ts', 'desc').limit(60).onSnapshot(s => {
             const list = s.docs.map(d => d.data()).reverse();
-            if (!c.first && !c.open && list.length > c.msgs.length) { c.unread += list.length - c.msgs.length; const b = $('chat-badge'); b.textContent = c.unread; b.style.display = 'block'; }
             c.first = false; c.msgs = list; this.renderMsgs();
         }, e => { $('ch-msgs').textContent = errMsg(e); });
     },
@@ -3112,7 +3151,7 @@ const online = window.online = {
     pkExit() { G.closeDlg(); this.pkLeave(false); G.setState('LOBBY'); }
 };
 
-function msgHtml(m, me) { if (m.sys) return `<div class="msg sys s${m.sys}">${esc(m.text)}</div>`; const d = new Date(m.ts || 0); return `<div class="msg ${me ? 'me' : ''}"><b>${esc(m.name)}</b> ${esc(m.text)}<small>${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}</small></div>`; }
+function msgHtml(m, me) { if (m.sys) return `<div class="msg sys s${m.sys}">${esc(m.text)}</div>`; const d = new Date(m.ts || 0); return `<div class="msg ${me ? 'me' : ''}"><b class="mn" onclick="online.showPlayer('${esc(m.uid || '')}')">${esc(m.name)}</b> ${esc(m.text)}<small>${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}</small></div>`; }
 
 // ---------- 掛接到遊戲 ----------
 const wrap = (name, fn) => { const o = P[name]; P[name] = function (...a) { return fn.call(this, o, ...a); }; };
