@@ -355,7 +355,7 @@ const sfx = new RetroAudio();
 document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !e.repeat && (e.key.length === 1 || e.key === 'Backspace')) { try { sfx.playType(); } catch (_) {} } }, true);
 
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
-const APP_VERSION = '20261112', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261111', APP_AUTHOR = '郭柏宏';
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
 function updateWorld() {
@@ -865,7 +865,8 @@ class Game {
         } else if (state === 'SHOP') {
             this.renderShop();
         } else if (state === 'INIT') {
-            this.uiLayer.innerHTML = `<div class="splash" id="splash"><h1 class="sp-title">成語戰機</h1><p class="sp-sub">IDIOM FIGHTER</p><button class="btn btn-start" id="boot-btn">點擊開始（啟動音樂與音效）</button><p class="sp-hint">按任意鍵也可以開始</p></div>`;
+            this.uiLayer.innerHTML = `<div class="splash" id="splash"><h1 class="sp-title">成語戰機</h1><p class="sp-sub">IDIOM FIGHTER</p><button class="btn btn-start" id="boot-btn">點擊開始（啟動音樂與音效）</button><p class="sp-hint">按任意鍵也可以開始</p><button id="wipe-btn" title="清除所有資料" style="position:fixed;right:10px;bottom:10px;z-index:50;padding:4px 9px;font-size:12px;opacity:.55;background:rgba(0,0,0,.5);color:#fff;border:1px solid #667;border-radius:6px;cursor:pointer">清除資料</button></div>`;
+            document.getElementById('wipe-btn').onclick = (e) => { e.stopPropagation(); this.wipeAll(); };
             const boot = () => { sfx.init(); this.applyVol(); if (this._booting) return; this._booting = true; if (this.needFirstDownload()) this.forceDownload(() => { this.afterBoot(); this._booting = false; }); else { this.afterBoot(); setTimeout(() => this.quietCheck(), 3000); } };
             document.getElementById('boot-btn').onclick = (e) => { e.stopPropagation(); boot(); };
             document.getElementById('splash').onclick = boot;
@@ -1175,6 +1176,14 @@ class Game {
             const sk = document.getElementById('off-skip'); if (sk) { sk.style.display = 'block'; sk.onclick = done; }
         };
         run();
+    }
+    async wipeAll() {   // 卡在初始畫面時使用：清除快取、離線資料包、Service Worker 與本機資料，重新載入後會重新下載
+        if (!confirm('確定要清除所有資料嗎？\n\n會刪除這台裝置上的離線資料包、快取與本機存檔，並重新下載檔案。\n（已登入雲端帳號的進度不受影響，重新登入即可同步；未登入或離線的進度會消失。）')) return;
+        try { if (navigator.serviceWorker) for (const g of await navigator.serviceWorker.getRegistrations()) await g.unregister(); } catch (e) {}
+        try { for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
+        try { if (indexedDB.databases) for (const d of await indexedDB.databases()) if (d.name) indexedDB.deleteDatabase(d.name); } catch (e) {}
+        try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+        location.reload();
     }
     async deleteOffline() {
         try { for (const k of await caches.keys()) if (k.startsWith('idiom-offline-')) await caches.delete(k); localStorage.removeItem('idiomOfflineInfo'); const i = document.getElementById('off-info'); if (i) i.textContent = '已刪除離線資料'; } catch (e) {}
@@ -2180,7 +2189,7 @@ class Game {
             if (this.boss) { this.shieldOf(this.boss); this.drawBars(ctx, this.boss.pos.x, this.boss.pos.y - this.boss.size * 0.5 - 14, 150, this.boss.hp, this.boss.maxHp, this.boss.shield, this.boss.maxShield, '#ff3333'); }
             this.drawBars(ctx, this.player.pos.x, this.player.pos.y + 54 * SKINS[this.skin].s, 64, this.hp, this.maxHp, this.shield, this.maxHp, '#33ff88');
             if (this.clearT > 0) {
-                ctx.save(); ctx.textAlign = 'center'; ctx.font = "bold 24px 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif"; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.fillStyle = '#ffea00';
+                ctx.save(); ctx.textAlign = 'center'; ctx.font = "22px 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif"; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.fillStyle = '#ffea00';
                 { const k = Math.max(0, Math.min(1, this.clearT / 5)), cx = WORLD.w / 2, cy = WORLD.h * 0.3 - 62;   // 5 秒倒數計時器（時間到自動消失）
                   ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.arc(cx, cy, 30, 0, 7); ctx.stroke();
                   ctx.strokeStyle = '#ffea00'; ctx.beginPath(); ctx.arc(cx, cy, 30, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke();
@@ -2217,6 +2226,19 @@ class Game {
 }
 
 const game = new Game();
+// 開啟時若有網路：檢查線上是不是最新版，不同就立即清快取並重新載入
+(async () => {
+    try {
+        if (!/^https?:$/.test(location.protocol) || !navigator.onLine) return;
+        const r = await fetch('index.html?_=' + Date.now(), { cache: 'reload' }); if (!r.ok) return;
+        const m = /const APP_VERSION = '([^']+)'/.exec(await r.text()); if (!m || m[1] === APP_VERSION) { try { sessionStorage.removeItem('idiomUpd'); } catch (e) {} return; }
+        if (sessionStorage.getItem('idiomUpd') === m[1]) return;   // 同一版只嘗試一次，避免無限重新整理
+        sessionStorage.setItem('idiomUpd', m[1]);
+        if (navigator.serviceWorker) { for (const g of await navigator.serviceWorker.getRegistrations()) await g.update().catch(() => {}); }
+        for (const k of await caches.keys()) if (k.startsWith('idiom-shell-')) await caches.delete(k);
+        location.reload();
+    } catch (e) {}
+})();
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -2284,7 +2306,7 @@ const online = window.online = {
     chat: { open: false, tab: 'lobby', th: null, unsub: null, msgs: [], unread: 0, first: true, dmReady: {} },
 
     // ===== 登入 / 帳號 =====
-    afterBoot() { (this.authReady || Promise.resolve()).then(() => { if ((this.user || this.offline) && this.profile) G.setState(this.profile.tutorialDone ? 'LOBBY' : 'TUTORIAL'); else G.setState('LOGIN'); }); },
+    afterBoot() { Promise.race([this.authReady || Promise.resolve(), new Promise(r => setTimeout(r, 12000))]).then(() => { if ((this.user || this.offline) && this.profile) G.setState(this.profile.tutorialDone ? 'LOBBY' : 'TUTORIAL'); else G.setState('LOGIN'); }); },
     renderLogin(reg) {
         ui(`<div class="menu-overlay" style="width:min(92vw,380px)"><h2 class="shop-title">${reg ? '註冊帳號' : '登入'}</h2>
             <div id="lg-msg" class="lg-msg">${fbOk ? '' : '無法載入 Firebase，請確認網路後重新整理頁面'}</div>
@@ -2310,7 +2332,7 @@ const online = window.online = {
         } catch (e) { msg(errMsg(e)); const b = $('lg-go'); if (b) b.disabled = false; }
     },
     async onLogin(u) {
-        try { const bs = await db.collection('banned').doc(u.uid).get(); if (bs.exists) { this.user = u; await this.kick(bs.data()); return; } else { const k = JSON.parse(localStorage.getItem('idiomBanned') || 'null'); if (k && k.uid === u.uid) localStorage.removeItem('idiomBanned'); } } catch (e) {}
+        try { const bs = await Promise.race([db.collection('banned').doc(u.uid).get(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))]); if (bs.exists) { this.user = u; await this.kick(bs.data()); return; } else { const k = JSON.parse(localStorage.getItem('idiomBanned') || 'null'); if (k && k.uid === u.uid) localStorage.removeItem('idiomBanned'); } } catch (e) {}
         this.offline = false; this.user = u; const username = (u.email || '').split('@')[0], ref = db.collection('users').doc(u.uid);
         let snap;
         try { snap = await Promise.race([ref.get(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), navigator.onLine ? 10000 : 1500))]); }
