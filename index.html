@@ -180,7 +180,7 @@
         .stg { display:flex; align-items:center; gap:12px; margin:6px 0; font-size:1.2rem; }
         .stg button { background:rgba(0,0,0,.5); border:1px solid #fff; color:#fff; border-radius:8px; padding:2px 12px; cursor:pointer; }
         .roster { color:#8aa; font-size:.8rem; }
-        .menu-overlay.lobby { background:rgba(5,5,16,.18); border-color:transparent; box-shadow:none; }
+        .menu-overlay.lobby { background:rgba(5,5,16,.22); border:3px solid var(--neon-blue); border-radius:18px; box-shadow:0 0 22px rgba(0,242,255,.55), inset 0 0 18px rgba(0,242,255,.25); }
         .tile .stg { margin:4px 0 6px; } .tile .sm2 { margin-top:6px; align-self:flex-start; padding:3px 10px; border-radius:8px; border:1px solid #fff; background:rgba(0,0,0,.45); color:#fff; cursor:pointer; font-family:inherit; font-size:.8rem; }
         @keyframes liveA { 0%,42% { opacity:1; transform:translateY(0); } 50%,92% { opacity:0; transform:translateY(-100%); } 100% { opacity:1; transform:translateY(0); } }
         @keyframes liveB { 0%,42% { opacity:0; transform:translateY(100%); } 50%,92% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(100%); } }
@@ -355,7 +355,7 @@ const sfx = new RetroAudio();
 document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !e.repeat && (e.key.length === 1 || e.key === 'Backspace')) { try { sfx.playType(); } catch (_) {} } }, true);
 
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
-const APP_VERSION = '20261111', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261112', APP_AUTHOR = '郭柏宏';
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
 function updateWorld() {
@@ -2181,6 +2181,10 @@ class Game {
             this.drawBars(ctx, this.player.pos.x, this.player.pos.y + 54 * SKINS[this.skin].s, 64, this.hp, this.maxHp, this.shield, this.maxHp, '#33ff88');
             if (this.clearT > 0) {
                 ctx.save(); ctx.textAlign = 'center'; ctx.font = "bold 24px 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif"; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.fillStyle = '#ffea00';
+                { const k = Math.max(0, Math.min(1, this.clearT / 5)), cx = WORLD.w / 2, cy = WORLD.h * 0.3 - 62;   // 5 秒倒數計時器（時間到自動消失）
+                  ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.arc(cx, cy, 30, 0, 7); ctx.stroke();
+                  ctx.strokeStyle = '#ffea00'; ctx.beginPath(); ctx.arc(cx, cy, 30, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke();
+                  ctx.fillStyle = '#ffea00'; ctx.font = 'bold 34px ' + KAI_FONT; ctx.textBaseline = 'middle'; ctx.fillText(String(Math.ceil(this.clearT)), cx, cy + 1); ctx.textBaseline = 'alphabetic'; }
                 const msg = `區塊清除！${Math.ceil(this.clearT)} 秒後前往${this.clearNext ? '下一關' : '下一波'}`, sub = '趁現在撿起掉落的字卡';
                 ctx.strokeText(msg, WORLD.w / 2, WORLD.h * 0.3); ctx.fillText(msg, WORLD.w / 2, WORLD.h * 0.3);
                 ctx.font = "16px 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif"; ctx.fillStyle = '#fff'; ctx.strokeText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.fillText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.restore();
