@@ -1332,12 +1332,31 @@ class Game {
     changeStart(d) { this.startStage = Math.max(1, Math.min(this.bestStage, this.startStage + d)); this.renderLobby(); }
 
     openHangar() { this.hIdx = SHIPS.findIndex(x => x.id === this.shipId); this.setState('HANGAR'); }
-    hSel(i) { this.hIdx = i; this.renderHangar(); }
-    hEquip() { const S = SHIPS[this.hIdx]; if (this.fleet[S.id].own) { this.shipId = S.id; this.applyUpgrades(); this.save(); this.renderHangar(); } }
+    keepScroll(fn) { const o = document.querySelector('#ui-layer .menu-overlay'), y = o ? o.scrollTop : 0; fn(); const n = document.querySelector('#ui-layer .menu-overlay'); if (n) n.scrollTop = y; }
+    upToast(msg) {   // 升級／購買成功彈窗：3 秒後淡出
+        let t = document.getElementById('up-toast');
+        if (!t) { t = document.createElement('div'); t.id = 'up-toast'; t.style.cssText = 'position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:9999;background:rgba(5,5,16,.96);color:#fff;border:2px solid #ffea00;border-radius:12px;padding:14px 26px;font-size:1.1rem;font-weight:bold;box-shadow:0 0 24px rgba(255,234,0,.5);pointer-events:none;text-align:center;transition:opacity .6s;opacity:0'; document.body.appendChild(t); }
+        t.innerHTML = '✔ ' + msg; t.style.opacity = '1'; clearTimeout(t._a); clearTimeout(t._b);
+        t._a = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+    }
+    radarSvg(S) {   // 戰機雷達圖：實線＝目前等級，虛線＝等級上限
+        const KS = [['dmg', '火力'], ['rate', '射速'], ['hp', '裝甲'], ['spd', '機動']], F = this.fleet[S.id], R = 82, C = 110, n = KS.length;
+        const pt = (i, r) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [C + Math.cos(a) * R * r, C + Math.sin(a) * R * r]; };
+        const poly = f => KS.map(([k], i) => pt(i, Math.max(0.03, Math.min(1, f(k) / 16))).map(v => v.toFixed(1)).join(',')).join(' ');
+        const rings = [0.25, 0.5, 0.75, 1].map(r => `<polygon points="${KS.map((_, i) => pt(i, r).map(v => v.toFixed(1)).join(',')).join(' ')}" fill="none" stroke="#334" stroke-width="1"/>`).join('');
+        const axes = KS.map((_, i) => { const [x, y] = pt(i, 1); return `<line x1="${C}" y1="${C}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#334"/>`; }).join('');
+        const labels = KS.map(([k, nm], i) => { const [x, y] = pt(i, 1.22); return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" fill="#ccd" font-size="12" text-anchor="middle" dominant-baseline="middle">${nm} ${F[k]}/${S.cap[k]}</text>`; }).join('');
+        return `<svg viewBox="-30 0 280 220" width="300" height="236" style="flex:none">${rings}${axes}
+            <polygon points="${poly(k => S.cap[k])}" fill="none" stroke="#889" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <polygon points="${poly(k => F[k])}" fill="${S.c}" fill-opacity=".35" stroke="${S.c}" stroke-width="2"/>${labels}</svg>`;
+    }
+    hSel(i) { this.hIdx = i; this.keepScroll(() => this.renderHangar()); }
+    hEquip() { const S = SHIPS[this.hIdx]; if (this.fleet[S.id].own) { this.shipId = S.id; this.applyUpgrades(); this.save(); this.keepScroll(() => this.renderHangar()); } }
     upgrade(id, k) {
         const S = this.ship(id), L = this.fleet[id], cost = (L[k] + 1) * 80;
         if (!L.own || L[k] >= S.cap[k] || this.darkMatter < cost) return;
-        this.darkMatter -= cost; L[k]++; this.applyUpgrades(); sfx.playUpgradeOk(); this.save(); this.renderHangar();
+        this.darkMatter -= cost; L[k]++; this.applyUpgrades(); sfx.playUpgradeOk(); this.save(); this.keepScroll(() => this.renderHangar());
+        this.upToast(`${S.name}「${{ dmg: '火力', rate: '射速', hp: '裝甲', spd: '機動' }[k]}」升級成功！Lv.${L[k]}`);
     }
 
     renderLobby() {
@@ -1385,6 +1404,8 @@ class Game {
             <div class="menu-overlay" style="width:min(96vw,1100px);max-width:none;">
                 <h2 class="shop-title" style="margin-bottom:4px;">戰機管理</h2>
                 <p style="color:var(--neon-purple); margin:4px 0;">持有暗物質: <b>${this.darkMatter} DM</b>　<small style="color:#aaa;">←／→ 選卡　1~4 升級　Enter 出戰　Esc 返回</small></p>
+                <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin:6px 0;">${this.radarSvg(SHIPS[this.hIdx])}
+                    <div style="text-align:left;font-size:.85rem;line-height:1.7;color:#ccd;"><b style="color:${SHIPS[this.hIdx].c};font-size:1.05rem;">${SHIPS[this.hIdx].name}</b>　${SHIPS[this.hIdx].role}<br>雷達圖滿格＝16 級<br><span style="color:${SHIPS[this.hIdx].c}">■</span> 目前等級　<span style="color:#889">┅</span> 等級上限</div></div>
                 <div class="cards">${cards}</div>
                 <button class="btn btn-shop" onclick="game.hEquip()">設為出戰戰機 [Enter]</button>
                 <button class="btn btn-start" style="margin-top:6px;" onclick="game.setState('LOBBY')">返回大廳 [Esc]</button>
@@ -1422,7 +1443,8 @@ class Game {
     buyItem(i) {
         const r = this.shopRows()[i];
         if (!r || r.dis) return;
-        r.run(); this.applyUpgrades(); if (i < SHIPS.length) sfx.playBuy(); else sfx.playFeatureUp(); this.save(); this.renderShop();
+        r.run(); this.applyUpgrades(); if (i < SHIPS.length) sfx.playBuy(); else sfx.playFeatureUp(); this.save(); this.keepScroll(() => this.renderShop());
+        this.upToast(i < SHIPS.length ? `${SHIPS[i].name} 購買成功！` : `${this.shopRows()[i].t.replace(/ Lv\.(\d+)\/(\d+)/, '')} 升級成功！Lv.${this.shopRows()[i].t.replace(/.*Lv\.(\d+)\/.*/, '$1')}`);
     }
 
     save() {
