@@ -31,11 +31,13 @@ Authentication → Settings → **Authorized domains**，加入你放遊戲的�
 - `users/{uid}`：暱稱、最高分、累積／花費暗物質、全關破關時間（`bestClearMs`、`clearKey`）、PK 勝敗、遊戲存檔
 - `users/{uid}/friends`、`users/{uid}/invites`、`friendRequests`
 - `lobbyChat`、`dms/{uidA_uidB}/messages`、`groups/{id}/messages`
-- `rooms/{4位數密碼}`、`rooms/{密碼}/events`（PK）
+- `rooms/{4位數密碼}`、`rooms/{密碼}/events`（PK 成語攻擊／字塊被打爆）、`rooms/{密碼}/pos`（PK 雙方即時位置）
+- `presence/{uid}`：上線狀態（名稱、最常用機種、最後活動時間；5 分鐘內有活動＝在線）
 
 ## 注意
 - 排行榜需要讀取其他玩家的 `users` 文件，所以玩家存檔欄位（save）對已登入的玩家是可讀的；若在意，可之後把存檔移到獨立集合。
-- PK 為「各自遊玩、成語攻擊同步」的對戰：雙方畫面在成語演示時一起凍結。
+- PK 為「面對面互射」：沒有 NPC，雙方各自結算自己被打到的傷害；字塊依房間開戰時間產生（雙方相同），誰打爆就通知對方、字飄向誰；成語演示時雙方畫面一起凍結。
+- **更新版本後請重新發布 `firestore.rules`**（新增了 `presence` 與 `rooms/{code}/pos` 兩段規則），否則上線列表與 PK 對手位置不會動。
 
 ---
 

@@ -625,7 +625,7 @@ class ObjectPool {
     get() {
         let obj = this.pool.find(o => !o.active);
         if (!obj) { obj = this.createFn(); this.pool.push(obj); }
-        obj.active = true; obj.homing = false; obj.target = null; obj.pierce = false; return obj;
+        obj.active = true; obj.homing = false; obj.target = null; obj.pierce = false; obj.pk = false; return obj;
     }
 }
 
@@ -1772,6 +1772,7 @@ class Game {
         this.player.pos.x = Math.max(20, Math.min(WORLD.w - 20, this.player.pos.x));
         this.player.pos.y = Math.max(20, Math.min(WORLD.h - 20, this.player.pos.y));
 
+        if (this.pkMode && window.online) online.pkUpdate(dt);   // PK：對手位置／子彈／字塊
         const fireRate = this.player.rapidFire > 0 ? Math.min(50, this.st.interval) : this.st.interval;
         if (Date.now() - this.player.lastShoot > fireRate) {
             const dmg = this.st.dmg;
@@ -1787,7 +1788,7 @@ class Game {
             this.player.lastShoot = Date.now(); sfx.playShoot(this.player.spreadFire > 0 ? 2 : this.player.rapidFire > 0 ? 1 : 0);
         }
 
-        if (!this.boss && !(this.clearT > 0)) {
+        if (!this.pkMode && !this.boss && !(this.clearT > 0)) {   // PK 不出現 NPC 戰機與 Boss
             if (this.currentSub < 3) {
                 if (this.enemiesSpawned < this.waveQuota) {
                     this.enemySpawnTimer -= dt;
@@ -1802,7 +1803,7 @@ class Game {
         }
 
         // 掉落成語字塊：分析當前需要哪些字，提高掉落機率
-        this.idiomBlockTimer += dt;
+        if (!this.pkMode) this.idiomBlockTimer += dt;
         if (this.idiomBlockTimer > 2.0) { // 稍微加快掉落速度
             if (Math.random() < 0.35) this.spawnIdiomBlock(Math.random() * (WORLD.w-60) + 30, -50);
             this.idiomBlockTimer = 0;
@@ -1850,6 +1851,10 @@ class Game {
                 if (b.pos.y < -50 || b.pos.y > WORLD.h + 50 || b.pos.x < -50 || b.pos.x > WORLD.w+50) b.active = false;
                 
                 if (b.isPlayer) {
+                    if (this.pkMode && window.online && online.pk && online.pk.ghost) {   // 打到對手：子彈消失（傷害由被打的一方自己結算）
+                        const g = online.pk.ghost, R = (online.pk.ghostR || 15) + 9;
+                        if (Math.hypot(b.pos.x - g.x, b.pos.y - g.y) < R) { b.active = false; this.burst(b.pos.x, b.pos.y, 2); return; }
+                    }
                     if (this.boss && Math.hypot(b.pos.x - this.boss.pos.x, b.pos.y - this.boss.pos.y) < this.boss.radius) {
                         this.dmgEnt(this.boss, b.damage, b.pierce, true, b); b.active = false; sfx.playHit();
                     }
@@ -1863,13 +1868,15 @@ class Game {
                         if (Math.hypot(b.pos.x - m.pos.x, b.pos.y - m.pos.y) < m.radius) {
                             m.hp -= b.damage; b.active = false; sfx.playHit();
                             if(m.hp<=0) {
-                                this.charItems.push({ pos: new Vec2(m.pos.x, m.pos.y), char: m.char });
+                                this.blockBreak(m);
                                 sfx.playExplosion(); this.idiomBlocks.splice(i, 1);
                             }
                         }
                     });
                 } else {
-                    if (Math.hypot(b.pos.x - this.player.pos.x, b.pos.y - this.player.pos.y) < this.player.radius && this.invincibleTimer <= 0) {
+                    if (b.pk && Math.hypot(b.pos.x - this.player.pos.x, b.pos.y - this.player.pos.y) < this.player.radius && this.invincibleTimer <= 0) {   // 對手的子彈
+                        this.hurt(online.pkDmg(b)); b.active = false; sfx.playPlayerHit(); this.updateHUD(); if (this.hp <= 0) this.setState('GAMEOVER');
+                    } else if (!b.pk && Math.hypot(b.pos.x - this.player.pos.x, b.pos.y - this.player.pos.y) < this.player.radius && this.invincibleTimer <= 0) {
                         this.hurt(b.damage * 10); b.active = false; this.invincibleTimer = 0.5; sfx.playPlayerHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
                     }
                 }
@@ -1877,11 +1884,24 @@ class Game {
         });
 
         this.idiomBlocks.forEach((m, i) => {
-            m.pos.y += 60 * dt; 
+            if (m.vx !== undefined) {   // PK 字塊：從左右兩側橫向飄過戰場中央
+                m.pos.x += m.vx * dt; m.pos.y = m.y0 + m.sg * Math.sin(this.pkTime * 1.1 + m.ph) * 28;
+                if (m.pos.x < -70 || m.pos.x > WORLD.w + 70) this.idiomBlocks.splice(i, 1);
+                return;
+            }
+            m.pos.y += 60 * dt;
             if (m.pos.y > WORLD.h + m.radius) this.idiomBlocks.splice(i, 1);
         });
 
         this.charItems.forEach((c, i) => {
+            if (c.home) {   // PK：字元飄向打爆字塊的那一方
+                const T = c.home === 'me' ? this.player.pos : (window.online && online.pk && online.pk.ghost);
+                if (!T) { this.charItems.splice(i, 1); return; }
+                const dx = T.x - c.pos.x, dy = T.y - c.pos.y, d = Math.hypot(dx, dy) || 1; c.v = Math.min(420, (c.v || 90) + 360 * dt);
+                c.pos.x += dx / d * c.v * dt; c.pos.y += dy / d * c.v * dt;
+                if (d < 28) { if (c.home === 'me') this.collectChar(c.char); this.charItems.splice(i, 1); }
+                return;
+            }
             c.pos.y += 120 * dt; 
             const cd = Math.hypot(c.pos.x - this.player.pos.x, c.pos.y - this.player.pos.y);
             if (this.magnetLvl > 0 && cd > 1 && cd < 100 + this.magnetLvl * 40) { c.pos.x += (this.player.pos.x - c.pos.x) / cd * 300 * dt; c.pos.y += (this.player.pos.y - c.pos.y) / cd * 300 * dt; }
@@ -1900,7 +1920,7 @@ class Game {
             this.idiomBlocks.forEach((m, i) => {
                 if (Math.abs(m.pos.x - this.player.pos.x) < 25 && m.pos.y < this.player.pos.y) {
                     m.hp -= 100 * dt; 
-                    if(m.hp<=0) { this.charItems.push({ pos: new Vec2(m.pos.x, m.pos.y), char: m.char }); sfx.playExplosion(); this.idiomBlocks.splice(i, 1); }
+                    if(m.hp<=0) { this.blockBreak(m); sfx.playExplosion(); this.idiomBlocks.splice(i, 1); }
                 }
             });
         }
@@ -1991,6 +2011,11 @@ class Game {
     }
 
     // 智能掉落：高機率掉落目前需要的字元
+    blockBreak(m) {   // 字塊被打爆：一般模式字元往下掉；PK 模式字元飄向打爆的人，並通知對手
+        if (this.pkMode && window.online && online.pk) { this.charItems.push({ pos: new Vec2(m.pos.x, m.pos.y), char: m.char, home: 'me' }); online.pkPop(m.id); }
+        else this.charItems.push({ pos: new Vec2(m.pos.x, m.pos.y), char: m.char });
+    }
+
     spawnIdiomBlock(x, y) {
         let neededChars = [];
         this.slots.forEach(slot => {
@@ -2344,6 +2369,11 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 #ch-msgs{flex:1;overflow-y:auto;padding:6px 8px;text-align:left}.msg{margin:4px 0;word-break:break-all}.msg b{color:var(--neon-blue)}.msg.me b{color:var(--neon-gold)}.msg small{color:#667;margin-left:4px}
 #chat-panel .ch-in{display:flex;gap:4px;padding:6px}#chat-panel .ch-in input{flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--neon-blue);background:#0a0a1a;color:#fff;font-family:inherit}
 #chat-panel .ch-in button{padding:0 12px;border-radius:8px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.2);color:#fff;cursor:pointer}
+.msg.sys{text-align:center;font-size:.82rem;color:#7dffb0}.msg.sys.s2{color:#8a93a6}
+#ol-box .ol-h{font-weight:bold;color:var(--neon-gold);font-size:.85rem;text-align:left}#ol-box .ol-h small{color:#8aa;font-weight:normal;margin-left:4px}
+#ol-box .ol-l{max-height:74px;overflow-y:auto;text-align:left}.ol-p img{height:18px;vertical-align:middle;margin-right:4px}
+.fshp{height:24px;width:28px;object-fit:contain;vertical-align:middle;margin-right:2px}.fdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#445;margin-right:5px}.fdot.on{background:#33ff88;box-shadow:0 0 6px #33ff88}
+.tabs.top button{font-size:1rem;padding:6px 18px}.tabs.sub{margin-top:0}.tabs.sub button{background:rgba(255,255,255,.06);border-color:#667}.tabs.sub button.on{background:#fff;color:#000}
 #pk-hud{position:absolute;top:clamp(92px,24vw,100px);left:50%;transform:translateX(-50%);width:min(80%,340px);z-index:6;text-align:center;font-size:clamp(.7rem,3vw,.9rem);color:#ffb3b3;pointer-events:none;text-shadow:0 0 4px #000}
 #pk-hud .bar{height:8px;background:#333;border:1px solid #fff;margin-top:2px}#pk-hud .bar i{display:block;height:100%;background:linear-gradient(to right,#f33,#fa0)}
 .tut{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;min-height:150px;margin:8px 0;padding:10px;background:rgba(0,0,20,.6);border:1px solid #334;border-radius:10px}
@@ -2359,7 +2389,8 @@ try { firebase.initializeApp(CFG); auth = firebase.auth(); db = firebase.firesto
 
 const online = window.online = {
     fbOk, user: null, profile: null, isAdmin: false, friends: [], reqIn: [], invites: [], groups: [], unsubs: [], pk: null, pending: null,
-    chat: { open: false, tab: 'lobby', th: null, unsub: null, msgs: [], unread: 0, first: true, dmReady: {} },
+    chat: { open: false, tab: 'lobby', th: null, unsub: null, msgs: [], unread: 0, first: true, dmReady: {}, notes: [] },
+    ONL_MS: 5 * 60 * 1000, onl: {}, nm: {}, onlSet: null, fTop: {}, lastPres: 0,
 
     // ===== 登入 / 帳號 =====
     afterBoot() { Promise.race([this.authReady || Promise.resolve(), new Promise(r => setTimeout(r, 12000))]).then(() => { if ((this.user || this.offline) && this.profile) G.setState(this.profile.tutorialDone ? 'LOBBY' : 'TUTORIAL'); else G.setState('LOGIN'); }); },
@@ -2427,13 +2458,13 @@ const online = window.online = {
         toast('管理員已調整你的帳號資料', 4000);
     },
     onLogout() {
-        this.unsubs.forEach(f => { try { f(); } catch (e) {} }); this.unsubs = []; this.stopChat();
+        this.unsubs.forEach(f => { try { f(); } catch (e) {} }); this.unsubs = []; this.stopChat(); this.chat.notes = []; this.onl = {}; this.onlSet = null; this.fTop = {};
         this.user = null; this.profile = null; this.isAdmin = false; this.friends = []; this.reqIn = []; this.invites = []; this.groups = [];
         localStorage.removeItem(SAVEKEY); G.resetProgress();
         const f = $('chat-fab'), p = $('chat-panel'); if (f) f.style.display = 'none'; if (p) p.style.display = 'none';
         if (!['INIT', 'LOGIN'].includes(G.gameState)) G.setState('LOGIN');
     },
-    logout() { this.pushNow(); if (fbOk) auth.signOut(); },
+    logout() { this.pushNow(); this.goOffline(); if (fbOk) auth.signOut(); },
 
     // ===== 離線模式：裝置上保留最近一次登入的進度 =====
     readMirror() { try { return JSON.parse(localStorage.getItem(MIRROR) || 'null'); } catch (e) { return null; } },
@@ -2500,22 +2531,31 @@ const online = window.online = {
         const T = (a, b, h, sm, ico, onclick, cls = '', col = '') => `<div class="tile ${cls}" style="--a:${a};--b:${b}${col ? ';color:' + col : ''}" onclick="${onclick}"><h4>${h}</h4><small>${sm}</small><span class="ico">${ico}</span></div>`;
         return T('#f7971e', '#ffd200', '排行榜', '線上排名', '★', "game.setState('RANK')", '', '#222')
             + T('#11998e', '#38ef7d', '好友', `聊天／邀請${this.reqIn.length ? '（' + this.reqIn.length + ' 筆邀請）' : ''}`, '友', "game.setState('FRIENDS')", '', '#022')
-            + T('#614385', '#516395', '圖鑑', '成語・戰機・敵機・Boss', '鑑', "game.setState('DB')")
+            + T('#614385', '#516395', '圖鑑', '成語招式・戰鬥數據', '鑑', "game.setState('DB')")
             + T('#cb2d3e', '#ef473a', '好友 PK', '與好友對決', '⚔', "game.setState('PK')")
             + T('#1d2b64', '#3a6073', '個人戰績', '分數・暗物質・常用戰機', '績', "game.setState('STATS')", 'w2')
             + T('#134e5e', '#71b280', '新手教學', '圖文說明', '?', "game.setState('TUTORIAL')", 'w2');
     },
 
     // ===== 個人戰績 =====
-    renderStats() {
-        const p = this.profile || {}, use = p.shipUse || {}, total = Object.values(use).reduce((a, b) => a + b, 0), top = SHIPS.find(x => x.id === this.topShip(p)) || SHIPS[0];
+    statsBody(p) {   // 個人戰績內容（自己與其他玩家共用）
+        p = p || {}; const use = p.shipUse || {}, total = Object.values(use).reduce((a, b) => a + b, 0), top = SHIPS.find(x => x.id === this.topShip(p)) || SHIPS[0];
         const row = (k, v) => `<div class="rrow"><span>${k}</span><b>${v}</b></div>`;
         const uses = SHIPS.filter(x => use[x.id]).sort((a, b) => use[b.id] - use[a.id]).map(x => `${x.name} ${use[x.id]} 次`).join('、') || '尚無出擊紀錄';
-        ui(`<div class="menu-overlay" style="width:min(92vw,420px)"><h2 class="shop-title">個人戰績</h2><p class="muted">${esc(p.name || '')}（${esc(p.username || '')}）</p>
-            <img src="${shipImg(top.id)}" style="height:90px;object-fit:contain;filter:drop-shadow(0 0 8px ${top.c})" onerror="this.style.display='none'"><p style="margin:2px 0 8px;color:${top.c}">最常使用：${top.name}</p>
+        return `<img src="${shipImg(top.id)}" style="height:90px;object-fit:contain;filter:drop-shadow(0 0 8px ${top.c})" onerror="this.style.display='none'"><p style="margin:2px 0 8px;color:${top.c}">最常使用：${top.name}</p>
             <div class="res-rows">${row('歷史最高分', p.bestScore || 0)}${row('累積暗物質', (p.totalDM || 0) + ' DM')}${row('已花費暗物質', (p.spentDM || 0) + ' DM')}
             ${row('全關卡破關時間', p.bestClearMs !== undefined ? fmtTime(p.bestClearMs) : '尚未破關')}${row('PK 戰績', `${p.pkWins || 0} 勝 ${p.pkLosses || 0} 敗`)}${row('出擊次數', total)}</div>
-            <p class="muted" style="margin:8px 0">${uses}</p>${BACK}</div>`);
+            <p class="muted" style="margin:8px 0">${uses}</p>`;
+    },
+    renderStats() {
+        const p = this.profile || {};
+        ui(`<div class="menu-overlay" style="width:min(92vw,420px)"><h2 class="shop-title">個人戰績</h2><p class="muted">${esc(p.name || '')}（${esc(p.username || '')}）</p>${this.statsBody(p)}${BACK}</div>`);
+    },
+    async showPlayer(uid) {   // 點在線名單的人名：查看該玩家各項數據
+        try {
+            const s = await db.collection('users').doc(uid).get(); if (!s.exists) return toast('找不到這位玩家的資料');
+            G.dialog(`<h3 style="margin:0 0 4px;color:var(--neon-gold)">${esc(s.data().name || '')}</h3>${this.statsBody(s.data())}<button class="btn btn-start" onclick="game.closeDlg()">關閉</button>`);
+        } catch (e) { toast(errMsg(e)); }
     },
 
     // ===== 排行榜 =====
@@ -2537,18 +2577,79 @@ const online = window.online = {
         } catch (e) { const l = $('rk-list'); if (l) l.textContent = errMsg(e); }
     },
 
+
+    // ===== 上線狀態：5 分鐘內有活動＝在線，5 分鐘沒活動自動變下線 =====
+    touch(force) {
+        const now = Date.now();
+        if (!this.user || !this.profile || !db || this.offline) return;
+        if (force || now - this.lastPres > 60000) {
+            this.lastPres = now;
+            db.collection('presence').doc(this.user.uid).set({ name: this.profile.name, top: this.topShip(this.profile), lastActive: now }).catch(() => {});
+        }
+    },
+    goOffline() {
+        if (!this.user || !this.profile || !db) return; this.lastPres = 0;
+        db.collection('presence').doc(this.user.uid).set({ name: this.profile.name, top: this.topShip(this.profile), lastActive: Date.now() - this.ONL_MS }).catch(() => {});
+    },
+    startPresence() {
+        if (!this._actBound) {
+            this._actBound = true;
+            ['pointerdown', 'pointermove', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, () => online.touch(), { passive: true }));
+            window.addEventListener('pagehide', () => online.goOffline());
+        }
+        this.onl = {}; this.onlSet = null; this._presT0 = Date.now(); this.touch(true);
+        this.unsubs.push(db.collection('presence').where('lastActive', '>', Date.now() - 30 * 60000).onSnapshot(s => {
+            this.onl = {}; s.docs.forEach(d => { this.onl[d.id] = d.data(); this.nm[d.id] = d.data().name; }); this.evalOnline();
+        }, () => {}));
+        clearInterval(this._onlTimer); this._onlTimer = setInterval(() => this.evalOnline(), 15000);
+        this.unsubs.push(() => clearInterval(this._onlTimer));
+    },
+    isOnline(id) { const x = this.onl[id]; return !!x && Date.now() - (x.lastActive || 0) < this.ONL_MS; },
+    evalOnline() {
+        if (!this.user) return; const me = this.user.uid, cur = new Set(Object.keys(this.onl).filter(id => this.isOnline(id))); let changed = !this.onlSet;
+        if (this.onlSet && Date.now() - this._presT0 > 4000) {   // 剛登入的前幾秒不通知；之後有人上線／下線就顯示在大廳
+            cur.forEach(id => { if (!this.onlSet.has(id)) { changed = true; if (id !== me) this.lobbyNote((this.nm[id] || '玩家') + '上線囉!', 1); } });
+            this.onlSet.forEach(id => { if (!cur.has(id)) { changed = true; if (id !== me) this.lobbyNote((this.nm[id] || '玩家') + '下線囉!', 2); } });
+        }
+        this.onlSet = cur; this.renderOnline(); if (changed && G.gameState === 'FRIENDS') this.refresh();
+    },
+    lobbyNote(text, kind) {
+        const c = this.chat; c.notes.push({ sys: kind, text, ts: Date.now() }); if (c.notes.length > 40) c.notes.shift();
+        if (c.th && c.th.k === 'lobby') this.renderMsgs();
+        if (!['PLAYING', 'TRANSITION', 'INIT', 'LOGIN'].includes(G.gameState)) toast(text, 2200);
+    },
+    renderOnline() {
+        const box = $('ol-box'); if (!box || !this.user) return; const me = this.user.uid;
+        const ids = Object.keys(this.onl).filter(id => this.isOnline(id)).sort((a, b) => a === me ? -1 : b === me ? 1 : (this.onl[a].name || '').localeCompare(this.onl[b].name || ''));
+        box.innerHTML = `<div class="ol-h">在線 ${ids.length} 人<small>（5 分鐘內有活動；點名字看數據）</small></div><div class="ol-l">${ids.map(id => {
+            const x = this.onl[id], S = SHIPS.find(v => v.id === x.top) || SHIPS[0];
+            return `<button class="chip ol-p" onclick="online.showPlayer('${id}')"><img src="${shipImg(S.id)}" onerror="this.style.display='none'">${esc(x.name || '')}${id === me ? '（我）' : ''}</button>`; }).join('') || '<span class="muted">目前沒有人在線</span>'}</div>`;
+    },
+    loadFriendTops() {   // 抓好友最常用的機種
+        this.friends.forEach(f => {
+            const c = this.fTop[f.uid]; if (c && Date.now() - c.t < 120000) return; this.fTop[f.uid] = { t: Date.now(), top: c && c.top };
+            db.collection('users').doc(f.uid).get().then(s => { if (s.exists) { this.fTop[f.uid] = { t: Date.now(), top: this.topShip(s.data()) }; if (G.gameState === 'FRIENDS') this.renderFriends(); } }).catch(() => {});
+        });
+    },
+    friendTag(uid) {
+        const c = this.fTop[uid], x = this.onl[uid], sid = (c && c.top) || (x && x.top), dot = `<span class="fdot ${this.isOnline(uid) ? 'on' : ''}"></span>`;
+        if (!sid) return dot; const S = SHIPS.find(v => v.id === sid) || SHIPS[0];
+        return `${dot}<img class="fshp" src="${shipImg(S.id)}" onerror="this.style.display='none'"><small style="color:${S.c}">${S.name}</small> `;
+    },
+
     // ===== 好友 =====
     startListeners() {
         const uid = this.user.uid, U = db.collection('users').doc(uid), on = (q, f) => this.unsubs.push(q.onSnapshot(f, () => {}));
         on(U, s => { const d = s.exists && s.data(); if (!d || s.metadata.hasPendingWrites) return; if ((d.adminAt || 0) > (this._adminSeen || 0)) { if (['PLAYING', 'TRANSITION'].includes(G.gameState)) { this._pendingAdmin = d; this._adminSeen = d.adminAt; } else this.applyAdminDoc(d); } });
         on(db.collection('banned').doc(uid), s => { if (s.exists) this.kick(s.data()); });
-        on(U.collection('friends'), s => { this.friends = s.docs.map(d => Object.assign({ uid: d.id }, d.data())); this.refresh(); this.chatSel(); });
+        on(U.collection('friends'), s => { this.friends = s.docs.map(d => Object.assign({ uid: d.id }, d.data())); this.loadFriendTops(); this.refresh(); this.chatSel(); });
         on(db.collection('friendRequests').where('to', '==', uid).where('status', '==', 'pending'), s => { this.reqIn = s.docs.map(d => Object.assign({ id: d.id }, d.data())); this.refresh(); });
         on(db.collection('friendRequests').where('from', '==', uid).where('status', '==', 'accepted'), s => s.docs.forEach(d => { const x = d.data();
             U.collection('friends').doc(x.to).set({ name: x.toName, ts: Date.now() }).then(() => d.ref.delete()).catch(() => {}); }));
         on(U.collection('invites'), s => { const old = new Set(this.invites.map(i => i.code)); this.invites = s.docs.map(d => d.data());
             this.invites.forEach(i => { if (!old.has(i.code) && old.size + 1) toast(`${i.fromName} 邀請你 PK！房間密碼 ${i.code}`, 5000); }); this.refresh(); });
         on(db.collection('groups').where('members', 'array-contains', uid), s => { this.groups = s.docs.map(d => Object.assign({ id: d.id }, d.data())); this.chatSel(); });
+        this.startPresence();
     },
     renderFriends() {
         const keep = ($('fr-in') || {}).value || '', me = this.user.uid;
@@ -2556,7 +2657,7 @@ const online = window.online = {
             <div class="row"><input class="inp" id="fr-in" style="flex:1;margin:0" placeholder="輸入對方帳號加好友" value="${esc(keep)}"><button class="sm" onclick="online.addFriend(document.getElementById('fr-in').value)">送出邀請</button></div>
             ${this.invites.length ? `<h4>PK 邀請</h4>` + this.invites.map(i => `<div class="row"><span>${esc(i.fromName)} 邀請你 PK（${esc(i.code)}）</span><button class="sm" onclick="online.acceptInvite('${esc(i.code)}')">加入</button><button class="sm red" onclick="online.dropInvite('${esc(i.code)}')">拒絕</button></div>`).join('') : ''}
             ${this.reqIn.length ? `<h4>好友邀請</h4>` + this.reqIn.map(r => `<div class="row"><span>${esc(r.fromName)}</span><button class="sm" onclick="online.acceptReq('${r.id}')">接受</button><button class="sm red" onclick="online.declineReq('${r.id}')">拒絕</button></div>`).join('') : ''}
-            <h4>好友列表（${this.friends.length}）</h4><div class="lst">${this.friends.length ? this.friends.map(f => `<div class="row"><span>${esc(f.name)}</span><button class="sm" onclick="online.openChat('dm','${f.uid}')">聊天</button><button class="sm" onclick="online.invite('${f.uid}')">邀請 PK</button><button class="sm red" onclick="online.removeFriend('${f.uid}')">刪除</button></div>`).join('') : '<p class="muted">還沒有好友，輸入對方帳號試試</p>'}</div>${BACK}</div>`);
+            <h4>好友列表（${this.friends.length}）</h4><div class="lst">${this.friends.length ? this.friends.map(f => `<div class="row"><span>${this.friendTag(f.uid)}${esc(f.name)}</span><button class="sm" onclick="online.openChat('dm','${f.uid}')">聊天</button><button class="sm" onclick="online.invite('${f.uid}')">邀請 PK</button><button class="sm red" onclick="online.removeFriend('${f.uid}')">刪除</button></div>`).join('') : '<p class="muted">還沒有好友，輸入對方帳號試試</p>'}</div>${BACK}</div>`);
         const inp = $('fr-in'); if (inp) inp.onkeydown = e => { if (e.key === 'Enter') this.addFriend(inp.value); };
     },
     async addFriend(name) {
@@ -2615,7 +2716,7 @@ const online = window.online = {
     dmId(peer) { return [this.user.uid, peer].sort().join('_'); },
     chatSel(peer) {
         const c = this.chat, sel = $('ch-sel'); if (!sel || !this.user) return;
-        if (c.tab === 'lobby') { sel.innerHTML = '<span class="muted">所有玩家都看得到（管理員可查看所有聊天內容）</span>'; this.subChat({ k: 'lobby' }); }
+        if (c.tab === 'lobby') { sel.innerHTML = '<div id="ol-box" style="width:100%"></div><span class="muted">所有玩家都看得到（管理員可查看所有聊天內容）</span>'; this.renderOnline(); this.subChat({ k: 'lobby' }); }
         else if (c.tab === 'dm') {
             if (!this.friends.length) { sel.innerHTML = '<span class="muted">加好友後才能私訊</span>'; this.subChat(null); return; }
             const cur = peer || (c.th && c.th.k === 'dm' ? c.th.peer : this.friends[0].uid);
@@ -2656,7 +2757,8 @@ const online = window.online = {
     },
     renderMsgs() {
         const box = $('ch-msgs'); if (!box || $('gp-name')) return;
-        box.innerHTML = this.chat.msgs.length ? this.chat.msgs.map(m => msgHtml(m, this.user && m.uid === this.user.uid)).join('') : '<p class="muted">還沒有訊息</p>'; box.scrollTop = box.scrollHeight;
+        const c = this.chat, list = (c.th && c.th.k === 'lobby') ? c.msgs.concat(c.notes).sort((a, b) => (a.ts || 0) - (b.ts || 0)) : c.msgs;
+        box.innerHTML = list.length ? list.map(m => msgHtml(m, this.user && m.uid === this.user.uid)).join('') : '<p class="muted">還沒有訊息</p>'; box.scrollTop = box.scrollHeight;
     },
     async sendChat() {
         const inp = $('ch-input'), text = inp.value.trim(), th = this.chat.th; if (!text || !th) return;
@@ -2773,9 +2875,11 @@ const online = window.online = {
     renderDB(eff, word) { this.renderDex('idiom', eff, word); },
     renderDex(tab, a, b) {
         tab = tab || 'idiom';
-        const T = [['idiom', '成語'], ['ship', '我方戰機'], ['enemy', '敵方戰機'], ['boss', 'Boss']];
+        const top = tab === 'idiom' ? 'idiom' : 'data';   // 兩大類：成語招式／戰鬥數據
+        const TOP = [['idiom', '成語招式', 'idiom'], ['data', '戰鬥數據', 'ship']], SUB = [['ship', '我方戰機'], ['enemy', '敵方戰機'], ['boss', 'Boss']];
         const body = { idiom: () => this.dexIdiom(a, b), ship: () => this.dexShips(), enemy: () => this.dexEnemies(), boss: () => this.dexBosses() }[tab]();
-        ui(`<div class="menu-overlay" style="width:min(95vw,700px)"><h2 class="shop-title">圖鑑</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderDex('${t[0]}')">${t[1]}</button>`).join('')}</div>${body}${BACK}</div>`);
+        const sub = top === 'data' ? `<div class="tabs sub">${SUB.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderDex('${t[0]}')">${t[1]}</button>`).join('')}</div>` : '';
+        ui(`<div class="menu-overlay" style="width:min(95vw,700px)"><h2 class="shop-title">圖鑑</h2><div class="tabs top">${TOP.map(t => `<button class="${t[0] === top ? 'on' : ''}" onclick="online.renderDex('${t[2]}')">${t[1]}</button>`).join('')}</div>${sub}${body}${BACK}</div>`);
     },
     dexIdiom(eff, word) {
         const DOC = { BOMB_BOOST: ['全螢幕爆破', '清空畫面敵彈與小型敵機並有爆炸動畫；對 Boss 傷害最高為其滿血的 1/4。'], INVINCIBLE: ['無敵', '10 秒內不會受到傷害。'],
@@ -2844,7 +2948,7 @@ const online = window.online = {
     // ===== PK 對戰 =====
     renderPK() {
         const p = this.pk;
-        if (!p) { ui(`<div class="menu-overlay" style="width:min(92vw,420px)"><h2 class="shop-title">PK 對戰</h2><p class="muted">主控端建立房間後，把 4 位數房間密碼給對方；對方輸入密碼即可加入。確認場地與戰機後開戰，雙方比拚蒐集成語並發動攻擊。</p>
+        if (!p) { ui(`<div class="menu-overlay" style="width:min(92vw,420px)"><h2 class="shop-title">PK 對戰</h2><p class="muted">主控端建立房間後，把 4 位數房間密碼給對方；對方輸入密碼即可加入。確認場地與戰機後開戰：雙方面對面互射，沒有 NPC 戰機；戰場中央會飄過兩倍數量的成語字塊，誰打爆字塊，字就飄向誰，集滿成語再發動招式攻擊對手。</p>
             <button class="btn btn-start" onclick="online.createRoom()">建立房間（主控端）</button>
             <div style="margin:12px 0">輸入房間密碼加入（客戶端）<input class="inp" id="pk-code" maxlength="4" inputmode="numeric" placeholder="4 位數房間密碼"><button class="btn" onclick="online.joinRoom(document.getElementById('pk-code').value)">加入房間</button></div>${BACK}</div>`); return; }
         const r = p.room || {}, host = p.role === 'host', me = host ? 'host' : 'guest', both = r.guest && r.hostReady && r.guestReady;
@@ -2908,24 +3012,30 @@ const online = window.online = {
     pkStart() { const r = this.pk.room; if (r.guest && r.hostReady && r.guestReady) this.roomUpdate({ state: 'playing', startAt: Date.now() }); },
     pkLeave(userAction) {
         const p = this.pk; if (!p) return; this.pk = null;
-        try { p.unsub && p.unsub(); p.unsubEv && p.unsubEv(); } catch (e) {}
+        try { p.unsub && p.unsub(); p.unsubEv && p.unsubEv(); p.unsubPos && p.unsubPos(); } catch (e) {}
         clearInterval(this._pkTimer); const h = $('pk-hud'); if (h) h.remove();
+        if (p.started) this.roomRef(p.code).collection('pos').doc(p.role).delete().catch(() => {});
         if (p.role === 'host') this.roomRef(p.code).delete().catch(() => {}); else if (!p.over) this.roomRef(p.code).update({ guest: null, guestName: '', guestReady: false }).catch(() => {});
         G.pkMode = false; if (userAction && G.gameState === 'PK') this.renderPK();
     },
     startMatch() {
-        const p = this.pk, r = p.room; p.started = true; p.matchId = r.startAt;
+        const p = this.pk, r = p.room, me = p.role, opp = me === 'host' ? 'guest' : 'host'; p.started = true; p.matchId = r.startAt;
         $('game-container').insertAdjacentHTML('beforeend', '<div id="pk-hud"></div>');
         const keep = { s: G.startStage, b: G.bestStage }; G.bestStage = 9; G.startStage = r.stage || 1; G.pkMode = true; G.pkTime = 0;
-        const myShip = r[p.role + 'Ship']; if (myShip && G.fleet[myShip] && G.fleet[myShip].own) G.shipId = myShip;
+        const myShip = r[me + 'Ship']; if (myShip && G.fleet[myShip] && G.fleet[myShip].own) G.shipId = myShip;
         G.startNewGame(); G.startStage = keep.s; G.bestStage = keep.b;
+        p.ghost = { x: WORLD.w / 2, y: 150, tx: WORLD.w / 2, ty: 150, cd: 600 }; p.gt = null; p.bk = 1;   // 對手（在我的畫面上方，面朝下）
+        this.roomUpdate({ [me + 'St']: { dmg: G.st.dmg, iv: G.st.interval, pen: G.st.pen, crit: G.st.crit, wl: G.weaponLvl, r: G.player.radius } });   // 讓對手畫面能模擬我的子彈
+        // 對手位置：用「主控端視角」的比例座標傳送；客戶端的畫面整個旋轉 180°，所以雙方都看到對方在上方、面對面
+        p.unsubPos = this.roomRef(p.code).collection('pos').doc(opp).onSnapshot(s => { const d = s.exists && s.data(); if (d) p.gt = me === 'host' ? { x: d.x, y: d.y } : { x: 1 - d.x, y: 1 - d.y }; }, () => {});
         p.unsubEv = this.roomRef(p.code).collection('events').where('matchId', '==', p.matchId).onSnapshot(s => s.docChanges().forEach(ch => {
             if (ch.type !== 'added') return; const e = ch.doc.data(); if (e.by === this.user.uid || p.seen.has(ch.doc.id)) return; p.seen.add(ch.doc.id);
+            if (e.type === 'pop') { this.pkRemotePop(e.id); return; }
             p.castQ.push(e); this.pkNext();
         }), () => {});
-        clearInterval(this._pkTimer); this._pkTimer = setInterval(() => this.pkTick(), 250);
+        clearInterval(this._pkTimer); this._pkTimer = setInterval(() => this.pkTick(), 160);
     },
-    pkSend(idiom) { const p = this.pk; if (!p || !p.started) return; this.roomRef(p.code).collection('events').add({ matchId: p.matchId, by: this.user.uid, name: this.profile.name, word: idiom.word, effect: idiom.effect, desc: idiom.desc, ts: Date.now() }).catch(() => {}); },
+    pkSend(idiom) { const p = this.pk; if (!p || !p.started) return; this.roomRef(p.code).collection('events').add({ matchId: p.matchId, type: 'cast', by: this.user.uid, name: this.profile.name, word: idiom.word, effect: idiom.effect, desc: idiom.desc, ts: Date.now() }).catch(() => {}); },
     pkNext() { const p = this.pk; if (p && p.castQ.length && !G.casting && G.gameState === 'PLAYING' && !p.over) { const e = p.castQ.shift(); G.startCast({ word: e.word, effect: e.effect, desc: e.desc }, e.name); } },
     pkApply(idiom) {   // 對手發動的攻擊在這裡結算（我是被攻擊方）
         const D = { BOMB_BOOST: 30, LASER_BEAM: 35, MISSILE: 25, PIERCE: 25 }[idiom.effect]; sfx.playIdiomFire(idiom.effect);
@@ -2938,11 +3048,57 @@ const online = window.online = {
     pkTick() {
         const p = this.pk; if (!p || !p.started || p.over) return;
         const me = p.role, opp = me === 'host' ? 'guest' : 'host', r = p.room || {}, hp = Math.max(0, Math.round(G.hp));
-        if (hp !== p.lastHp || Date.now() - p.lastPush > 3000) { p.lastHp = hp; p.lastPush = Date.now(); this.roomUpdate({ [me + 'Hp']: hp, [me + 'Max']: Math.round(G.maxHp) }); }
+        if ((hp !== p.lastHp && Date.now() - p.lastPush > 450) || Date.now() - p.lastPush > 3000) { p.lastHp = hp; p.lastPush = Date.now(); this.roomUpdate({ [me + 'Hp']: hp, [me + 'Max']: Math.round(G.maxHp) }); }
+        { const x = G.player.pos.x / WORLD.w, y = G.player.pos.y / WORLD.h;   // 我的位置（主控端視角的比例座標）
+          this.roomRef(p.code).collection('pos').doc(me).set({ x: me === 'host' ? x : 1 - x, y: me === 'host' ? y : 1 - y, ts: Date.now() }).catch(() => {}); }
         const left = Math.max(0, 180 - G.pkTime), oh = r[opp + 'Hp'] === undefined ? 100 : r[opp + 'Hp'], om = r[opp + 'Max'] || 100, h = $('pk-hud');
         if (h) h.innerHTML = `對手 ${esc(r[opp + 'Name'] || '')}　HP ${oh}　剩餘 ${Math.ceil(left)} 秒<div class="bar"><i style="width:${Math.min(100, oh / om * 100)}%"></i></div>`;
         if (left <= 0) { const oppHp = r[opp + 'Hp'] === undefined ? om : r[opp + 'Hp']; const w = hp > oppHp ? this.user.uid : hp < oppHp ? (me === 'host' ? r.guest : r.host) : 'draw'; this.pkFinish(w); }
         this.pkNext();
+    },
+    // ----- PK 面對面戰場 -----
+    pkUpdate(dt) {
+        const p = this.pk; if (!p || !p.started || !p.ghost) return;
+        const g = p.ghost, r = p.room || {}, opp = p.role === 'host' ? 'guest' : 'host', S = r[opp + 'St'], guest = p.role === 'guest';
+        if (p.gt) { g.tx = p.gt.x * WORLD.w; g.ty = p.gt.y * WORLD.h; }
+        const k = Math.min(1, dt * 10); g.x += (g.tx - g.x) * k; g.y += (g.ty - g.y) * k;
+        if (S) {   // 對手的火力：依對手戰機數值在他的位置向下射擊
+            p.ghostR = S.r || 15; g.cd -= dt * 1000;
+            if (g.cd <= 0) {
+                g.cd = Math.max(55, S.iv);
+                const shoot = (off, ang) => { const b = G.bullets.get(); b.pos = new Vec2(g.x + off, g.y + 25); b.vel = new Vec2(Math.sin(ang) * 800, Math.cos(ang) * 800);
+                    b.isPlayer = false; b.pk = true; b.damage = S.dmg; b.pen = S.pen || 0; b.crit = S.crit || 0; styleBullet(b, S.dmg); };
+                shoot(0, 0); if (S.wl >= 3) { shoot(-15, -0.15); shoot(15, 0.15); } if (S.wl >= 6) { shoot(-25, -0.3); shoot(25, 0.3); }
+            }
+        }
+        // 成語字塊：以房間開戰時間當亂數種子，雙方畫面產生同樣的字塊；數量為一般關卡的 2 倍（每秒 35%，一般是每 2 秒 35%）
+        const rng = x => () => { x |= 0; x = x + 0x6D2B79F5 | 0; let t = Math.imul(x ^ x >>> 15, 1 | x); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+        while (p.bk <= G.pkTime) {
+            const id = p.bk++, R = rng((p.matchId % 1e9) + id * 7919); if (R() >= 0.35) continue;
+            const dir = R() < 0.5 ? 1 : -1, fy = 0.3 + 0.4 * R(), sp = 50 + 30 * R(), ph = R() * 6.28, left = (dir > 0) !== guest;
+            G.spawnIdiomBlock(0, 0); const m = G.idiomBlocks[G.idiomBlocks.length - 1];
+            m.id = id; m.vx = left ? sp : -sp; m.pos.x = left ? -30 : WORLD.w + 30; m.y0 = (guest ? 1 - fy : fy) * WORLD.h; m.pos.y = m.y0; m.sg = guest ? -1 : 1; m.ph = ph;
+        }
+    },
+    pkDmg(b) {   // 對手子彈打到我：爆擊、穿甲、裝甲與一般戰鬥相同
+        let n = b.damage + Math.random() * 0.99; if (Math.random() < (b.crit || 0)) n *= 1.5 + Math.random() * 1.5;
+        const def = Math.max(0, (G.fleet[G.shipId].hp || 0) - (b.pen || 0)) * DEF_PER_LV;
+        return Math.max(n * MIN_DMG_K, n - def);
+    },
+    pkPop(id) { const p = this.pk; if (!p || !p.started) return; this.roomRef(p.code).collection('events').add({ matchId: p.matchId, type: 'pop', by: this.user.uid, id, ts: Date.now() }).catch(() => {}); },
+    pkRemotePop(id) {   // 對手打爆字塊：字元飄向對手
+        const i = G.idiomBlocks.findIndex(m => m.id === id); if (i < 0) return; const m = G.idiomBlocks[i];
+        G.charItems.push({ pos: new Vec2(m.pos.x, m.pos.y), char: m.char, home: 'opp' }); G.idiomBlocks.splice(i, 1); G.burst(m.pos.x, m.pos.y, 6);
+    },
+    drawGhost(ctx) {
+        const p = this.pk, g = p && p.ghost; if (!g) return;
+        const r = p.room || {}, opp = p.role === 'host' ? 'guest' : 'host', S = SHIPS.find(x => x.id === (r[opp + 'Ship'] || 'star')) || SHIPS[0], im = IMG['ship_' + S.id] || IMG.player;
+        const hp = r[opp + 'Hp'] === undefined ? 100 : r[opp + 'Hp'], mx = r[opp + 'Max'] || 100;
+        ctx.setTransform(WORLD.k, 0, 0, WORLD.k, 0, 0); ctx.save(); ctx.translate(g.x, g.y); ctx.scale(S.s, S.s); ctx.rotate(Math.PI);   // 轉 180°：機頭朝向我
+        if (im) { ctx.shadowColor = '#ff3366'; ctx.shadowBlur = 18; if (!IMG['ship_' + S.id]) ctx.filter = `hue-rotate(${S.h}deg)`; fitDraw(ctx, im, im.width / im.height > 1.3 ? 118 : 96); }
+        else { ctx.fillStyle = '#ff3366'; ctx.beginPath(); ctx.moveTo(0, -22); ctx.lineTo(18, 18); ctx.lineTo(-18, 18); ctx.closePath(); ctx.fill(); }
+        ctx.restore(); ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = '#ff9aa8'; ctx.font = 'bold 13px ' + KAI_FONT; ctx.fillText(r[opp + 'Name'] || '', g.x, g.y - 62 * S.s - 8);
+        G.drawBars(ctx, g.x, g.y - 62 * S.s, 64, hp, mx, 0, mx, '#ff5566'); ctx.restore();
     },
     pkSelfDead() { const p = this.pk; if (!p || p.over) return; G.paused = true; const r = p.room || {}; this.pkFinish(p.role === 'host' ? r.guest : r.host); },
     pkFinish(w) { const p = this.pk; if (!p || p.over || p.finishing) return; p.finishing = true; this.roomUpdate({ state: 'ended', winner: w || 'draw' }); setTimeout(() => { if (this.pk === p && !p.over) this.endMatch(w || 'draw'); }, 1500); },
@@ -2956,7 +3112,7 @@ const online = window.online = {
     pkExit() { G.closeDlg(); this.pkLeave(false); G.setState('LOBBY'); }
 };
 
-function msgHtml(m, me) { const d = new Date(m.ts || 0); return `<div class="msg ${me ? 'me' : ''}"><b>${esc(m.name)}</b> ${esc(m.text)}<small>${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}</small></div>`; }
+function msgHtml(m, me) { if (m.sys) return `<div class="msg sys s${m.sys}">${esc(m.text)}</div>`; const d = new Date(m.ts || 0); return `<div class="msg ${me ? 'me' : ''}"><b>${esc(m.name)}</b> ${esc(m.text)}<small>${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}</small></div>`; }
 
 // ---------- 掛接到遊戲 ----------
 const wrap = (name, fn) => { const o = P[name]; P[name] = function (...a) { return fn.call(this, o, ...a); }; };
@@ -2969,6 +3125,7 @@ wrap('setState', function (o, state) {
     if (state === 'GAMEOVER') online.finishRun(false); else if (state === 'VICTORY') online.finishRun(true);
 });
 wrap('renderLobby', function (o) { if (online._pendingAdmin && !['PLAYING', 'TRANSITION'].includes(this.gameState)) { const d = online._pendingAdmin; online._pendingAdmin = null; online.applyAdminDoc(d); this.renderLobby(); return; } o.call(this); const t = document.querySelector('.tiles'); if (t) t.insertAdjacentHTML('beforeend', online.extraTiles()); });
+wrap('draw', function (o) { o.call(this); if (this.pkMode && this.gameState === 'PLAYING' && online.pk) online.drawGhost(this.ctx); });
 wrap('save', function (o) { o.call(this); online.queuePush(); });
 wrap('dropDarkMatter', function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = this.darkMatter - b; if (d > 0) online.stat('totalDM', d); });
 ['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); }));

@@ -36,6 +36,12 @@ service cloud.firestore {
       allow update, delete: if signedIn() && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
     }
 
+    // 上線狀態（5 分鐘內有活動＝在線）：只能寫自己的，登入者都能讀
+    match /presence/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid && notBanned();
+    }
+
     // 大廳聊天
     match /lobbyChat/{id} {
       allow read: if signedIn();
@@ -69,6 +75,7 @@ service cloud.firestore {
     match /rooms/{code} {
       allow read, create, update, delete: if signedIn();
       match /events/{eid} { allow read, create: if signedIn(); }
+      match /pos/{pid} { allow read, write: if signedIn(); }   // PK 面對面：雙方即時位置
     }
   }
 }
