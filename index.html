@@ -2276,8 +2276,9 @@ class Game {
                   ctx.strokeStyle = '#ffea00'; ctx.beginPath(); ctx.arc(cx, cy, 30, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke();
                   ctx.fillStyle = '#ffea00'; ctx.font = 'bold 34px ' + KAI_FONT; ctx.textBaseline = 'middle'; ctx.fillText(String(Math.ceil(this.clearT)), cx, cy + 1); ctx.textBaseline = 'alphabetic'; }
                 const msg = `區塊清除！${Math.ceil(this.clearT)} 秒後前往${this.clearNext ? '下一關' : '下一波'}`, sub = '趁現在撿起掉落的字卡';
+                ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.fillStyle = '#ffea00'; ctx.font = "22px 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif"; ctx.textBaseline = 'alphabetic';   // 倒數圈用的粗黃線寬／顏色要還原，否則文字外框會又粗又黃
                 ctx.strokeText(msg, WORLD.w / 2, WORLD.h * 0.3); ctx.fillText(msg, WORLD.w / 2, WORLD.h * 0.3);
-                ctx.font = "16px 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif"; ctx.fillStyle = '#fff'; ctx.strokeText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.fillText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.restore();
+                ctx.font = "16px 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif"; ctx.lineWidth = 2.5; ctx.fillStyle = '#fff'; ctx.strokeText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.fillText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.restore();
             }
             this.dmgTexts.forEach(d => this.drawDmg(ctx, d));
             ctx.globalAlpha = 1;
