@@ -83,6 +83,12 @@
         .btn:hover:not(:disabled) { background: var(--neon-blue); color: black; box-shadow: 0 0 15px var(--neon-blue); }
         .btn:disabled { border-color: #555; color: #555; cursor: not-allowed; background: transparent; }
         .btn-shop { border-color: var(--neon-purple); color: var(--neon-purple); }
+        .btn-shop.shop-row { display: flex; align-items: center; gap: 12px; text-align: left; width: min(92vw, 520px); }
+        .shop-ic { flex: none; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: radial-gradient(circle at 50% 40%, rgba(255,255,255,0.14), rgba(255,255,255,0.03) 70%); border: 1px solid rgba(255,255,255,0.18); }
+        .shop-ic img, .shop-ic svg { max-width: 56px; max-height: 56px; width: auto; height: auto; object-fit: contain; }
+        .shop-ic svg { width: 52px; height: 52px; }
+        .shop-tx { flex: 1; min-width: 0; line-height: 1.5; }
+        .btn-shop:disabled .shop-ic img { filter: grayscale(0.6) opacity(0.7); }
         .btn-shop:hover:not(:disabled) { background: var(--neon-purple); color: white; box-shadow: 0 0 15px var(--neon-purple); }
         .btn-start { background: rgba(0, 242, 255, 0.2); font-size: 1.3rem; padding: 15px; margin-top: 20px; }
         
@@ -356,7 +362,7 @@ const sfx = new RetroAudio();
 document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !e.repeat && (e.key.length === 1 || e.key === 'Backspace')) { try { sfx.playType(); } catch (_) {} } }, true);
 
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
-const APP_VERSION = '20261111-9', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261111-12', APP_AUTHOR = '郭柏宏';
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
 function updateWorld() {
@@ -393,6 +399,11 @@ const SHIPS = [
       base:{ dmg:1, rate:0, hp:0, spd:0, pen:0, crit:0, cov:0 }, cap:{ dmg:6, rate:8, hp:6, spd:8, pen:5, crit:8, cov:16 }, fit:{ GLASS:2, TANK:1, BARRAGE:2 } }
 ];
 const SKINS = SHIPS;
+const SHOP_ICONS = {   // 軍械商店：全體升級商品的圖示（內嵌 SVG，不需額外圖檔）
+    slots: '<svg viewBox="0 0 64 64"><g stroke="#ffe27a" stroke-width="2" fill="rgba(255,204,0,0.18)"><rect x="6" y="8" width="23" height="23" rx="4"/><rect x="35" y="8" width="23" height="23" rx="4"/><rect x="6" y="35" width="23" height="23" rx="4"/><rect x="35" y="35" width="23" height="23" rx="4"/></g><g fill="#ffe27a" font-size="17" font-weight="bold" text-anchor="middle" font-family="serif"><text x="17.5" y="26">成</text><text x="46.5" y="26">語</text><text x="17.5" y="53">列</text><text x="46.5" y="53">＋</text></g></svg>',
+    magnet: '<svg viewBox="0 0 64 64"><path d="M14 8v26a18 18 0 0 0 36 0V8H38v26a6 6 0 0 1-12 0V8z" fill="#ff4d6d" stroke="#fff" stroke-width="2"/><rect x="14" y="8" width="12" height="12" fill="#e8eef7" stroke="#fff" stroke-width="2"/><rect x="38" y="8" width="12" height="12" fill="#e8eef7" stroke="#fff" stroke-width="2"/><g stroke="#00f2ff" stroke-width="2" fill="none" stroke-linecap="round"><path d="M8 4l4 4M56 4l-4 4M32 2v5"/></g></svg>',
+    dm: '<svg viewBox="0 0 64 64"><defs><radialGradient id="dmg" cx="40%" cy="35%"><stop offset="0" stop-color="#e9b5ff"/><stop offset="0.5" stop-color="#8a2be2"/><stop offset="1" stop-color="#1b0638"/></radialGradient></defs><ellipse cx="32" cy="32" rx="29" ry="9" fill="none" stroke="#b026ff" stroke-width="2" transform="rotate(-25 32 32)"/><circle cx="32" cy="32" r="15" fill="url(#dmg)" stroke="#d9a0ff" stroke-width="1.5"/><path d="M32 6v6M32 52v6M6 32h6M52 32h6" stroke="#b026ff" stroke-width="2" stroke-linecap="round"/></svg>'
+};
 const STAT_KEYS = [['dmg', '火力'], ['rate', '射速'], ['hp', '裝甲'], ['spd', '機動'], ['pen', '穿甲'], ['crit', '爆擊'], ['cov', '火力覆蓋']];
 // ===== 火力覆蓋：每種戰機有自己的射擊方式，覆蓋等級越高，彈道越多／越寬／越大顆 =====
 // 角度 a：0＝正前方，正負 π/2＝左右側，π＝正後方；o＝發射位置橫向偏移；rs＝子彈大小倍率
@@ -423,6 +434,12 @@ function patternShots(S, lv, solo) {   // solo：沒有狙擊系統可用的場�
     return out;
 }
 const SNIPE_SIDE_DM = 0.6, SNIPE_K = 10, SNIPE_CRIT_BONUS = 0.3, SNIPE_T0 = 3, SNIPE_T1 = 1;   // 附炮傷害倍率／狙擊傷害倍率／鎖定爆擊加成／基礎與滿級鎖定秒數
+// ===== PK 平衡：部分戰機輸出過高，PK 時削弱；狙擊改成高速子彈，可以被躲開 =====
+const PK_NERF = { blaze: 0.6, storm: 0.7, lance: 0.8 }, SNIPE_K_PK = 3.5, SNIPE_PK_CRIT = 0.1, PK_SNIPE_SPEED = 1500;   // 各戰機 PK 傷害倍率／PK 狙擊傷害倍率／爆擊加成／子彈速度（一般子彈 800）
+function segDist(ax, ay, bx, by, px, py) {   // 點到線段的距離（高速子彈用，避免一幀穿過目標）
+    const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy; let t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0; t = Math.max(0, Math.min(1, t));
+    return Math.hypot(ax + t * dx - px, ay + t * dy - py);
+}
 function snipeN(lv) { lv = lv || 0; return lv >= 4 ? 3 : lv >= 2 ? 2 : 1; }
 function covLabel(S, lv) { if (S.pat === 'snipe') return snipeN(lv) + ' 目標'; const sh = patternShots(S, lv); return S.pat === 'big' ? '大彈×' + sh[0].rs.toFixed(2) : sh.length + ' 發'; }
 const CRIT_BASE = 0.2, SHOW = 100, DEF_PER_LV = 0.12, MIN_DMG_K = 0.15;   // SHOW：畫面上傷害／血量數字的倍率；每級裝甲＝12（顯示值）防禦；穿甲後最低仍有 15% 傷害
@@ -1332,6 +1349,9 @@ class Game {
     }
     snipeNeedOf(id) { const S = this.ship(id), L = this.fleet[id] || {}; return SNIPE_T0 - (SNIPE_T0 - SNIPE_T1) * Math.min(1, (L.rate || 0) / S.cap.rate); }   // 鎖定所需停留秒數：基礎 3 秒，射速升到頂 1 秒
     snipePick(n) {   // 鎖定順序：Boss → 敵機 → 字卡（同類取離自己最近的）
+        if (this.pkMode) {   // PK：只鎖定對手（字塊交給附炮）
+            const g = window.online && online.pk && online.pk.ghost; return g && n > 0 ? [{ k: 'g', o: { pos: { x: g.x, y: g.y }, radius: (online.pk.ghostR || 15) + 6, hp: 1 } }] : [];
+        }
         const P = this.player.pos, out = [], vis = o => o.pos.y > 20 && o.pos.y < WORLD.h && o.pos.x > 0 && o.pos.x < WORLD.w && o.hp > 0;
         const near = (a, b) => Math.hypot(a.pos.x - P.x, a.pos.y - P.y) - Math.hypot(b.pos.x - P.x, b.pos.y - P.y);
         if (this.boss && vis(this.boss)) out.push({ k: 'b', o: this.boss });
@@ -1343,14 +1363,21 @@ class Game {
         const sn = this.snipe, P = this.player, need = this.snipeNeedOf(this.shipId);
         const mv = sn.px === undefined ? 0 : Math.hypot(P.pos.x - sn.px, P.pos.y - sn.py) / Math.max(dt, 0.001); sn.px = P.pos.x; sn.py = P.pos.y;
         sn.fx.forEach(f => f.t += dt); sn.fx = sn.fx.filter(f => f.t < 0.22);
-        sn.t = this.snipePick(snipeN(this.covLv));
+        sn.t = this.snipePick(this.pkMode ? 1 : snipeN(this.covLv));
         if (!sn.t.length) sn.c = Math.max(0, sn.c - dt / need);
         else if (mv > 25) sn.c = Math.max(0, sn.c - 2 * dt / need);   // 移動：瞄準星快速退散，要停下來才會蓄滿
         else sn.c = Math.min(1, sn.c + dt / need);
         if (sn.c < 1 || !sn.t.length) return;
         const n = this.st.dmg * SNIPE_K, src = { pen: this.st.pen, crit: Math.min(1, this.st.crit + SNIPE_CRIT_BONUS) };
         sn.t.forEach(t => {
-            const o = t.o; sn.fx.push({ x1: P.pos.x, y1: P.pos.y - 20, x2: o.pos.x, y2: o.pos.y, t: 0 }); this.burst(o.pos.x, o.pos.y, 5);
+            const o = t.o;
+            if (t.k === 'g') {   // PK：射出一發高速子彈（飛向鎖定當下對手的位置），傷害由對手畫面結算，對手有機會躲開
+                const dx = o.pos.x - P.pos.x, dy = o.pos.y - (P.pos.y - 25), d = Math.hypot(dx, dy) || 1, b = this.bullets.get();
+                b.pos = new Vec2(P.pos.x, P.pos.y - 25); b.vel = new Vec2(dx / d * PK_SNIPE_SPEED, dy / d * PK_SNIPE_SPEED);
+                b.isPlayer = true; b.damage = 0; b.pen = 0; b.crit = 0; b.turn = 0; b.target = null; b.homing = false; b.pierce = false; styleBullet(b, 3); b.color = '#ff5ec4'; b.radius = 5;
+                this.burst(P.pos.x, P.pos.y - 25, 3); return;
+            }
+            sn.fx.push({ x1: P.pos.x, y1: P.pos.y - 20, x2: o.pos.x, y2: o.pos.y, t: 0 }); this.burst(o.pos.x, o.pos.y, 5);
             if (t.k === 'm') { o.hp -= n; if (o.hp <= 0) { const i = this.idiomBlocks.indexOf(o); if (i >= 0) { this.blockBreak(o); sfx.playExplosion(); this.idiomBlocks.splice(i, 1); } } return; }
             this.dmgEnt(o, n, false, true, src);
             if (t.k === 'e' && o.hp <= 0) { const i = this.enemies.indexOf(o); if (i >= 0) { this.dropDarkMatter(o.pos.x, o.pos.y, o.maxHp * 1.5); this.runKills = (this.runKills || 0) + 1; this.enemyDrop(o); sfx.playExplosion(); this.enemies.splice(i, 1); } }
@@ -1486,7 +1513,7 @@ class Game {
                         ${im(img)}
                         <div class="f1"><h4>戰機管理 [H]</h4><small>${S.name}｜${S.role}</small><small>傷害 ${Math.round(st.dmg * SHOW)}　${S.pat === 'snipe' ? '鎖定 ' + this.snipeNeedOf(S.id).toFixed(1) + ' 秒' : '射速 ' + (1000 / st.iv).toFixed(1) + '/秒'}</small><small>血量 ${Math.round(st.hp * SHOW)}　移速 ${Math.round(st.spd)}</small><small>穿甲 ${st.pen}　爆擊 ${Math.round(st.crit * 100)}%</small></div>
                     </div>
-                    <div class="tile" style="--a:#ffcc00;--b:#ff7a00" onclick="game.setState('SHOP')"><h4>軍械改裝工廠</h4><small>[S]</small><small>持有 ${this.darkMatter} DM</small><span class="ico">⚒</span></div>
+                    <div class="tile" style="--a:#ffcc00;--b:#ff7a00" onclick="game.setState('SHOP')"><h4>軍械商店</h4><small>[S]</small><small>持有 ${this.darkMatter} DM</small><span class="ico">⚒</span></div>
                     <div class="tile" style="--a:#2b3a67;--b:#4b5b8f" onclick="game.openSettings()"><h4>設定</h4><small>[O]</small><small>音量・離線・關於</small><span class="ico">⚙</span></div>
                 </div>
             </div>`;
@@ -1504,7 +1531,7 @@ class Game {
             const img = S.id === 'star' ? 'assets/player.png' : `assets/ship_${S.id}.png`;
             return `<div class="card ${i === this.hIdx ? 'sel' : ''} ${S.id === this.shipId ? 'eq' : ''} ${own ? '' : 'locked'}" onclick="game.hSel(${i})">
                 <img src="${img}" onerror="this.style.visibility='hidden'"><h3 style="color:${S.c};">${S.name}</h3><div style="font-size:0.8rem;color:#aaa;">${S.role}　等級上限 火${S.cap.dmg}/速${S.cap.rate}/甲${S.cap.hp}/動${S.cap.spd}/穿${S.cap.pen}/爆${S.cap.crit}/覆${S.cap.cov}</div>
-                ${own ? rows : `<div class="st" style="color:var(--neon-gold);">尚未擁有・軍械改裝工廠 ${S.price} DM</div>${rows}`}</div>`;
+                ${own ? rows : `<div class="st" style="color:var(--neon-gold);">尚未擁有・軍械商店 ${S.price} DM</div>${rows}`}</div>`;
         }).join('');
         this.uiLayer.innerHTML = `
             <div class="menu-overlay" style="width:min(96vw,1100px);max-width:none;">
@@ -1522,24 +1549,24 @@ class Game {
         const rows = [];
         SHIPS.forEach(X => {
             const o = this.fleet[X.id].own, c = X.cap;
-            rows.push({ t: `${X.name}｜${X.role}`, dis: o || this.darkMatter < X.price,
+            rows.push({ t: `${X.name}｜${X.role}`, img: X.id === 'star' ? 'assets/player.png' : 'assets/ship_' + X.id + '.png', c: X.c, dis: o || this.darkMatter < X.price,
                 sub: `${o ? '已擁有（到「戰機管理」升級／出戰）' : X.price + ' DM'}・上限 火${c.dmg} 速${c.rate} 甲${c.hp} 動${c.spd} 穿${c.pen} 爆${c.crit} 覆${c.cov}`,
                 run: () => { this.darkMatter -= X.price; this.fleet[X.id].own = true; } });
         });
-        [['成語列', '同時收集的成語數', this.maxSlots, 6, this.maxSlots * 50, () => { this.maxSlots++; this.fillEmptySlots(); }],
-         ['磁吸字塊', '字塊自動吸附範圍', this.magnetLvl, 5, (this.magnetLvl + 1) * 200, () => this.magnetLvl++],
-         ['暗物質回收', '暗物質獲得 +20%', this.dmLvl, 5, (this.dmLvl + 1) * 250, () => this.dmLvl++]].forEach(([n, d, lv, max, cost, f]) => {
-            rows.push({ t: `${n} Lv.${lv}/${max}`, dis: lv >= max || this.darkMatter < cost, sub: lv >= max ? '已滿級' : `${d}・${cost} DM`, run: () => { this.darkMatter -= cost; f(); } });
+        [['成語列', '同時收集的成語數', this.maxSlots, 6, this.maxSlots * 50, () => { this.maxSlots++; this.fillEmptySlots(); }, 'slots'],
+         ['磁吸字塊', '字塊自動吸附範圍', this.magnetLvl, 5, (this.magnetLvl + 1) * 200, () => this.magnetLvl++, 'magnet'],
+         ['暗物質回收', '暗物質獲得 +20%', this.dmLvl, 5, (this.dmLvl + 1) * 250, () => this.dmLvl++, 'dm']].forEach(([n, d, lv, max, cost, f, ic]) => {
+            rows.push({ t: `${n} Lv.${lv}/${max}`, svg: SHOP_ICONS[ic], dis: lv >= max || this.darkMatter < cost, sub: lv >= max ? '已滿級' : `${d}・${cost} DM`, run: () => { this.darkMatter -= cost; f(); } });
         });
         return rows;
     }
 
     renderShop() {
         const heads = { 0: '戰機（購買後到「戰機管理」升級與出戰）', [SHIPS.length]: '全體升級' };
-        const html = this.shopRows().map((r, i) => `${heads[i] ? `<div style="color:var(--neon-gold);margin-top:8px;font-size:0.9rem;">${heads[i]}</div>` : ''}<button class="btn btn-shop" style="font-size:0.85rem;padding:5px;margin:4px auto;" ${r.dis ? 'disabled' : ''} onclick="game.buyItem(${i})">[${i + 1}] ${r.t}<br><small>${r.sub}</small></button>`).join('');
+        const html = this.shopRows().map((r, i) => `${heads[i] ? `<div style="color:var(--neon-gold);margin-top:8px;font-size:0.9rem;">${heads[i]}</div>` : ''}<button class="btn btn-shop shop-row" style="font-size:0.85rem;padding:6px 8px;margin:4px auto;" ${r.dis ? 'disabled' : ''} onclick="game.buyItem(${i})"><span class="shop-ic">${r.img ? `<img src="${r.img}" alt="" style="filter:drop-shadow(0 0 6px ${r.c})">` : (r.svg || '')}</span><span class="shop-tx">[${i + 1}] ${r.t}<br><small>${r.sub}</small></span></button>`).join('');
         this.uiLayer.innerHTML = `
             <div class="menu-overlay">
-                <h2 class="shop-title" style="margin-bottom:5px;">軍械改裝工廠</h2>
+                <h2 class="shop-title" style="margin-bottom:5px;">軍械商店</h2>
                 <p style="font-size:1.1rem; color:var(--neon-purple); margin:4px 0;">持有暗物質: <b>${this.darkMatter} DM</b></p>
                 ${html}
                 <button class="btn btn-start" style="margin-top:10px;" onclick="game.setState('LOBBY')">返回大廳 [Esc]</button>
@@ -1861,12 +1888,12 @@ class Game {
                 b.vel = new Vec2(Math.sin(angle)*800, -Math.cos(angle)*800);
                 b.isPlayer = true; b.damage = dmg * (dm || 1); b.pen = this.st.pen; b.crit = this.st.crit; b.turn = 0; b.target = null; styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; b.homing = this.missileTimer > 0; b.pierce = !!SKINS[this.skin].pierce;
             };
-            const shots = patternShots(SKINS[this.skin], this.covLv, this.pkMode);   // 依戰機的火力覆蓋等級決定彈道
+            const shots = patternShots(SKINS[this.skin], this.covLv);   // 依戰機的火力覆蓋等級決定彈道
             shots.forEach(sh => shootBullet(sh.o, sh.a, sh.rs, sh.dm));
             if (this.player.spreadFire > 0) [[-15, -0.15], [15, 0.15], [-25, -0.3], [25, 0.3], [-35, -0.45], [35, 0.45]].forEach(([o, a]) => { if (!shots.some(sh => Math.abs(sh.a - a) < 0.02)) shootBullet(o, a); });   // 散射道具：額外加開扇形
             this.player.lastShoot = Date.now(); sfx.playShoot(this.player.spreadFire > 0 ? 2 : this.player.rapidFire > 0 ? 1 : 0);
         }
-        if (!this.pkMode && SKINS[this.skin].pat === 'snipe') this.snipeUpdate(dt); else if (this.snipe) { this.snipe.c = 0; this.snipe.t = []; this.snipe.fx = []; }
+        if (SKINS[this.skin].pat === 'snipe') this.snipeUpdate(dt); else if (this.snipe) { this.snipe.c = 0; this.snipe.t = []; this.snipe.fx = []; }
 
         if (!this.pkMode && !this.boss && !(this.clearT > 0)) {   // PK 不出現 NPC 戰機與 Boss
             if (this.currentSub < 3) {
@@ -1927,13 +1954,14 @@ class Game {
         this.bullets.pool.forEach(b => {
             if (b.active) {
                 if (b.homing) this.steer(b, dt);
+                const ox = b.pos.x, oy = b.pos.y;
                 b.update(!b.isPlayer && this.slowTimer > 0 ? dt * 0.4 : dt);
                 if (b.pos.y < -50 || b.pos.y > WORLD.h + 50 || b.pos.x < -50 || b.pos.x > WORLD.w+50) b.active = false;
                 
                 if (b.isPlayer) {
                     if (this.pkMode && window.online && online.pk && online.pk.ghost) {   // 打到對手：子彈消失（傷害由被打的一方自己結算）
                         const g = online.pk.ghost, R = (online.pk.ghostR || 15) + 9;
-                        if (Math.hypot(b.pos.x - g.x, b.pos.y - g.y) < R) { b.active = false; this.burst(b.pos.x, b.pos.y, 2); return; }
+                        if (segDist(ox, oy, b.pos.x, b.pos.y, g.x, g.y) < R) { b.active = false; this.burst(b.pos.x, b.pos.y, 2); return; }
                     }
                     if (this.boss && Math.hypot(b.pos.x - this.boss.pos.x, b.pos.y - this.boss.pos.y) < this.boss.radius) {
                         this.dmgEnt(this.boss, b.damage, b.pierce, true, b); b.active = false; sfx.playHit();
@@ -1954,7 +1982,7 @@ class Game {
                         }
                     });
                 } else {
-                    if (b.pk && Math.hypot(b.pos.x - this.player.pos.x, b.pos.y - this.player.pos.y) < this.player.radius && this.invincibleTimer <= 0) {   // 對手的子彈
+                    if (b.pk && segDist(ox, oy, b.pos.x, b.pos.y, this.player.pos.x, this.player.pos.y) < this.player.radius && this.invincibleTimer <= 0) {   // 對手的子彈
                         this.hurt(online.pkDmg(b)); b.active = false; sfx.playPlayerHit(); this.updateHUD(); if (this.hp <= 0) this.setState('GAMEOVER');
                     } else if (!b.pk && Math.hypot(b.pos.x - this.player.pos.x, b.pos.y - this.player.pos.y) < this.player.radius && this.invincibleTimer <= 0) {
                         this.hurt(b.damage * 10); b.active = false; this.invincibleTimer = 0.5; sfx.playPlayerHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
@@ -3072,10 +3100,10 @@ const online = window.online = {
     },
     dexShips() {
         const TRAIT = { star: '均衡型：各項能力上限接近，適合新手。', wind: '機動靈巧：體型小、移動速度上限最高，但火力與裝甲上限低。適合對付玻璃砲型 Boss。', bastion: '重裝厚皮：血量與裝甲上限最高，移動較慢。最適合對付彈幕型 Boss。',
-            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：子彈無視敵人的裝甲（防禦視為 0），並且對有護盾的目標固定造成 2～3 倍傷害。適合鐵甲型 Boss、坦克與護衛機。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。升滿後 16 發子彈平均散佈在圓周各方向同時放射，不怕被包夾；代價是單發威力低於其他戰機。適合對付玻璃砲型 Boss 與成群的小怪。' };
+            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。PK 對戰中狙擊改為高速子彈（傷害降低，對手看得到預警線，有機會躲開）。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：子彈無視敵人的裝甲（防禦視為 0），並且對有護盾的目標固定造成 2～3 倍傷害。適合鐵甲型 Boss、坦克與護衛機。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。升滿後 16 發子彈平均散佈在圓周各方向同時放射，不怕被包夾；代價是單發威力低於其他戰機。適合對付玻璃砲型 Boss 與成群的小怪。' };
         return '<div class="lst">' + SHIPS.map(S => { const own = G.fleet && G.fleet[S.id] && G.fleet[S.id].own, c = S.cap;
             return `<div class="dx"><img src="${S.id === 'star' ? 'assets/player.png' : 'assets/ship_' + S.id + '.png'}" onerror="this.style.visibility='hidden'"><div><h3 style="color:${S.c}">${S.name} <small style="color:#aaa">${S.role}</small></h3>
-                <div class="t"><b>初始</b> 血量 ${S.hp * SHOW}・移速 ${S.spd}・傷害 ${Math.round(S.dmg * SHOW)}・基礎爆擊率 20%（上限 ${Math.round((S.critMax || 0.5) * 100)}%）・${S.pat === 'snipe' ? '狙擊鎖定 3 秒（射速滿級 1 秒）' : '射速 ' + (1000 / S.int).toFixed(1) + '/秒'}<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}・穿甲 ${c.pen}・爆擊 ${c.crit}・火力覆蓋 ${c.cov}<br><b>火力覆蓋・${COV_INFO[S.pat][0]}</b>（初始 ${covLabel(S, S.base.cov)} → 滿級 ${covLabel(S, c.cov)}）：${COV_INFO[S.pat][1]}<br>${TRAIT[S.id]}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '軍械改裝工廠 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
+                <div class="t"><b>初始</b> 血量 ${S.hp * SHOW}・移速 ${S.spd}・傷害 ${Math.round(S.dmg * SHOW)}・基礎爆擊率 20%（上限 ${Math.round((S.critMax || 0.5) * 100)}%）・${S.pat === 'snipe' ? '狙擊鎖定 3 秒（射速滿級 1 秒）' : '射速 ' + (1000 / S.int).toFixed(1) + '/秒'}<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}・穿甲 ${c.pen}・爆擊 ${c.crit}・火力覆蓋 ${c.cov}<br><b>火力覆蓋・${COV_INFO[S.pat][0]}</b>（初始 ${covLabel(S, S.base.cov)} → 滿級 ${covLabel(S, c.cov)}）：${COV_INFO[S.pat][1]}<br>${TRAIT[S.id]}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '軍械商店 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
     },
     dexEnemies() {
         const E = [['SCOUT', '偵察機', '第 1 關起', '緩慢下降並大幅左右擺盪', '單發慢彈（頻率最低之一）', '血量低，新手關主力', 1.5],
@@ -3110,7 +3138,7 @@ const online = window.online = {
             ['九種招式', `<div style="text-align:left;line-height:1.7;font-size:.9rem">爆破・無敵・護盾<br>穿甲彈・追蹤導彈・貫穿雷射<br>治療・時緩・呼叫友軍</div>`, '到大廳的「圖鑑」可以查成語、我方與敵方戰機、Boss，點成語還能看解釋與造句。'],
             ['血條與護盾', `${im('assets/player.png', 'max-height:80px')}<div style="width:90px"><div style="height:8px;background:#33ff88"></div><div style="height:6px;margin-top:3px;background:#4dd2ff;width:60%"></div></div>`, '血條在戰機後方，護盾在血條下方；受到傷害時護盾先抵掉。敵機的血條在它上方。'],
             ['敵機與 Boss', `${im('assets/enemy_scout.png', 'max-height:70px')}${im('assets/enemy_bomber.png', 'max-height:70px')}${im('assets/boss_1.png', 'max-height:110px')}`, `小關有多種敵機（俯衝、蜂群、狙擊、轟炸、護衛…）。Boss 各有名字與類型：${bossLabel(1)}皮薄但傷害高、${bossLabel(2)}血厚、${bossLabel(3)}彈幕密集。`],
-            ['暗物質、軍械改裝工廠與戰機', `${im('assets/ship_wind.png', 'max-height:80px')}${im('assets/ship_bastion.png', 'max-height:80px')}${im('assets/ship_blaze.png', 'max-height:80px')}`, '打敗敵人得到暗物質，可到「軍械改裝工廠」買戰機，到「戰機管理」升級；每種戰機能力上限不同。出戰前大廳會推薦適合的戰機。'],
+            ['暗物質、軍械商店與戰機', `${im('assets/ship_wind.png', 'max-height:80px')}${im('assets/ship_bastion.png', 'max-height:80px')}${im('assets/ship_blaze.png', 'max-height:80px')}`, '打敗敵人得到暗物質，可到「軍械商店」買戰機，到「戰機管理」升級；每種戰機能力上限不同。出戰前大廳會推薦適合的戰機。'],
             ['線上功能', `<div style="line-height:1.8;text-align:left">排行榜：分數、暗物質、花費、全關破關時間、各關卡單獨排行<br>好友與聊天（右下角對話框）<br>PK：主控端建房，給 4 位數密碼</div>`, '全部關卡破關時間越短排名越高；時間相同則先達成的排前面。PK 時成語演示雙方畫面都會凍結演示。']
         ];
         this.tut = Math.max(0, Math.min(S.length - 1, i)); const t = S[this.tut], last = this.tut === S.length - 1;
@@ -3134,8 +3162,9 @@ const online = window.online = {
         const owned = SHIPS.filter(S => G.fleet[S.id].own);
         ui(`<div class="menu-overlay" style="width:min(94vw,520px)"><h2 class="shop-title">房間 <span style="color:var(--neon-gold);letter-spacing:.2em">${esc(p.code)}</span></h2>
             <p class="muted">${host ? '你是主控端：把房間密碼告訴對方' : '你是客戶端：等待主控端開戰'}</p>
-            <div class="row"><span>場地：第 ${r.stage || 1} 關</span>${host ? `<button class="sm" onclick="online.pkStage(-1)">◀</button><button class="sm" onclick="online.pkStage(1)">▶</button>` : ''}</div>
-            <div style="height:70px;margin:6px 0;border-radius:8px;border:1px solid #334;background:linear-gradient(rgba(0,0,10,.4),rgba(0,0,10,.4)),url(assets/bg/stage${r.stage || 1}.jpg) center/cover"></div>
+            <div class="row"><span>場地：${r.stage ? `第 ${r.stage} 關・${BOSS_NAMES[r.stage]}` : '🎲 隨機（開戰時抽選）'}</span><small style="color:#9ab">🎵 背景音樂隨地圖切換</small></div>
+            <div style="height:70px;margin:6px 0;border-radius:8px;border:1px solid #334;display:flex;align-items:center;justify-content:center;font-size:1.3rem;letter-spacing:.2em;color:var(--neon-gold);${r.stage ? `background:linear-gradient(rgba(0,0,10,.4),rgba(0,0,10,.4)),url(assets/bg/stage${r.stage}.jpg) center/cover` : 'background:repeating-linear-gradient(45deg,#0b0b22,#0b0b22 10px,#12122e 10px,#12122e 20px)'}">${r.stage ? '' : '🎲 隨機地圖'}</div>
+            ${host ? `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:6px 0">${[1,2,3,4,5,6,7,8,9].map(n => `<button onclick="online.pkMap(${n})" title="第 ${n} 關・${BOSS_NAMES[n]}" style="height:46px;border-radius:6px;cursor:pointer;color:#fff;font-size:.75rem;font-family:inherit;text-shadow:0 0 4px #000,0 0 4px #000;border:2px solid ${r.stage === n ? 'var(--neon-gold)' : '#334'};background:linear-gradient(rgba(0,0,10,.35),rgba(0,0,10,.35)),url(assets/bg/stage${n}.jpg) center/cover">${n}</button>`).join('')}<button onclick="online.pkMap(0)" style="height:46px;border-radius:6px;cursor:pointer;color:#fff;font-size:.85rem;font-family:inherit;border:2px solid ${!r.stage ? 'var(--neon-gold)' : '#334'};background:#0b0b22">🎲 隨機</button></div>` : ''}
             <div class="row"><span>主控端：${esc(r.hostName || '')}　${shipName(r.hostShip)}</span><b>${r.hostReady ? '已準備' : '未準備'}</b></div>
             <div class="row"><span>客戶端：${r.guest ? esc(r.guestName) + '　' + shipName(r.guestShip) : '等待玩家加入…'}</span><b>${r.guest ? (r.guestReady ? '已準備' : '未準備') : ''}</b></div>
             <h4>選擇戰機</h4><div>${owned.map(S => `<button class="chip ${G.shipId === S.id ? 'on' : ''}" onclick="online.pkShip('${S.id}')">${S.name}</button>`).join('')}</div>
@@ -3184,10 +3213,10 @@ const online = window.online = {
         if (G.gameState !== 'PK') G.setState('PK'); else this.renderPK();
     },
     roomUpdate(patch) { if (this.pk) return this.roomRef(this.pk.code).update(patch).catch(e => toast(errMsg(e))); },
-    pkStage(d) { const r = this.pk.room; this.roomUpdate({ stage: Math.max(1, Math.min(9, (r.stage || 1) + d)) }); },
+    pkMap(n) { if (!this.pk || this.pk.role !== 'host') return; this.roomUpdate({ stage: Math.max(0, Math.min(9, n | 0)) }); },   // 0＝隨機（開戰時由主控端抽選，寫入 playStage）
     pkShip(id) { G.shipId = id; G.applyUpgrades(); G.save(); this.roomUpdate({ [this.pk.role + 'Ship']: id }); },
     pkReady() { const k = this.pk.role + 'Ready'; this.roomUpdate({ [k]: !this.pk.room[k] }); },
-    pkStart() { const r = this.pk.room; if (r.guest && r.hostReady && r.guestReady) this.roomUpdate({ state: 'playing', startAt: Date.now() }); },
+    pkStart() { const r = this.pk.room; if (r.guest && r.hostReady && r.guestReady) this.roomUpdate({ state: 'playing', startAt: Date.now(), playStage: r.stage || (1 + Math.floor(Math.random() * 9)) }); },
     pkLeave(userAction) {
         const p = this.pk; if (!p) return; this.pk = null;
         try { p.unsub && p.unsub(); p.unsubEv && p.unsubEv(); p.unsubPos && p.unsubPos(); } catch (e) {}
@@ -3199,11 +3228,11 @@ const online = window.online = {
     startMatch() {
         const p = this.pk, r = p.room, me = p.role, opp = me === 'host' ? 'guest' : 'host'; p.started = true; p.matchId = r.startAt;
         $('game-container').insertAdjacentHTML('beforeend', '<div id="pk-hud"></div>');
-        const keep = { s: G.startStage, b: G.bestStage }; G.bestStage = 9; G.startStage = r.stage || 1; G.pkMode = true; G.pkTime = 0;
+        const keep = { s: G.startStage, b: G.bestStage }; G.bestStage = 9; G.startStage = r.playStage || r.stage || 1; G.pkMode = true; G.pkTime = 0;
         const myShip = r[me + 'Ship']; if (myShip && G.fleet[myShip] && G.fleet[myShip].own) G.shipId = myShip;
         G.startNewGame(); G.startStage = keep.s; G.bestStage = keep.b;
         p.ghost = { x: WORLD.w / 2, y: 150, tx: WORLD.w / 2, ty: 150, cd: 600 }; p.gt = null; p.bk = 1;   // 對手（在我的畫面上方，面朝下）
-        this.roomUpdate({ [me + 'St']: { dmg: G.st.dmg, iv: G.st.interval, pen: G.st.pen, crit: G.st.crit, wl: G.weaponLvl, pt: G.ship().id, cv: G.covLv || 0, r: G.player.radius } });   // 讓對手畫面能模擬我的子彈
+        this.roomUpdate({ [me + 'St']: { dmg: G.st.dmg, iv: G.st.interval, pen: G.st.pen, crit: G.st.crit, wl: G.weaponLvl, pt: G.ship().id, cv: G.covLv || 0, r: G.player.radius, sn: G.snipeNeedOf(G.shipId) } });   // 讓對手畫面能模擬我的子彈
         // 對手位置：用「主控端視角」的比例座標傳送；客戶端的畫面整個旋轉 180°，所以雙方都看到對方在上方、面對面
         p.unsubPos = this.roomRef(p.code).collection('pos').doc(opp).onSnapshot(s => { const d = s.exists && s.data(); if (d) p.gt = me === 'host' ? { x: d.x, y: d.y } : { x: 1 - d.x, y: 1 - d.y }; }, () => {});
         p.unsubEv = this.roomRef(p.code).collection('events').where('matchId', '==', p.matchId).onSnapshot(s => s.docChanges().forEach(ch => {
@@ -3235,18 +3264,27 @@ const online = window.online = {
         this.pkNext();
     },
     // ----- PK 面對面戰場 -----
+    pkSnipeSim(S, g, dt) {   // 對手是暗殺號：在我的畫面模擬他的狙擊蓄力（他停留不動就蓄力），蓄滿射出一發高速子彈飛向我「當下的位置」，可以移動躲開
+        const mv = g.spx === undefined ? 0 : Math.hypot(g.x - g.spx, g.y - g.spy) / Math.max(dt, 0.001); g.spx = g.x; g.spy = g.y;
+        const need = S.sn || SNIPE_T0; g.sc = g.sc || 0;
+        if (mv > 40) g.sc = Math.max(0, g.sc - 2 * dt / need); else g.sc = Math.min(1, g.sc + dt / need);
+        if (g.sc < 1) return; g.sc = 0;
+        const P = G.player.pos, dx = P.x - g.x, dy = P.y - (g.y + 25), d = Math.hypot(dx, dy) || 1, b = G.bullets.get();
+        b.pos = new Vec2(g.x, g.y + 25); b.vel = new Vec2(dx / d * PK_SNIPE_SPEED, dy / d * PK_SNIPE_SPEED);
+        b.isPlayer = false; b.pk = true; b.damage = S.dmg * SNIPE_K_PK; b.pen = S.pen || 0; b.crit = Math.min(1, (S.crit || 0) + SNIPE_PK_CRIT); b.pierce = false; styleBullet(b, b.damage); b.color = '#ff5ec4'; b.radius = 5;
+    },
     pkUpdate(dt) {
         const p = this.pk; if (!p || !p.started || !p.ghost) return;
         const g = p.ghost, r = p.room || {}, opp = p.role === 'host' ? 'guest' : 'host', S = r[opp + 'St'], guest = p.role === 'guest';
         if (p.gt) { g.tx = p.gt.x * WORLD.w; g.ty = p.gt.y * WORLD.h; }
         const k = Math.min(1, dt * 10); g.x += (g.tx - g.x) * k; g.y += (g.ty - g.y) * k;
         if (S) {   // 對手的火力：依對手戰機數值在他的位置向下射擊
-            p.ghostR = S.r || 15; g.cd -= dt * 1000;
+            p.ghostR = S.r || 15; g.cd -= dt * 1000; if (S.pt === 'assassin') this.pkSnipeSim(S, g, dt);
             if (g.cd <= 0) {
                 g.cd = Math.max(55, S.iv);
                 const shoot = (off, ang, rs, dm) => { const b = G.bullets.get(); b.pos = new Vec2(g.x + off, g.y + 25); b.vel = new Vec2(Math.sin(ang) * 800, Math.cos(ang) * 800);
-                    b.isPlayer = false; b.pk = true; b.damage = S.dmg * (dm || 1); b.pen = S.pen || 0; b.crit = S.crit || 0; b.pierce = !!(S.pt && (SHIPS.find(x => x.id === S.pt) || {}).pierce); styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; };
-                const GS = S.pt && SHIPS.find(x => x.id === S.pt); if (GS) patternShots(GS, S.cv, true).forEach(sh => shoot(sh.o, sh.a, sh.rs, sh.dm)); else { shoot(0, 0); if (S.wl >= 3) { shoot(-15, -0.15); shoot(15, 0.15); } if (S.wl >= 6) { shoot(-25, -0.3); shoot(25, 0.3); } }
+                    b.isPlayer = false; b.pk = true; b.damage = S.dmg * (dm || 1) * (PK_NERF[S.pt] || 1); b.pen = S.pen || 0; b.crit = S.crit || 0; b.pierce = !!(S.pt && (SHIPS.find(x => x.id === S.pt) || {}).pierce); styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; };
+                const GS = S.pt && SHIPS.find(x => x.id === S.pt); if (GS) patternShots(GS, S.cv).forEach(sh => shoot(sh.o, sh.a, sh.rs, sh.dm)); else { shoot(0, 0); if (S.wl >= 3) { shoot(-15, -0.15); shoot(15, 0.15); } if (S.wl >= 6) { shoot(-25, -0.3); shoot(25, 0.3); } }
             }
         }
         // 成語字塊：以房間開戰時間當亂數種子，雙方畫面產生同樣的字塊；數量為一般關卡的 2 倍（每秒 35%，一般是每 2 秒 35%）
@@ -3275,7 +3313,9 @@ const online = window.online = {
         ctx.setTransform(WORLD.k, 0, 0, WORLD.k, 0, 0); ctx.save(); ctx.translate(g.x, g.y); ctx.scale(S.s, S.s); ctx.rotate(Math.PI);   // 轉 180°：機頭朝向我
         if (im) { ctx.shadowColor = '#ff3366'; ctx.shadowBlur = 18; if (!IMG['ship_' + S.id]) ctx.filter = `hue-rotate(${S.h}deg)`; fitDraw(ctx, im, im.width / im.height > 1.3 ? 118 : 96); }
         else { ctx.fillStyle = '#ff3366'; ctx.beginPath(); ctx.moveTo(0, -22); ctx.lineTo(18, 18); ctx.lineTo(-18, 18); ctx.closePath(); ctx.fill(); }
-        ctx.restore(); ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = '#ff9aa8'; ctx.font = 'bold 13px ' + KAI_FONT; ctx.fillText(r[opp + 'Name'] || '', g.x, g.y - 62 * S.s - 8);
+        ctx.restore();
+        if (S.id === 'assassin' && g.sc > 0.05) { const c = g.sc, P = G.player.pos; ctx.save(); ctx.strokeStyle = c > 0.8 ? '#ffffff' : '#ff5ec4'; ctx.globalAlpha = 0.2 + 0.7 * c * (c > 0.8 ? 0.7 + 0.3 * Math.sin(G.bgClock * 40) : 1); ctx.lineWidth = 1 + 2 * c; ctx.setLineDash([8, 8]); ctx.beginPath(); ctx.moveTo(g.x, g.y + 25); ctx.lineTo(P.x, P.y); ctx.stroke(); ctx.restore(); }   // 狙擊預警線：蓄越滿越亮，快滿時快點移動
+        ctx.save(); ctx.textAlign = 'center'; ctx.fillStyle = '#ff9aa8'; ctx.font = 'bold 13px ' + KAI_FONT; ctx.fillText(r[opp + 'Name'] || '', g.x, g.y - 62 * S.s - 8);
         G.drawBars(ctx, g.x, g.y - 62 * S.s, 64, hp, mx, 0, mx, '#ff5566'); ctx.restore();
     },
     pkSelfDead() { const p = this.pk; if (!p || p.over) return; G.paused = true; const r = p.room || {}; this.pkFinish(p.role === 'host' ? r.guest : r.host); },
