@@ -1445,7 +1445,7 @@ class Game {
     }
 
     resetStage() {
-        this.boss = null;
+        this.boss = null; this.clearT = 0;
         this.enemies = []; this.idiomBlocks = []; this.charItems = [];
         this.player.pos = new Vec2(WORLD.w / 2, WORLD.h - 150);
         this.bullets.pool.forEach(b => b.active = false);
@@ -1464,7 +1464,7 @@ class Game {
     }
 
     startTransition(isNextStage) {
-        this.gameState = 'TRANSITION'; this.transitionTimer = 0; this.isNextStage = isNextStage;
+        this.gameState = 'TRANSITION'; this.transitionTimer = 0; this.isNextStage = isNextStage; this.clearT = 0;
         this.bullets.pool.forEach(b => b.active = false); this.enemies = []; this.idiomBlocks = []; this.charItems = [];
         sfx.playTransition();
         this.showFloatText(isNextStage ? "STAGE CLEAR" : "WAVE CLEARED", WORLD.w/2, WORLD.h/2 - 50, "#00f2ff");
@@ -1911,7 +1911,7 @@ class Game {
     }
     clearStage(next) {   // 區塊清除：倒數 5 秒（可以趁機撿字卡）後才前往下一關
         if (this.pkMode) { this.startTransition(next); return; }
-        if (this.clearT > 0) return;
+        if (this.clearT > 0 || this.gameState !== 'PLAYING') return;   // 轉場中不可重啟倒數
         this.clearT = 5; this.clearNext = next; document.getElementById('boss-bar').style.display = 'none'; sfx.playReady();
     }
     randomChar(pNeed) {   // 有機率掉「目前還缺的字」，否則從全部成語隨機抽一個字
