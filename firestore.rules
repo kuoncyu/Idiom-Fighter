@@ -4,6 +4,14 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
 
+    // 黑名單：只有管理員可以新增／移除；玩家只能讀自己的那一筆（登入時用來判斷是否被停權）
+    match /banned/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
+    function notBanned() { return !exists(/databases/$(database)/documents/banned/$(request.auth.uid)); }
+
     // 管理員名單：只能在 Firebase 後台手動新增，玩家端不可寫入
     match /admins/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
@@ -13,7 +21,7 @@ service cloud.firestore {
     // 玩家資料（排行榜需要讀取名稱與統計）
     match /users/{uid} {
       allow read: if signedIn();
-      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && ((request.auth.uid == uid && notBanned()) || isAdmin());
       match /friends/{fid} { allow read, write: if signedIn() && request.auth.uid == uid; }
       match /invites/{code} {
         allow read, delete: if signedIn() && request.auth.uid == uid;
@@ -31,7 +39,7 @@ service cloud.firestore {
     // 大廳聊天
     match /lobbyChat/{id} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid && request.resource.data.text.size() <= 200;
+      allow create: if signedIn() && notBanned() && request.resource.data.uid == request.auth.uid && request.resource.data.text.size() <= 200;
     }
 
     // 好友私訊（文件 ID = 兩位玩家 uid 排序後用底線相連；管理員可讀）

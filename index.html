@@ -10,6 +10,7 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     <title>成語戰機：星際觸控版</title>
     <style>
+        *, *::before, *::after, button, input, textarea, select { font-family: 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif !important; }
         :root {
             --neon-blue: #00f2ff;
             --neon-pink: #ff00ff;
@@ -25,7 +26,7 @@
             padding: 0;
             background-color: var(--bg-dark);
             color: white;
-            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            font-family: 'DFKai-SB', 'BiauKai', '標楷體', 'KaiTi', 'Kaiti TC', 'STKaiti', 'AR PL UKai TW', serif;
             overflow: hidden;
             touch-action: none;
             user-select: none;
@@ -86,7 +87,7 @@
         
         #hud {
             position: absolute; top: 10px; left: 10px; right: 10px; display: flex;
-            justify-content: space-between; pointer-events: none; font-family: 'Courier New', monospace;
+            justify-content: space-between; pointer-events: none; font-family: 'DFKai-SB', 'BiauKai', '標楷體', 'KaiTi', 'Kaiti TC', 'STKaiti', 'AR PL UKai TW', serif;
             font-size: 1rem; color: var(--neon-blue); background: rgba(0,0,0,0.6);
             padding: 10px 15px; border-radius: 10px; border: 1px solid rgba(0,242,255,0.3); z-index: 5;
         }
@@ -131,7 +132,7 @@
         }
         .slot { overflow: visible; }
         .slot-key { position:absolute; top:-10px; left:-6px; width:22px; height:22px; line-height:22px; text-align:center;
-            font: bold 0.85rem 'Courier New', monospace; background:#050510; border:1px solid var(--neon-blue); color:var(--neon-blue); border-radius:5px; }
+            font: bold 0.85rem 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif; background:#050510; border:1px solid var(--neon-blue); color:var(--neon-blue); border-radius:5px; }
         .slot.ready .slot-key { background:var(--neon-gold); color:#000; border-color:var(--neon-gold); box-shadow:0 0 10px var(--neon-gold); }
         #idiom-popup { display:none; position:absolute; left:50%; top:42%; transform:translate(-50%,-50%); z-index:30; width:min(86vw,460px);
             padding:22px 26px; text-align:center; background:rgba(5,5,16,.94); border:2px solid var(--neon-gold); border-radius:14px;
@@ -142,7 +143,7 @@
         .ip-line b { color:var(--neon-blue); }
         .ip-bar { height:6px; background:#333; border-radius:3px; margin-top:16px; overflow:hidden; }
         .ip-bar i { display:block; height:100%; background:var(--neon-gold); animation: ipCount 5s linear forwards; }
-        @keyframes ipCount { from { width:100%; } to { width:0; } }
+        @keyframes ipCount { from { width:0; } to { width:100%; } }
         .cards { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; width:100%; margin:10px 0; }
         .card { width:230px; background:rgba(10,12,30,.92); border:2px solid #334; border-radius:12px; padding:10px; text-align:left; cursor:pointer; }
         .card.sel { border-color:var(--neon-blue); box-shadow:0 0 14px var(--neon-blue); }
@@ -167,7 +168,7 @@
         .dmline { color:var(--neon-purple); margin:4px 0 8px; }
         .tiles { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; width:100%; margin:6px auto; }
         .tile { position:relative; overflow:hidden; border-radius:14px; padding:12px; min-height:110px; color:#fff; text-align:left; cursor:pointer; border:1px solid rgba(255,255,255,.18);
-            background:linear-gradient(135deg,var(--a),var(--b)); background-size:200% 200%; animation:tileIn .55s var(--d,0s) both, tileShift 8s ease-in-out infinite; transition:transform .2s, box-shadow .2s; }
+            background:linear-gradient(135deg,var(--a),var(--b)); transition:transform .2s, box-shadow .2s; }   /* 靜態磚：不再有漸層流動與翻面動畫 */
         .tile:hover { transform:translateY(-4px) scale(1.03); box-shadow:0 8px 22px rgba(0,0,0,.5), 0 0 16px var(--a); }
         .tile.w2 { grid-column:span 2; } .tile.h2 { grid-row:span 2; min-height:230px; }
         .tile h4 { margin:0 0 4px; font-size:1.05rem; } .tile small { display:block; opacity:.9; line-height:1.45; }
@@ -179,14 +180,14 @@
         .stg { display:flex; align-items:center; gap:12px; margin:6px 0; font-size:1.2rem; }
         .stg button { background:rgba(0,0,0,.5); border:1px solid #fff; color:#fff; border-radius:8px; padding:2px 12px; cursor:pointer; }
         .roster { color:#8aa; font-size:.8rem; }
+        .menu-overlay.lobby { background:rgba(5,5,16,.18); border-color:transparent; box-shadow:none; }
+        .tile .stg { margin:4px 0 6px; } .tile .sm2 { margin-top:6px; align-self:flex-start; padding:3px 10px; border-radius:8px; border:1px solid #fff; background:rgba(0,0,0,.45); color:#fff; cursor:pointer; font-family:inherit; font-size:.8rem; }
         @keyframes liveA { 0%,42% { opacity:1; transform:translateY(0); } 50%,92% { opacity:0; transform:translateY(-100%); } 100% { opacity:1; transform:translateY(0); } }
         @keyframes liveB { 0%,42% { opacity:0; transform:translateY(100%); } 50%,92% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(100%); } }
         @keyframes tileIn { from { opacity:0; transform:scale(.85) translateY(14px); } to { opacity:1; transform:none; } }
         @keyframes tileShift { 0%,100% { background-position:0% 50%; } 50% { background-position:100% 50%; } }
         @media (max-width:560px) { .tiles { grid-template-columns:repeat(2,1fr); } .tile.w2 { grid-column:span 2; } }
         .splash { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:auto; cursor:pointer; overflow:hidden; z-index:50; background:radial-gradient(ellipse at center,rgba(13,27,61,.32) 0%,rgba(5,5,16,.7) 78%); }
-        .sp-tiles i { position:absolute; bottom:-80px; border:1px solid rgba(0,242,255,.4); background:rgba(0,242,255,.07); animation:spFloat linear infinite; }
-        @keyframes spFloat { from { transform:translateY(0) rotate(0); opacity:0; } 10% { opacity:1; } to { transform:translateY(-120vh) rotate(200deg); opacity:0; } }
         .sp-title { font-size:clamp(2.6rem,10vw,5rem); letter-spacing:.25em; margin:0; color:#fff; animation:spGlow 3s ease-in-out infinite alternate; }
         @keyframes spGlow { from { text-shadow:0 0 10px var(--neon-blue); } to { text-shadow:0 0 30px var(--neon-blue),0 0 70px var(--neon-purple); } }
         .sp-sub { color:var(--neon-blue); letter-spacing:.6em; margin:6px 0 34px; }
@@ -232,6 +233,7 @@
 
 <script>
 "use strict";
+const KAI_FONT = "'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif";
 
 class RetroAudio {
     constructor() { this.ctx = null; this.lastShootTime = 0; }
@@ -324,6 +326,12 @@ class RetroAudio {
     playExplosion() { this.playNoise(0.5, 0.3); }
     playCollect() { this.playTone(800, 'sine', 0.1, 0.05); setTimeout(()=>this.playTone(1200, 'sine', 0.1, 0.05, true), 50); }
     playReady() { this.playTone(400, 'square', 0.1, 0.05); setTimeout(()=>this.playTone(600, 'square', 0.1, 0.05), 100); setTimeout(()=>this.playTone(800, 'square', 0.3, 0.08, true), 200); }
+    playUpgradeOk() { [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => this.playTone(f, 'triangle', 0.35, 0.09, true), i * 70)); this.sweep('sine', 400, 1600, 0.4, 0.05, true); }   // 戰機升級成功：上行琶音
+    playBuy() { this.playTone(1320, 'square', 0.07, 0.06); setTimeout(() => this.playTone(1760, 'square', 0.16, 0.07, true), 70); this.playNoise(0.05, 0.03); }   // 購買物資：叮噹銅板聲
+    playFeatureUp() { this.sweep('sawtooth', 200, 900, 0.3, 0.08, true); setTimeout(() => { this.playTone(880, 'sine', 0.2, 0.08, true); this.playTone(1108, 'sine', 0.3, 0.07, true); }, 220); }   // 升級功能：能量充填
+    playPlayerHit() { this.playNoise(0.28, 0.32); this.sweep('sawtooth', 220, 45, 0.3, 0.2); this.playTone(90, 'square', 0.2, 0.12); }   // 戰機被擊中：低沉爆裂
+    playType() { if (!this.ctx) return; const f = 1500 + Math.random() * 500; this.playTone(f, 'square', 0.035, 0.025); this.playNoise(0.015, 0.02); }   // 打字：喀噠
+    playSnipe() { this.sweep('sawtooth', 2400, 300, 0.25, 0.14, true); this.playNoise(0.12, 0.12); }
     playUse() { this.playTone(150, 'sawtooth', 0.6, 0.15, true); }
     playTransition() { this.playTone(300, 'sine', 1.5, 0.05, true); this.playTone(600, 'sine', 1.5, 0.03, true); }
     
@@ -343,9 +351,11 @@ class RetroAudio {
     }
 }
 const sfx = new RetroAudio();
+// 打字音效：帳號、密碼、聊天等所有輸入框
+document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !e.repeat && (e.key.length === 1 || e.key === 'Backspace')) { try { sfx.playType(); } catch (_) {} } }, true);
 
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
-const APP_VERSION = '20261108', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261111', APP_AUTHOR = '郭柏宏';
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
 function updateWorld() {
@@ -377,6 +387,10 @@ const SHIPS = [
       base:{ dmg:2, rate:0, hp:0, spd:0 }, cap:{ dmg:10, rate:6, hp:6, spd:6 }, fit:{ GLASS:1, TANK:3, BARRAGE:1 } }
 ];
 const SKINS = SHIPS;
+// 子彈火力分級：大小 3 種（小中大）× 七彩 7 色（紅最弱 → 紫最強）＝ 21 級；小紅最弱、大紫最強
+const BULLET_COLORS = ['#ff2d2d', '#ff9a1f', '#ffe81f', '#35e05f', '#2aa8ff', '#4a46ff', '#b535ff'], BULLET_SIZES = [4, 6, 8.5];
+function bulletTier(dmg) { const t = Math.log(Math.max(0.8, dmg) / 0.8) / Math.log(10 / 0.8); return Math.max(0, Math.min(20, Math.floor(t * 21))); }
+function styleBullet(b, dmg) { const t = bulletTier(dmg); b.color = BULLET_COLORS[t % 7]; b.radius = BULLET_SIZES[Math.floor(t / 7)]; b.tier = t; }
 const BOSS_NAMES = { 1:'璃光', 2:'鐵幕', 3:'環星', 4:'金矛', 5:'霜牆', 6:'旋蝕', 7:'紫刃', 8:'赤殼', 9:'裂空' };
 const bossLabel = st => `${BOSS_NAMES[st]}（${BOSS_INFO[BOSS_TYPES[st]].name}）`;   // 例：璃光（玻璃砲）
 // 每關 Boss：mv 移動方式、sh 射擊樣式（依序輪替）、r 基礎射擊間隔（秒）
@@ -388,6 +402,12 @@ const BOSS_CFG = {
     9:{ mv:'sweep',  sh:['spiral','ring','wall','aim3'], r:0.4 }
 };
 const BOSS_TYPES = { 1:'GLASS', 2:'TANK', 3:'BARRAGE', 4:'GLASS', 5:'TANK', 6:'BARRAGE', 7:'GLASS', 8:'TANK', 9:'FINAL' };
+// Boss 能力隨關卡成長：越前面的關卡加成越少，後面才加滿（f：第 1 關 0.2 → 第 8 關 1.0，第 9 關終焉 1.0）
+function bossMods(stage, type) {
+    const f = stage >= 8 ? 1 : 0.2 + 0.8 * (stage - 1) / 7, L = (full) => 1 + (full - 1) * f;
+    const M = { GLASS: [0.45, 2.2, 1.4], TANK: [1.5, 1.0, 1.0], BARRAGE: [1.0, 1.0, 0.55], FINAL: [1.0, 1.3, 0.9] }[type] || [1, 1, 1];
+    return { f, hp: L(M[0]), dmg: L(M[1]), rate: L(M[2]), shield: ({ TANK: 0.2, FINAL: 0.25 }[type] || 0) * (0.25 + 0.75 * f) };
+}
 const BOSS_INFO = {
     GLASS:   { name:'玻璃砲', short:'玻', desc:'皮薄，但每發子彈傷害極大', tip:'機動靈巧能閃、射速快能速殺' },
     TANK:    { name:'鐵甲',   short:'甲', desc:'血量極厚，需要高傷害才打得穿', tip:'高輸出戰機最合適' },
@@ -480,111 +500,111 @@ const CONFIG = {
 CONFIG.IDIOMS = [...new Map(CONFIG.IDIOM_LIST.filter(([w]) => w.length === 4 && new Set(w).size === 4)
     .map(([w, e]) => [w, { word: w, effect: e, desc: CONFIG.EFFECTS[e] }])).values()];
 
-// 成語意思與造句（大招發動時顯示）
+// 成語解釋與造句（大招發動時顯示）
 const IDIOM_INFO = {
-"破釜沉舟":["下定決心，不留退路。","他破釜沉舟，辭去工作全力準備考試。"],
-"排山倒海":["形容力量或聲勢非常浩大。","球迷的歡呼聲排山倒海而來。"],
-"天崩地裂":["形容聲響或變故極其巨大。","爆炸聲天崩地裂，大家都嚇了一跳。"],
-"石破天驚":["形容事物新奇驚人，震撼人心。","他的發言石破天驚，全場譁然。"],
-"雷霆萬鈞":["比喻力量極大，無法抵擋。","大軍以雷霆萬鈞之勢向前推進。"],
-"氣吞山河":["形容氣勢雄壯，志氣遠大。","這首軍歌唱得氣吞山河。"],
-"翻江倒海":["形容力量或聲勢十分浩大。","暴風雨中，海面翻江倒海。"],
-"金蟬脫殼":["用計謀脫身，使人不易察覺。","小偷金蟬脫殼，趁亂溜走了。"],
-"銅牆鐵壁":["比喻防守非常堅固。","城堡宛如銅牆鐵壁，敵軍攻不進來。"],
-"固若金湯":["形容防守極為穩固。","這座要塞固若金湯。"],
-"堅不可摧":["堅固得無法被摧毀。","我們的友情堅不可摧。"],
-"金剛不壞":["形容非常堅固，不會損壞。","傳說他練成了金剛不壞之身。"],
-"刀槍不入":["形容防護嚴密或身體堅硬。","這副盔甲刀槍不入。"],
-"安然無恙":["平安沒有受到傷害。","地震過後，全家人都安然無恙。"],
-"勢如破竹":["比喻節節勝利，毫無阻礙。","球隊勢如破竹，連贏十場。"],
-"風馳電掣":["形容速度快得像風和閃電。","跑車風馳電掣地呼嘯而過。"],
-"一氣呵成":["比喻做事一口氣完成，毫不間斷。","他一氣呵成地寫完了作文。"],
-"快馬加鞭":["比喻加快速度，加緊進行。","為了趕上進度，大家快馬加鞭完成作業。"],
-"日行千里":["形容速度非常快。","這匹駿馬日行千里。"],
-"馬不停蹄":["比喻不停頓地趕路或工作。","他馬不停蹄地趕往機場。"],
-"奮不顧身":["勇往直前，不顧自己的安危。","消防員奮不顧身衝進火場救人。"],
-"乘勝追擊":["趁著勝利的氣勢繼續進攻。","我們要乘勝追擊，拿下冠軍。"],
-"百步穿楊":["形容箭術或槍法非常精準。","他射箭百步穿楊，從不失手。"],
-"一針見血":["比喻說話直接切中要害。","老師一針見血地指出了問題。"],
-"一箭雙鵰":["比喻做一件事得到兩種好處。","邊散步邊背單字，真是一箭雙鵰。"],
-"直搗黃龍":["比喻直接攻入敵人的核心據點。","我軍直搗黃龍，結束了戰爭。"],
-"箭無虛發":["每一支箭都射中目標。","獵人箭無虛發，滿載而歸。"],
-"銳不可當":["氣勢強盛，無法抵擋。","這支隊伍銳不可當，一路打進決賽。"],
-"一語中的":["一句話就說中重點。","他一語中的，大家都點頭同意。"],
-"鞭辟入裡":["形容分析深刻透徹，切中要點。","這篇評論鞭辟入裡，令人佩服。"],
-"星火燎原":["小火星能燒成大火，比喻小事擴大。","一場小爭執，竟然星火燎原。"],
-"天女散花":["比喻花朵或物品紛紛飄落的景象。","櫻花如天女散花般飄落。"],
-"花團錦簇":["形容五彩繽紛、非常華麗美好。","公園裡花團錦簇，美不勝收。"],
-"萬箭齊發":["許多箭同時射出，形容火力猛烈。","城頭萬箭齊發，敵軍紛紛後退。"],
-"群雄逐鹿":["比喻眾多人爭奪天下或冠軍。","這次比賽群雄逐鹿，精彩萬分。"],
-"遍地開花":["比喻好事物到處興起。","手作市集在各地遍地開花。"],
-"四面楚歌":["比喻四面受敵，孤立無援。","他陷入四面楚歌的困境。"],
-"妙手回春":["形容醫術高明，能治好重病。","醫生妙手回春，救回了病人。"],
-"起死回生":["把垂死的人救活，比喻挽救危局。","這項新技術讓公司起死回生。"],
-"化險為夷":["把危險轉變成平安。","機長冷靜處理，化險為夷。"],
-"轉危為安":["從危險的情況轉為平安。","經過搶救，他終於轉危為安。"],
-"枯木逢春":["比喻在絕境中重新獲得生機。","這家老店枯木逢春，生意再度興旺。"],
-"絕處逢生":["在無路可走時找到生路。","比賽最後一刻，他絕處逢生。"],
-"否極泰來":["壞運到了盡頭，好運就會來臨。","否極泰來，他終於找到理想的工作。"],
-"按兵不動":["暫時不行動，等待時機。","敵軍按兵不動，靜觀其變。"],
-"慢條斯理":["形容做事從容不急。","他慢條斯理地吃著早餐。"],
-"以靜制動":["用冷靜來應付對方的行動。","面對挑釁，他以靜制動。"],
-"從容不迫":["沉著鎮定，一點也不慌張。","她從容不迫地走上講台。"],
-"穩如泰山":["形容非常穩固，不可動搖。","他站在台上穩如泰山。"],
-"氣定神閒":["形容態度鎮定悠閒。","比賽落後時，他仍氣定神閒。"],
-"滴水不漏":["連一滴水都漏不出，比喻非常嚴密。","他的防守滴水不漏，對手找不到破綻。"],
-"萬無一失":["非常有把握，絕對不會出差錯。","出門前檢查三次，做到萬無一失。"],
-"無懈可擊":["沒有任何可以挑剔或攻擊的漏洞。","他的計畫無懈可擊。"],
-"牢不可破":["非常堅固，無法被破壞。","兩人建立了牢不可破的友誼。"],
-"嚴陣以待":["做好嚴密準備，等待對手到來。","守衛們嚴陣以待，迎接挑戰。"],
-"全身而退":["毫髮無傷地離開危險的地方。","他在混亂中全身而退。"],
-"平安無事":["平順安全，沒有發生意外。","旅途平安無事，大家順利抵達。"],
-"驚天動地":["形容聲勢或事蹟極其浩大，震撼人心。","這項發明驚天動地，改變了世界。"],
-"地動山搖":["大地震動、山嶽搖晃，形容聲勢浩大。","巨石滾落，震得地動山搖。"],
-"摧枯拉朽":["比喻輕易就能摧毀腐朽或弱小的事物。","我軍攻勢猛烈，摧枯拉朽般擊潰敵人。"],
-"驚濤駭浪":["洶湧驚人的浪濤，比喻險惡的處境。","船隻在驚濤駭浪中奮力前行。"],
-"毫髮無傷":["一點傷害也沒有，形容安然無事。","車子翻覆，他卻毫髮無傷。"],
-"逢凶化吉":["遇到危險能轉為平安順利。","幸好有貴人相助，他總能逢凶化吉。"],
-"吉人天相":["善良的人會有上天保佑，平安無事。","他吉人天相，順利脫離險境。"],
-"有驚無險":["雖然受到驚嚇，但沒有真正的危險。","山路崎嶇，所幸有驚無險。"],
-"入木三分":["形容書法有力，或見解深刻透徹。","他的評論入木三分，令人信服。"],
-"力透紙背":["筆力強勁，字跡像要穿透紙張。","這幅字力透紙背，氣勢十足。"],
-"穿雲裂石":["形容聲音高亢，力道強勁穿透。","號角聲穿雲裂石，響徹山谷。"],
-"切中要害":["正好擊中最關鍵的地方。","他的質問切中要害，對方啞口無言。"],
-"迎刃而解":["比喻問題一抓到關鍵就容易解決。","掌握方法後，難題迎刃而解。"],
-"窮追不捨":["緊緊追趕，絕不放棄。","警察窮追不捨，終於抓到小偷。"],
-"窮追猛打":["不停地追擊，持續猛烈地攻擊。","球隊乘勝窮追猛打，擴大領先。"],
-"緊追不捨":["緊緊跟著追趕，一刻也不放鬆。","第二名選手緊追不捨，差距越來越小。"],
-"如影隨形":["像影子跟著身體一樣，形容緊緊跟隨。","這隻小狗如影隨形地跟著主人。"],
-"鍥而不捨":["雕刻不中斷，比喻有恆心、不放棄。","他鍥而不捨地練習，終於成功。"],
-"追根究底":["追查事物的根源，弄清楚真相。","科學家追根究底，找出了病因。"],
-"電光石火":["像閃電和擊石的火花，形容極其短暫迅速。","電光石火之間，球已射進網裡。"],
-"光芒萬丈":["光線強烈，形容非常耀眼偉大。","夕陽照得海面光芒萬丈。"],
-"一瀉千里":["水流迅速奔流，形容速度極快或文筆流暢。","河水一瀉千里，奔向大海。"],
-"一往無前":["勇敢向前，毫不退縮。","隊員們一往無前，衝向終點。"],
-"一馬當先":["騎馬衝在最前面，比喻帶頭領先。","他一馬當先，衝過了終點線。"],
-"疾風迅雷":["像急風迅雷般，形容快速猛烈。","部隊疾風迅雷般攻佔了高地。"],
-"藥到病除":["藥一服用，病就好了，形容醫術高明。","這帖草藥藥到病除。"],
-"華佗再世":["稱讚醫術高明得像名醫華佗重生。","老醫生被鄉親稱為華佗再世。"],
-"死而復生":["人死了又活過來，比喻挽回危局。","這家店在改裝後死而復生。"],
-"重見天日":["脫離黑暗，重新看到光明。","受困礦工終於重見天日。"],
-"精神抖擻":["精神振奮、充滿活力的樣子。","睡飽後，他精神抖擻地出門。"],
-"沉著冷靜":["遇事不慌張，保持鎮定。","面對突發狀況，她沉著冷靜地處理。"],
-"悠然自得":["悠閒自在，心情愉快滿足。","爺爺坐在樹下，悠然自得地泡茶。"],
-"泰然自若":["神態鎮定，毫不慌亂。","遇到困難，他仍泰然自若。"],
-"閒庭信步":["像在庭院中散步，形容從容悠閒。","他在賽場上閒庭信步，輕鬆取勝。"],
-"呼朋引伴":["招呼朋友，邀請同伴一起行動。","週末他呼朋引伴去爬山。"],
-"鼎力相助":["用盡全力幫助別人。","多虧大家鼎力相助，活動順利完成。"],
-"攜手合作":["手牽著手，一起合作完成事情。","兩家公司攜手合作，推出新產品。"],
-"同心協力":["大家心意一致，共同努力。","全班同心協力，完成了壁報。"],
-"並肩作戰":["肩並肩一起戰鬥，比喻共同奮鬥。","我們並肩作戰，一起通過難關。"],
-"同舟共濟":["同坐一條船共渡難關，比喻團結互助。","面對困境，大家同舟共濟。"],
-"齊心協力":["大家一條心，共同努力。","同學們齊心協力，打掃教室。"],
-"守望相助":["鄰里互相照應、互相幫忙。","社區居民守望相助，治安良好。"],
-"眾志成城":["大家心意團結，就能像城牆一樣堅固。","全民眾志成城，度過了災難。"],
-"患難與共":["共同承擔困難與危險。","他們患難與共，從不離棄彼此。"],
-"肝膽相照":["彼此真誠相待，全心信任。","兩人肝膽相照，是一輩子的好友。"],
-"共襄盛舉":["大家一起來參與、協助盛大的活動。","歡迎各位共襄盛舉，參加義賣。"]
+"破釜沉舟":["比喻下定決心、不留退路，抱著非成功不可的決心去做事。","他破釜沉舟辭去工作，把所有時間都拿來準備這次考試。"],
+"排山倒海":["像推倒山、翻動海一樣，形容力量或聲勢非常浩大。","球隊進球的瞬間，球迷的歡呼聲排山倒海地湧了過來。"],
+"天崩地裂":["天塌下來、地裂開來，形容聲響或變故大得驚人。","遠處傳來天崩地裂般的爆炸聲，大家都被嚇得愣住了。"],
+"石破天驚":["形容事物新奇驚人，或聲音響亮，使人感到非常震撼。","他在會議上提出的新點子石破天驚，讓所有人都傻了眼。"],
+"雷霆萬鈞":["形容力量非常強大，像雷霆般猛烈，沒有任何東西擋得住。","大軍以雷霆萬鈞之勢向前推進，敵人根本來不及抵抗。"],
+"氣吞山河":["形容氣勢雄壯豪邁，好像能把山河都吞下去一樣。","全校合唱團把這首軍歌唱得氣吞山河，聽得人熱血沸騰。"],
+"翻江倒海":["把江河翻轉、海水倒流，形容力量或聲勢十分浩大。","颱風來襲時，海面上巨浪翻江倒海，連漁船都不敢出港。"],
+"金蟬脫殼":["像蟬蛻掉外殼飛走，比喻用計謀脫身，讓人不容易發覺。","小偷趁著人群混亂金蟬脫殼，等大家發現時他早就跑遠了。"],
+"銅牆鐵壁":["像銅和鐵打造的牆壁，比喻防守非常堅固，難以攻破。","這座古城四周宛如銅牆鐵壁，敵軍圍攻了好幾個月也進不去。"],
+"固若金湯":["像用金屬造的城、滾水的護城河，形容防守非常穩固。","這座海邊的要塞固若金湯，幾百年來從來沒有被攻破過。"],
+"堅不可摧":["堅固到沒有任何力量可以摧毀它，形容非常牢固。","我們從小一起長大的友情堅不可摧，不管遇到什麼都不會變。"],
+"金剛不壞":["像金剛石一樣堅硬，不會損壞，形容非常堅固耐用。","傳說那位武師練成了金剛不壞之身，刀劍打在身上也不怕。"],
+"刀槍不入":["刀和槍都刺不進去，形容身體或防護裝備堅硬嚴密。","這副特製的盔甲刀槍不入，穿上它就能放心衝進戰場。"],
+"安然無恙":["平平安安，沒有受到任何傷害，也沒有發生任何問題。","地震過後，我們趕緊回家查看，幸好全家人都安然無恙。"],
+"勢如破竹":["像劈開竹子一樣順利，比喻節節勝利，沒有任何阻礙。","我們的球隊今年勢如破竹，一路贏球打進了全國總決賽。"],
+"風馳電掣":["像風和閃電一樣飛快，形容速度非常快，一下子就過去。","一輛紅色跑車從路口風馳電掣地呼嘯而過，轉眼就不見了。"],
+"一氣呵成":["比喻做事一口氣完成，中間沒有停頓，文章或動作很連貫。","他靈感一來就一氣呵成寫完了作文，連一個字都沒有修改。"],
+"快馬加鞭":["已經跑得很快的馬再加一鞭，比喻加快速度、加緊進行。","為了趕上展覽的期限，大家快馬加鞭地把作品全部完成了。"],
+"日行千里":["一天能走上千里路，形容速度非常快，進步也非常快。","那匹駿馬日行千里，傳說連最快的信差也追不上牠的腳步。"],
+"馬不停蹄":["馬的蹄子沒有停過，比喻不停頓地趕路或持續地工作。","他一下飛機就馬不停蹄地趕往會場，連口水都沒空喝。"],
+"奮不顧身":["勇敢地向前衝，完全不顧慮自己的安全，只想完成任務。","消防員奮不顧身地衝進火場，把受困的小朋友一個個救了出來。"],
+"乘勝追擊":["趁著打了勝仗的氣勢，繼續向前進攻，不讓對手有機會喘息。","上半場領先之後，我們乘勝追擊，在下半場又連續進了三球。"],
+"百步穿楊":["在百步之外射穿楊柳的葉子，形容箭術或槍法非常精準。","他的射箭技術高超，站在遠處也能百步穿楊，從來不失手。"],
+"一針見血":["一針就刺出血來，比喻說話或寫文章直接切中問題的要害。","老師一針見血地指出我作文的問題，讓我立刻知道該怎麼改。"],
+"一箭雙鵰":["一支箭射下兩隻大鳥，比喻做一件事同時得到兩種好處。","每天走路上學既能運動又能背單字，這真是一箭雙鵰的好辦法。"],
+"直搗黃龍":["直接攻進敵人的老巢，比喻徹底擊破對方最核心的據點。","將軍下令全軍直搗黃龍，終於攻下敵人的大本營，結束了戰爭。"],
+"箭無虛發":["每一支射出去的箭都能命中目標，形容射擊技術非常準確。","那位獵人箭無虛發，每次進山打獵都能滿載而歸地回家。"],
+"銳不可當":["氣勢非常強盛猛烈，沒有任何力量能夠阻擋得住它。","這支新組成的隊伍銳不可當，一路過關斬將打進了決賽。"],
+"一語中的":["只說一句話就說中重點，形容說話簡短而且非常準確。","他一語中的地說出了問題的原因，大家聽了都點頭同意。"],
+"鞭辟入裡":["形容分析事情深入而透徹，能夠切中最核心的道理。","這篇評論寫得鞭辟入裡，把整件事的來龍去脈說得清清楚楚。"],
+"星火燎原":["一點小小的火星能燒成大火，比喻小事不處理會擴大成大事。","一場小小的爭執沒有處理好，最後竟然星火燎原變成大衝突。"],
+"天女散花":["像仙女把花撒向人間，形容花朵或東西紛紛飄落的美景。","春風一吹，滿樹的櫻花如天女散花般，一片片飄落在地上。"],
+"花團錦簇":["花朵聚集成團，像錦繡一樣，形容景象華麗、色彩繽紛。","春天來了，公園裡花團錦簇，每個角落都開滿了鮮豔的花。"],
+"萬箭齊發":["許許多多的箭同時射出去，形容火力非常猛烈密集。","城牆上一聲令下，萬箭齊發，衝上來的敵軍紛紛往後退去。"],
+"群雄逐鹿":["許多英雄人物一起爭奪天下，比喻很多人競爭同一個目標。","這次全國大賽群雄逐鹿，每一場比賽都精彩得讓人屏息。"],
+"遍地開花":["到處都開出花朵，比喻好的事物在各個地方都蓬勃發展。","這幾年手作市集在各個城市遍地開花，吸引了許多年輕人參加。"],
+"四面楚歌":["四周都是敵人的歌聲，比喻陷入四面受敵、孤立無援的困境。","公司的債務越來越多，他陷入四面楚歌的處境，不知如何是好。"],
+"妙手回春":["高明的醫術能使病人恢復健康，形容醫生的醫術非常高明。","那位老醫生妙手回春，把病得很重的小男孩治好了。"],
+"起死回生":["把快要死的人救活，比喻把已經沒有希望的事情挽救回來。","這項新技術讓瀕臨倒閉的公司起死回生，重新找回了客人。"],
+"化險為夷":["把危險的情況變成平安，指安全度過危機而沒有受到傷害。","機長冷靜地處理引擎故障，成功化險為夷，讓大家平安降落。"],
+"轉危為安":["從危險的處境變成平安的狀態，形容度過難關、脫離險境。","經過醫生一整夜的搶救，他的病情終於轉危為安，家人才放心。"],
+"枯木逢春":["乾枯的樹木遇到春天又長出新芽，比喻在絕境中重新獲得生機。","這家老店換了新老闆之後枯木逢春，生意又重新熱鬧了起來。"],
+"絕處逢生":["在走投無路時忽然找到生路，比喻在最危險的時候得救。","比賽快結束時，他投進一記神奇的三分球，讓球隊絕處逢生。"],
+"否極泰來":["壞運到了盡頭，好運就會跟著來臨，比喻逆境過後會變好。","他失業了半年，後來否極泰來，終於找到一份理想的好工作。"],
+"按兵不動":["把軍隊停留在原地不行動，比喻暫時不採取行動，等待時機。","敵軍一直按兵不動，我們也只好守在原地，靜靜觀察變化。"],
+"慢條斯理":["形容說話或做事從容不迫、不慌不忙，動作顯得很慢。","他慢條斯理地吃著早餐，完全不在意上學快要遲到的事。"],
+"以靜制動":["用冷靜沉著的態度，來應付對方各種急躁、多變的行動。","面對對手連續的挑釁，他以靜制動，不急著出手反而贏了比賽。"],
+"從容不迫":["態度沉著鎮定，一點都不慌張，處理事情有條有理。","她從容不迫地走上講台，把準備好的報告清楚地講完了。"],
+"穩如泰山":["像泰山一樣穩固，形容非常穩定，不會被任何力量動搖。","風雨再大，他仍然站在甲板上穩如泰山，指揮大家固定船身。"],
+"氣定神閒":["神態鎮定悠閒，一點也不緊張，形容在壓力下依然從容。","比賽落後的時候，他仍然氣定神閒，一步一步慢慢追回比數。"],
+"滴水不漏":["連一滴水都漏不出來，比喻做事或防守非常嚴密周到。","他的防守滴水不漏，對手繞了半天都找不到任何進攻的破綻。"],
+"萬無一失":["非常有把握，絕對不會出任何差錯，形容計畫十分周全。","出門前我把證件檢查了三次，這樣才能做到萬無一失。"],
+"無懈可擊":["沒有任何地方可以挑剔或攻擊，形容計畫或表現完美周密。","他準備的旅行計畫無懈可擊，連備用路線都想好了。"],
+"牢不可破":["非常堅固穩定，沒有辦法被破壞，常用來形容感情或制度。","經過多年的相處，他們建立了一份牢不可破的深厚友誼。"],
+"嚴陣以待":["做好嚴密的準備，等待敵人或挑戰的到來，不敢有半點鬆懈。","守衛們早早就嚴陣以待，準備迎接即將到來的重大挑戰。"],
+"全身而退":["毫髮無傷地離開危險的地方，也指事情結束後沒有受到損失。","他在混亂的人群中保護自己，最後順利地全身而退，沒有受傷。"],
+"平安無事":["一切平順安全，沒有發生任何意外或不好的事情。","這趟長途旅行一路平安無事，大家都順利地回到了家。"],
+"驚天動地":["使天地都震驚，形容聲勢或事蹟極其浩大，令人非常震撼。","這項偉大的發明驚天動地，從此徹底改變了人們的生活方式。"],
+"地動山搖":["大地震動、山嶽搖晃，形容聲勢非常浩大，力量十分驚人。","巨大的石頭從山上滾下來，震得整個山谷都地動山搖。"],
+"摧枯拉朽":["折斷枯草、拉倒腐木，比喻輕而易舉地擊垮弱小腐朽的力量。","我軍的攻勢猛烈，摧枯拉朽般地擊潰了敵人的第一道防線。"],
+"驚濤駭浪":["洶湧嚇人的巨大浪濤，比喻非常險惡、危險的處境。","小船在驚濤駭浪中不停搖晃，船長仍然奮力地向前划行。"],
+"毫髮無傷":["連一根頭髮都沒有受傷，形容完全沒有受到任何傷害。","車子雖然翻覆了好幾圈，駕駛卻奇蹟似地毫髮無傷地走了出來。"],
+"逢凶化吉":["遇到危險或災難，最後都能轉變成平安順利，沒有大礙。","幸好有貴人在旁邊幫忙，他每次遇到困難總能逢凶化吉。"],
+"吉人天相":["善良的好人會得到上天的保佑，遇到危險也能平安無事。","他平時樂於助人，這次意外中吉人天相，順利地脫離了險境。"],
+"有驚無險":["雖然受到了驚嚇，但是最後並沒有發生真正的危險或損失。","山路雖然崎嶇難走，所幸大家只是受了點驚嚇，有驚無險地下山。"],
+"入木三分":["形容書法筆力強勁，也比喻見解或分析非常深刻透徹。","他對這件事的評論入木三分，讓聽的人都不得不信服他。"],
+"力透紙背":["筆力強勁，字跡像要穿透紙張，也形容文章力道很深刻。","老書法家寫的這幅字力透紙背，每一筆都顯得氣勢十足。"],
+"穿雲裂石":["聲音高亢嘹亮，好像能穿過雲層、震裂石頭，形容力道強勁。","山谷裡的號角聲穿雲裂石，傳到好幾座山外都聽得見。"],
+"切中要害":["正好擊中最重要、最關鍵的地方，形容說話或行動抓到重點。","他提出的問題切中要害，讓對方一時之間完全答不出話來。"],
+"迎刃而解":["像竹子被刀劈開一樣，比喻抓到關鍵後，困難立刻就解決了。","只要掌握了正確的方法，原本很難的數學題都能迎刃而解。"],
+"窮追不捨":["緊緊地追趕在後面，不肯輕易放棄，直到達成目的為止。","警察在街上窮追不捨，終於在巷口抓到了那名逃跑的小偷。"],
+"窮追猛打":["不停地追擊對方，同時用猛烈的攻勢持續進攻，不給機會。","球隊趁著對手慌亂時窮追猛打，把比數一路拉開到二十分。"],
+"緊追不捨":["緊緊地跟在後面追趕，一刻也不放鬆，形容追得非常緊。","第二名的選手一路緊追不捨，與第一名的差距越來越小。"],
+"如影隨形":["像影子跟著身體一樣，形容兩者關係密切，一直緊緊跟隨。","這隻小狗總是如影隨形地跟著主人，不管去哪裡都不肯離開。"],
+"鍥而不捨":["不停地雕刻不放棄，比喻有恆心、有毅力，努力到底。","他每天鍥而不捨地練習投籃，終於在比賽中拿到了最高分。"],
+"追根究底":["追查事情的根源，一定要弄清楚事情真正的原因和真相。","科學家追根究底地反覆實驗，終於找出了這種疾病的真正原因。"],
+"電光石火":["像閃電和擊石迸出的火花一樣，形容時間極其短暫，速度極快。","電光石火之間，足球已經越過守門員的手，飛進了球網裡。"],
+"光芒萬丈":["光線非常強烈，向四面八方照射，形容極為耀眼而且偉大。","夕陽西下時，金色的陽光照得整片海面光芒萬丈，美極了。"],
+"一瀉千里":["水流迅速奔流而下，形容速度極快，也形容文章氣勢流暢。","大雨過後，山上的河水一瀉千里，轟隆隆地奔向遠方的大海。"],
+"一往無前":["勇敢地一直向前走，毫不害怕、毫不退縮，形容意志堅定。","隊員們一往無前地衝向終點，沒有人在半路停下腳步。"],
+"一馬當先":["騎馬衝在最前面，比喻帶頭領先，勇敢地走在眾人前面。","比賽一開始，他就一馬當先地衝在最前面，把大家都甩在後頭。"],
+"疾風迅雷":["像急風和響雷一樣，形容行動非常快速又猛烈，讓人來不及反應。","部隊以疾風迅雷般的速度，在天亮之前就攻佔了山上的高地。"],
+"藥到病除":["藥一吃下去，病就好了，形容藥效神奇或醫術非常高明。","奶奶說這帖祖傳的草藥藥到病除，我喝了兩天感冒就好了。"],
+"華佗再世":["稱讚醫生的醫術高明，就像古代名醫華佗重新回到人間一樣。","鄉親們都說這位老醫生華佗再世，再難治的病都能被他治好。"],
+"死而復生":["人死了又重新活過來，比喻把已經沒有希望的事情重新挽回。","這家老餅店經過整修之後死而復生，每天都有人排隊來購買。"],
+"重見天日":["脫離黑暗的環境，重新看見陽光，比喻脫離困境、重獲光明。","受困在山洞裡好幾天的礦工們，終於在今天重見天日了。"],
+"精神抖擻":["精神非常振奮，充滿活力與朝氣，形容人的狀態非常好。","他昨晚睡得很飽，今天早上精神抖擻地出門去晨跑了。"],
+"沉著冷靜":["遇到事情不慌張，能夠保持鎮定，仔細思考後再做決定。","面對突然發生的火警，她沉著冷靜地帶著全班同學走到安全的地方。"],
+"悠然自得":["悠閒自在，心情愉快又滿足，一點也沒有煩惱的樣子。","爺爺坐在大樹下，悠然自得地泡著茶，看著遠方的風景。"],
+"泰然自若":["神態鎮定自然，好像什麼事都沒發生，一點也不慌亂。","就算遇到再大的困難，他還是泰然自若，臉上沒有一絲緊張。"],
+"閒庭信步":["像在自家庭院裡散步一樣，形容從容悠閒，毫不緊張的樣子。","他在賽場上閒庭信步般輕鬆地跑著，最後仍然贏得了冠軍。"],
+"呼朋引伴":["招呼朋友、邀請同伴，一起去做某件事情，形容人緣很好。","週末一早，他就呼朋引伴地約了大家一起去山上爬山健行。"],
+"鼎力相助":["用盡全部的力量來幫助別人，多用來表示感謝對方的幫忙。","這次活動能順利完成，多虧各位同學鼎力相助，真是太感謝了。"],
+"攜手合作":["手牽著手一起合作，共同完成一件事情，形容彼此配合。","兩家公司決定攜手合作，一起推出一款全新而且好用的產品。"],
+"同心協力":["大家的心意一致，共同努力做事，所有人都一起付出力量。","全班同學同心協力，只花了一個下午就完成了這幅大壁報。"],
+"並肩作戰":["肩並著肩一起戰鬥，比喻彼此合作，共同面對困難與挑戰。","這一年來我們並肩作戰，終於一起通過了所有的難關。"],
+"同舟共濟":["大家坐同一條船一起渡河，比喻在困難中團結合作、互相幫助。","面對這場大災難，全村的人同舟共濟，一起把房子重新蓋好。"],
+"齊心協力":["大家同心一意，一起努力，把力量集中起來完成一件事。","同學們齊心協力打掃教室，不到半小時就把整間教室清得乾乾淨淨。"],
+"守望相助":["鄰居之間互相照顧、彼此守護，遇到困難時互相幫忙。","我們社區的居民守望相助，所以這裡的治安一直都非常良好。"],
+"眾志成城":["大家的心意團結在一起，力量就會像城牆一樣堅固，無法擊破。","全國人民眾志成城，齊力合作，終於度過了這次嚴重的災難。"],
+"患難與共":["在困苦危險的時候，彼此一起承擔，不會因為困難而離開對方。","他們兩人患難與共，不管日子多辛苦，都從來沒有拋下對方。"],
+"肝膽相照":["彼此真心誠意地對待，把心都掏出來，完全信任對方。","兩人從小就肝膽相照，彼此沒有任何秘密，是一輩子的好朋友。"],
+"共襄盛舉":["大家一起來參與或幫忙，把一件盛大的活動辦得更成功。","歡迎各位鄉親朋友一起來共襄盛舉，參加這次的愛心義賣活動。"]
 };
 
 class Vec2 { constructor(x, y) { this.x = x; this.y = y; } }
@@ -610,14 +630,25 @@ class Entity {
     }
 }
 
-class Bullet extends Entity { constructor() { super(); this.isPlayer = false; this.damage = 1; } }
+class Bullet extends Entity {
+    constructor() { super(); this.isPlayer = false; this.damage = 1; }
+    draw(ctx) {   // 外圈白色虛化光暈（任何背景都看得見）＋ 彩色核心
+        const x = this.pos.x, y = this.pos.y, r = this.radius;
+        ctx.save();
+        const g = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2.6); g.addColorStop(0, 'rgba(255,255,255,0.8)'); g.addColorStop(0.45, 'rgba(255,255,255,0.35)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 8; ctx.shadowColor = this.color; ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.arc(x, y, r * 0.38, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+}
 
 class FloatingText {
     constructor() { this.active = false; this.pos = new Vec2(0,0); this.text = ""; this.life = 0; this.color = "#fff"; }
     update(dt) { this.pos.y -= 50 * dt; this.life -= dt; if(this.life <= 0) this.active = false; }
     draw(ctx) {
         ctx.save(); ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color;
-        ctx.font = "bold 16px Arial"; ctx.fillText(this.text, this.pos.x, this.pos.y); ctx.restore();
+        ctx.font = "bold 16px "+KAI_FONT; ctx.fillText(this.text, this.pos.x, this.pos.y); ctx.restore();
     }
 }
 
@@ -641,8 +672,8 @@ class Boss extends Entity {
         this.size = hasImg ? Math.min(260, WORLD.w * 0.55) : 110;
         if (hasImg) { this.radius = this.size * 0.28; this.targetY = this.size * 0.5 + 30; }
         this.type = BOSS_TYPES[stage] || 'TANK';
-        const M = { GLASS:[0.45, 2.2, 1.4], TANK:[1.5, 1.0, 1.0], BARRAGE:[1.0, 1.0, 0.55], FINAL:[1.0, 1.3, 0.9] }[this.type];   // [血量倍率, 子彈傷害倍率, 射擊間隔倍率]
-        this.maxHp = Math.round(this.maxHp * M[0]); this.hp = this.maxHp; this.dmgMul = M[1]; this.rateMul = M[2];
+        const M = bossMods(stage, this.type);   // 依關卡縮放：[血量倍率, 子彈傷害倍率, 射擊間隔倍率]
+        this.maxHp = Math.round(this.maxHp * M.hp); this.hp = this.maxHp; this.dmgMul = M.dmg; this.rateMul = M.rate;
     }
 
     move(dt, W, pp) {   // 「目標點 + 指數平滑」：不瞬移、不抖動，並限制最高速度
@@ -718,7 +749,7 @@ class Boss extends Entity {
         }
         ctx.closePath(); ctx.fill(); ctx.restore();
         ctx.save(); ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 10; ctx.shadowColor = this.color;
-        ctx.textAlign = "center"; ctx.font = "bold 20px Arial"; ctx.fillText("BOSS・" + bossLabel(this.stage), this.pos.x, this.pos.y + this.radius + 30);
+        ctx.textAlign = "center"; ctx.font = "bold 20px "+KAI_FONT; ctx.fillText("BOSS・" + bossLabel(this.stage), this.pos.x, this.pos.y + this.radius + 30);
         ctx.restore();
     }
 }
@@ -736,7 +767,7 @@ class Game {
         this.lastPointerY = 0;
 
         this.darkMatter = 0;
-        this.maxSlots = 3;   
+        this.maxSlots = 1;   
         this.maxHp = 100;    
         this.weaponLvl = 1;  
 
@@ -820,6 +851,7 @@ class Game {
 
     setState(state) {
         this.gameState = state; this.paused = false; this.endCast(); if (state !== 'PLAYING') this.save();
+        { const iu = document.getElementById('idiom-ui'); if (iu) iu.style.zIndex = (state === 'GAMEOVER' || state === 'VICTORY') ? '5' : ''; }   // 結算彈窗在上，成語能量槽在後
         document.getElementById('buff-bar').innerHTML = ''; this._buffHtml = ''; this.allies = []; this.allyTimer = 0; this.dmgTexts = [];
         if (state === 'PLAYING') { this.bestStage = Math.max(this.bestStage, this.currentStage); music.play(this.currentStage); loadBg(this.currentStage); loadBg(this.currentStage + 1); } else if (state === 'GAMEOVER' || state === 'VICTORY') music.playEnd(); else if (state !== 'INIT') music.toLobby();
         this.uiLayer.innerHTML = '';
@@ -833,9 +865,8 @@ class Game {
         } else if (state === 'SHOP') {
             this.renderShop();
         } else if (state === 'INIT') {
-            const tiles = Array.from({ length: 14 }, (_, i) => `<i style="left:${(i * 7.3 + 3) % 100}%;animation-delay:${-i * 0.9}s;animation-duration:${8 + (i % 5) * 2}s;width:${34 + (i % 4) * 14}px;height:${34 + (i % 4) * 14}px"></i>`).join('');
-            this.uiLayer.innerHTML = `<div class="splash" id="splash"><div class="sp-tiles">${tiles}</div><h1 class="sp-title">成語戰機</h1><p class="sp-sub">IDIOM FIGHTER</p><button class="btn btn-start" id="boot-btn">點擊開始（啟動音樂與音效）</button><p class="sp-hint">按任意鍵也可以開始</p></div>`;
-            const boot = () => { sfx.init(); this.applyVol(); this.afterBoot(); };
+            this.uiLayer.innerHTML = `<div class="splash" id="splash"><h1 class="sp-title">成語戰機</h1><p class="sp-sub">IDIOM FIGHTER</p><button class="btn btn-start" id="boot-btn">點擊開始（啟動音樂與音效）</button><p class="sp-hint">按任意鍵也可以開始</p></div>`;
+            const boot = () => { sfx.init(); this.applyVol(); if (this._booting) return; this._booting = true; if (this.needFirstDownload()) this.forceDownload(() => { this.afterBoot(); this._booting = false; }); else { this.afterBoot(); setTimeout(() => this.quietCheck(), 3000); } };
             document.getElementById('boot-btn').onclick = (e) => { e.stopPropagation(); boot(); };
             document.getElementById('splash').onclick = boot;
         } else if (state === 'PLAYING') {
@@ -856,6 +887,8 @@ class Game {
             <button class="btn btn-start" onclick="game.startNewGame()">再次出擊 [R]</button><button class="btn" onclick="game.setState('LOBBY')">返回大廳 [Enter]</button></div>`;
     }
 
+    isMenu() { return !['PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(this.gameState); }   // 選單類畫面都用戰鬥示範當背景
+
     ship(id = this.shipId) { return SHIPS.find(x => x.id === id); }
 
     statsOf(id) {
@@ -872,16 +905,19 @@ class Game {
         const list = (others.length ? others : [this.ship('star')]).slice(0, 3);
         this.allies = list.map((S, i) => {
             const st = this.statsOf(S.id), hp = Math.round(st.hp * 0.7);
-            return { sid: S.id, slot: i, pos: new Vec2(this.player.pos.x + (i - (list.length - 1) / 2) * 80, Math.min(WORLD.h - 40, this.player.pos.y + 50)),
+            return { sid: S.id, slot: i, pos: new Vec2(this.player.pos.x + (i - (list.length - 1) / 2) * 80, WORLD.h + 70 + i * 16), enter: true,
                 hp, maxHp: hp, dmg: st.dmg * 0.8, iv: st.iv * 1.15 / 1000, spd: Math.max(240, st.spd * 1.15), cd: 0, radius: S.r + 2 };
         });
         this.allyTimer = 15; this.showFloatText('友軍出動！', this.player.pos.x, this.player.pos.y - 90, '#7ad7ff');
     }
     updateAllies(dt) {
-        if (this.allyTimer <= 0) { if (this.allies.length) this.allies = []; return; }
-        this.allyTimer -= dt;
-        const W = WORLD.w, H = WORLD.h, foes = this.enemies.concat(this.boss ? [this.boss] : []);
+        if (!this.allies.length) return;
+        if (this.allyTimer > 0) this.allyTimer -= dt;
+        const W = WORLD.w, H = WORLD.h, leave = this.allyTimer <= 0, foes = this.enemies.concat(this.boss ? [this.boss] : []);
         this.allies.forEach(a => {
+            if (leave) a.leaving = true;
+            if (a.leaving) { a.pos.y += 560 * dt; return; }   // 退場：往下飛出畫面
+            if (a.enter) { const ey = Math.min(H - 40, this.player.pos.y + 30); a.pos.y -= 560 * dt; if (a.pos.y <= ey) { a.pos.y = ey; a.enter = false; } return; }   // 進場：從畫面下方升上來
             let tx, ty = Math.min(H - 40, this.player.pos.y + 30), item = null, bd = 1e9;
             this.charItems.forEach(c => { const d = Math.hypot(c.pos.x - a.pos.x, c.pos.y - a.pos.y); if (d < bd) { bd = d; item = c; } });
             if (item) { tx = item.pos.x; ty = item.pos.y; }
@@ -890,24 +926,115 @@ class Game {
             if (d > 1) { a.pos.x += dx / d * step; a.pos.y += dy / d * step; }
             a.pos.x = Math.max(20, Math.min(W - 20, a.pos.x)); a.pos.y = Math.max(40, Math.min(H - 30, a.pos.y));
             a.cd -= dt;
-            if (a.cd <= 0) { a.cd = a.iv; const b = this.bullets.get(); b.pos = new Vec2(a.pos.x, a.pos.y - 22); b.vel = new Vec2(0, -800); b.color = this.ship(a.sid).c; b.isPlayer = true; b.radius = 4; b.damage = a.dmg; b.pierce = !!this.ship(a.sid).pierce; }
+            if (a.cd <= 0) { a.cd = a.iv; const b = this.bullets.get(); b.pos = new Vec2(a.pos.x, a.pos.y - 22); b.vel = new Vec2(0, -800); b.isPlayer = true; b.damage = a.dmg; styleBullet(b, a.dmg); b.pierce = !!this.ship(a.sid).pierce; }
             for (let j = this.charItems.length - 1; j >= 0; j--) { const c = this.charItems[j]; if (Math.hypot(c.pos.x - a.pos.x, c.pos.y - a.pos.y) < 38) { this.collectChar(c.char); this.charItems.splice(j, 1); } }
             this.bullets.pool.forEach(b => { if (b.active && !b.isPlayer && Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y) < a.radius + b.radius + 4) { a.hp -= b.damage * 10; b.active = false; } });
             this.enemies.forEach(e => { if (Math.hypot(e.pos.x - a.pos.x, e.pos.y - a.pos.y) < a.radius + e.radius) a.hp -= 40 * dt; });
         });
         const dead = this.allies.filter(a => a.hp <= 0);
         dead.forEach(a => { this.burst(a.pos.x, a.pos.y, 14); sfx.playExplosion(); });
-        if (dead.length) this.allies = this.allies.filter(a => a.hp > 0);
+        this.allies = this.allies.filter(a => a.hp > 0 && a.pos.y < H + 90);
+    }
+    // ===== 背景示範：字詞方塊 → 掉字 → 集滿四字 → 放出成語招式（只演出，不顯示解釋與造句）=====
+    demoCast(d, idiom) {
+        const E = idiom.effect, W = WORLD.w, H = WORLD.h, x = d.pp.x, y = d.pp.y;
+        d.banner = { text: idiom.word, t: 0 };
+        const kill = e => { const i = d.enemies.indexOf(e); if (i < 0) return; d.enemies.splice(i, 1); for (let k = 0; k < 14; k++) { const a = Math.random() * 6.28, v = 60 + Math.random() * 220; d.parts.push({ x: e.pos.x, y: e.pos.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.55, c: e.color || '#ff9a3c' }); } };
+        if (E === 'BOMB_BOOST') { d.fx.push({ type: E, t: 0, life: 1.2 }); d.bullets = d.bullets.filter(b => !b.foe); d.enemies.slice().forEach(kill); }
+        else if (E === 'LASER_BEAM') d.fx.push({ type: E, t: 0, life: 1.6 });
+        else if (E === 'SHIELD') d.fx.push({ type: E, t: 0, life: 4 });
+        else if (E === 'INVINCIBLE') d.fx.push({ type: E, t: 0, life: 4 });
+        else if (E === 'HEAL') d.fx.push({ type: E, t: 0, life: 1.6 });
+        else if (E === 'SLOW_TIME') { d.fx.push({ type: E, t: 0, life: 4 }); d.slowT = 4; }
+        else if (E === 'PIERCE') d.pierceT = 4;
+        else if (E === 'MISSILE') { d.missileT = 4; d.msT = 0; }
+        else if (E === 'ALLY') {
+            const others = SHIPS.filter(S => S.id !== d.ship.id).sort(() => Math.random() - 0.5).slice(0, 2);
+            d.allies = others.map((S, i) => ({ S, x: x + (i ? 1 : -1) * 90, y: H + 70 + i * 16, life: 6.5, cd: 0, enter: true, leaving: false, off: (i ? 1 : -1) * 90 }));
+        }
+    }
+    demoExtra(d, dt) {
+        const W = WORLD.w, H = WORLD.h, rnd = Math.random;
+        const part = (x, y, c, n, sp, life) => { for (let k = 0; k < n; k++) { const a = rnd() * 6.283, v = 30 + rnd() * sp; d.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: life * (0.5 + rnd()), c }); } };
+        const kill = e => { const i = d.enemies.indexOf(e); if (i < 0) return; d.enemies.splice(i, 1); part(e.pos.x, e.pos.y, e.color || '#ff9a3c', 14, 220, 0.55); };
+        if (!d.idiom) { d.idiom = CONFIG.IDIOMS[Math.floor(rnd() * CONFIG.IDIOMS.length)]; d.got = [...d.idiom.word].slice(0, 2); }
+        // 字詞方塊從上方落下
+        d.blockT -= dt;
+        if (d.blockT <= 0 && d.blocks.length < 3) {
+            const need = [...d.idiom.word].filter(c => !d.got.includes(c));
+            const ch = need.length && rnd() < 0.85 ? need[Math.floor(rnd() * need.length)] : CONFIG.IDIOMS[Math.floor(rnd() * CONFIG.IDIOMS.length)].word[Math.floor(rnd() * 4)];
+            d.blocks.push({ x: 50 + rnd() * (W - 100), y: -30, vy: 46 + rnd() * 24, r: 25, hp: 3, ch });
+            d.blockT = 1.2 + rnd() * 1.1;
+        }
+        for (let i = d.blocks.length - 1; i >= 0; i--) {
+            const m = d.blocks[i]; m.y += m.vy * dt;
+            if (m.y > H + 40) { d.blocks.splice(i, 1); continue; }
+            for (let j = d.bullets.length - 1; j >= 0; j--) { const b = d.bullets[j]; if (b.foe) continue; if (Math.abs(b.x - m.x) < m.r && Math.abs(b.y - m.y) < m.r) { d.bullets.splice(j, 1); m.hp -= 1; part(b.x, b.y, '#7ad7ff', 3, 120, 0.25); if (m.hp <= 0) break; } }
+            if (m.hp <= 0) { d.chars.push({ x: m.x, y: m.y, ch: m.ch, vy: 70 }); part(m.x, m.y, '#00f2ff', 14, 200, 0.5); d.blocks.splice(i, 1); }
+        }
+        // 掉落的字：戰機靠近就收集，集滿四字就放招
+        for (let i = d.chars.length - 1; i >= 0; i--) {
+            const c = d.chars[i]; c.y += c.vy * dt;
+            if (Math.hypot(c.x - d.pp.x, c.y - d.pp.y) < 46) {
+                d.chars.splice(i, 1);
+                if (d.idiom.word.includes(c.ch) && !d.got.includes(c.ch)) {
+                    d.got.push(c.ch); part(c.x, c.y, '#ffea00', 10, 160, 0.4);
+                    if (d.got.length >= 4) { const w = d.idiom; d.idiom = null; d.got = []; d.chars.length = 0; this.demoCast(d, w); break; }
+                }
+            } else if (c.y > H + 30) d.chars.splice(i, 1);
+        }
+        // 戰機優先去撿字，其次打方塊，否則打敵機（原邏輯）
+        let tgt = null, td = 1e9;
+        d.chars.forEach(c => { const v = Math.abs(c.x - d.pp.x) + Math.max(0, d.pp.y - c.y) * 0.05; if (v < td) { td = v; tgt = c; } });
+        if (!tgt) d.blocks.forEach(m => { if (m.y > 10 && m.y < d.pp.y - 50 && (!tgt || m.y > tgt.y)) tgt = m; });
+        d.want = tgt ? tgt.x : null;
+        // 招式效果
+        d.fx.forEach(f => { f.t += dt; }); d.fx = d.fx.filter(f => f.t < f.life);
+        if (d.fx.some(f => f.type === 'LASER_BEAM')) d.enemies.slice().forEach(e => { if (e.pos.y < d.pp.y && Math.abs(e.pos.x - d.pp.x) < e.radius + 22) { e.hp -= 40 * dt; if (e.hp <= 0) kill(e); } });
+        if (d.fx.some(f => f.type === 'HEAL') && rnd() < 0.6) d.parts.push({ x: d.pp.x + (rnd() - 0.5) * 70, y: d.pp.y + 20, vx: 0, vy: -90, life: 0.7, c: '#6bff9a' });
+        if (d.pierceT > 0) { d.pierceT -= dt; d.bullets.forEach(b => { if (!b.foe && !b.big) { b.big = true; b.c = '#ffb347'; } }); }
+        if (d.missileT > 0) { d.missileT -= dt; d.msT -= dt; if (d.msT <= 0) { d.msT = 0.22; d.bullets.push({ x: d.pp.x + (rnd() < 0.5 ? -14 : 14), y: d.pp.y - 20, vx: (rnd() - 0.5) * 260, vy: -520, c: '#ff6b6b', foe: false, home: true, big: true }); } }
+        d.bullets.forEach(b => { if (!b.home) return; let t = null, bd = 1e9; d.enemies.forEach(e => { const dd = Math.hypot(e.pos.x - b.x, e.pos.y - b.y); if (dd < bd) { bd = dd; t = e; } }); if (t) { let a = Math.atan2(b.vy, b.vx), da = Math.atan2(t.pos.y - b.y, t.pos.x - b.x) - a; da = Math.atan2(Math.sin(da), Math.cos(da)); a += da * Math.min(1, 7 * dt); b.vx = Math.cos(a) * 640; b.vy = Math.sin(a) * 640; } });
+        // 友軍：從下方進場、射擊、再從下方退場
+        d.allies.forEach(a => {
+            if (a.leaving) { a.y += 520 * dt; return; }
+            a.life -= dt; if (a.life <= 0) { a.leaving = true; return; }
+            const ty = d.pp.y + 34, tx = Math.max(24, Math.min(W - 24, d.pp.x + a.off));
+            if (a.enter) { a.y -= 520 * dt; if (a.y <= ty) { a.y = ty; a.enter = false; } a.x += (tx - a.x) * Math.min(1, 4 * dt); return; }
+            a.x += (tx - a.x) * Math.min(1, 5 * dt); a.y += (ty - a.y) * Math.min(1, 5 * dt);
+            a.cd -= dt; if (a.cd <= 0) { a.cd = 0.2; d.bullets.push({ x: a.x, y: a.y - 22, vx: 0, vy: -800, c: a.S.c, foe: false }); }
+        });
+        d.allies = d.allies.filter(a => !(a.leaving && a.y > H + 90));
+        if (d.banner) { d.banner.t += dt; if (d.banner.t > 1.8) d.banner = null; }
+    }
+    drawDemoExtra(ctx, d) {
+        const W = WORLD.w, H = WORLD.h, pp = d.pp;
+        d.allies.forEach(a => { const S = a.S, im = IMG['ship_' + S.id] || IMG.player; if (!im) return; ctx.save(); ctx.translate(a.x, a.y); ctx.scale(0.8 * S.s, 0.8 * S.s); ctx.shadowColor = S.c; ctx.shadowBlur = 12; if (!IMG['ship_' + S.id]) ctx.filter = `hue-rotate(${S.h}deg)`; fitDraw(ctx, im, im.width / im.height > 1.3 ? 110 : 90); ctx.restore(); });
+        d.fx.forEach(f => {
+            const k = f.t / f.life; ctx.save();
+            if (f.type === 'BOMB_BOOST') { const M = Math.hypot(W, H); for (let i = 0; i < 3; i++) { const kk = k - i * 0.1; if (kk <= 0) continue; ctx.strokeStyle = ['#ffea00', '#ff8800', '#ff3366'][i]; ctx.globalAlpha = Math.max(0, 1 - kk); ctx.lineWidth = 14 - kk * 10; ctx.beginPath(); ctx.arc(pp.x, pp.y, kk * M, 0, 7); ctx.stroke(); } ctx.globalAlpha = Math.max(0, 0.6 - k * 2.2); ctx.fillStyle = '#fff3c4'; ctx.fillRect(0, 0, W, H); }
+            else if (f.type === 'LASER_BEAM') { const w = 30 + Math.sin(f.t * 40) * 6; ctx.globalAlpha = Math.min(1, (1 - k) * 2); const g = ctx.createLinearGradient(pp.x - w, 0, pp.x + w, 0); g.addColorStop(0, 'rgba(255,234,0,0)'); g.addColorStop(0.5, '#ffffff'); g.addColorStop(1, 'rgba(255,234,0,0)'); ctx.fillStyle = g; ctx.fillRect(pp.x - w, 0, w * 2, pp.y - 20); }
+            else if (f.type === 'SHIELD') { ctx.globalAlpha = k > 0.8 ? (1 - k) * 5 : 1; ctx.strokeStyle = '#4dd2ff'; ctx.lineWidth = 3; ctx.fillStyle = 'rgba(77,210,255,0.18)'; ctx.beginPath(); ctx.arc(pp.x, pp.y, 58 + Math.sin(f.t * 8) * 3, 0, 7); ctx.fill(); ctx.stroke(); }
+            else if (f.type === 'INVINCIBLE') { ctx.globalAlpha = k > 0.8 ? (1 - k) * 5 : 0.5 + 0.4 * Math.sin(f.t * 14); ctx.strokeStyle = '#7dffb0'; ctx.lineWidth = 4; ctx.shadowColor = '#7dffb0'; ctx.shadowBlur = 16; ctx.beginPath(); ctx.arc(pp.x, pp.y, 52, 0, 7); ctx.stroke(); }
+            else if (f.type === 'HEAL') { ctx.globalAlpha = 1 - k; ctx.strokeStyle = '#6bff9a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pp.x, pp.y, 20 + k * 70, 0, 7); ctx.stroke(); }
+            else if (f.type === 'SLOW_TIME') { ctx.globalAlpha = (k > 0.8 ? (1 - k) * 5 : 1) * 0.16; ctx.fillStyle = '#7f8cff'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = Math.max(0, 0.7 - (f.t % 1.3) / 1.3); ctx.strokeStyle = '#b9c2ff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pp.x, pp.y, (f.t % 1.3) / 1.3 * 260, 0, 7); ctx.stroke(); }
+            ctx.restore();
+        });
+        const tm = d.t * 1000;
+        d.blocks.forEach(m => { ctx.save(); ctx.translate(m.x, m.y); ctx.shadowBlur = 15; ctx.shadowColor = '#00f2ff'; if (IMG.block) { ctx.fillStyle = 'rgba(5,12,30,0.6)'; ctx.fillRect(-m.r, -m.r, m.r * 2, m.r * 2); fitDraw(ctx, IMG.block, m.r * 2.7); } else { ctx.fillStyle = 'rgba(0,242,255,0.2)'; ctx.strokeStyle = '#00f2ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.rect(-m.r, -m.r, m.r * 2, m.r * 2); ctx.fill(); ctx.stroke(); }
+            ctx.fillStyle = '#ffffff'; ctx.shadowBlur = 5; ctx.font = `bold ${m.r}px ${KAI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(m.ch, 0, 0); ctx.restore(); });
+        d.chars.forEach(c => { ctx.save(); ctx.fillStyle = '#ffea00'; ctx.shadowBlur = 15; ctx.shadowColor = '#ffea00'; ctx.font = `bold 28px ${KAI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(c.ch, c.x, c.y); ctx.strokeStyle = 'rgba(255,234,0,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(c.x, c.y, 20 + Math.sin(tm / 100) * 5, 0, 7); ctx.stroke(); ctx.restore(); });
+        if (d.banner) { const b = d.banner, a = b.t < 0.2 ? b.t / 0.2 : Math.max(0, 1 - (b.t - 1.2) / 0.6); ctx.save(); ctx.globalAlpha = Math.min(1, a); ctx.font = `bold 40px ${KAI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.fillStyle = '#ffea00'; ctx.shadowColor = '#ffea00'; ctx.shadowBlur = 18; const bx = Math.max(110, Math.min(W - 110, pp.x)), by = pp.y - 90 - b.t * 24; ctx.strokeText(b.text, bx, by); ctx.fillText(b.text, bx, by); ctx.restore(); }
     }
     // ===== 初始畫面的自動演示（隨機關卡、戰機、敵機，暗化處理）=====
     startDemo() {
         const stage = 1 + Math.floor(Math.random() * 9); loadBg(stage);
         return (this.demo = { t: 0, stage, enemies: [], bullets: [], parts: [], spawnT: 0.3, shootT: 0, switchT: 0, ship: SHIPS[Math.floor(Math.random() * SHIPS.length)],
-            pp: new Vec2(WORLD.w / 2, WORLD.h * 0.78), boss: null, bossT: 9 + Math.random() * 6, fade: 0 });
+            pp: new Vec2(WORLD.w / 2, WORLD.h * 0.78), boss: null, bossT: 9 + Math.random() * 6, fade: 0, blocks: [], chars: [], fx: [], allies: [], slowT: 0, pierceT: 0, missileT: 0, msT: 0, blockT: 0.6, idiom: null, got: [], want: null, banner: null });
     }
     updateDemo(dt) {
         const d = this.demo || this.startDemo(), W = WORLD.w, H = WORLD.h; d.t += dt; this.bgClock += dt;
-        d.switchT += dt;
+        d.switchT += dt; if (d.slowT > 0) { d.slowT -= dt; dt *= 0.45; }
         if (d.switchT > 16) { d.switchT = 0; d.stage = 1 + Math.floor(Math.random() * 9); loadBg(d.stage); d.enemies = []; d.boss = null; d.bossT = 8 + Math.random() * 8; d.ship = SHIPS[Math.floor(Math.random() * SHIPS.length)]; d.fade = 1; }
         d.fade = Math.max(0, d.fade - dt * 1.2);
         // 借用真正的敵機邏輯來產生與移動敵機
@@ -928,7 +1055,7 @@ class Game {
         this.enemies = keep.en; this.player.pos = keep.pp; this.currentStage = keep.st; this.currentSub = keep.sub;
         // 我方戰機自動瞄準射擊
         let near = null, nd = 1e9; d.enemies.forEach(e => { const dx = Math.abs(e.pos.x - d.pp.x); if (e.pos.y > 0 && dx < nd) { nd = dx; near = e; } });
-        const tx = near ? near.pos.x : W / 2 + Math.sin(d.t * 0.8) * W * 0.28;
+        const tx = d.want != null ? d.want : near ? near.pos.x : W / 2 + Math.sin(d.t * 0.8) * W * 0.28;
         d.pp.x += Math.max(-300 * dt, Math.min(300 * dt, tx - d.pp.x)); d.pp.y = H * 0.78 + Math.sin(d.t * 0.7) * 24;
         d.shootT -= dt; if (d.shootT <= 0) { d.shootT = 0.16; [-10, 10].forEach(o => d.bullets.push({ x: d.pp.x + o, y: d.pp.y - 24, vx: o * 1.2, vy: -820, c: d.ship.c, foe: false })); }
         for (let i = d.bullets.length - 1; i >= 0; i--) {
@@ -941,6 +1068,7 @@ class Game {
             }
         }
         d.parts.forEach(q => { q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; }); d.parts = d.parts.filter(q => q.life > 0);
+        this.demoExtra(d, dt);
     }
     drawDemo(ctx) {
         const d = this.demo; if (!d) return; const W = WORLD.w, H = WORLD.h, bg = BG[d.stage];
@@ -949,13 +1077,14 @@ class Game {
         const sprite = (im, cx, cy, box) => { ctx.save(); ctx.translate(cx, cy); fitDraw(ctx, im, box); ctx.restore(); };
         d.enemies.forEach(e => { const im = IMG[e.type.toLowerCase()]; if (im) { ctx.save(); ctx.shadowBlur = 12; ctx.shadowColor = e.color; sprite(im, e.pos.x, e.pos.y, e.radius * 3.2 * (Math.max(im.width / im.height, im.height / im.width) > 2.2 ? 1.45 : 1)); ctx.restore(); } else { ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(e.pos.x, e.pos.y, e.radius, 0, 7); ctx.fill(); } });
         if (d.boss) { const im = IMG['boss_' + d.boss.stage] || IMG.boss; if (im) { ctx.save(); ctx.shadowBlur = 25; ctx.shadowColor = d.boss.color || '#f36'; sprite(im, d.boss.pos.x, d.boss.pos.y, d.boss.size); ctx.restore(); } }
-        d.bullets.forEach(b => { ctx.fillStyle = b.c; ctx.beginPath(); ctx.arc(b.x, b.y, b.foe ? 4 : 3, 0, 7); ctx.fill(); });
+        d.bullets.forEach(b => { ctx.fillStyle = b.c; ctx.beginPath(); ctx.arc(b.x, b.y, b.foe ? 4 : (b.big ? 5 : 3), 0, 7); ctx.fill(); });
         const S = d.ship, sim = IMG['ship_' + S.id] || IMG.player;
         ctx.save(); ctx.translate(d.pp.x, d.pp.y); ctx.scale(S.s, S.s);
         if (sim) { ctx.shadowColor = S.c; ctx.shadowBlur = 18; if (!IMG['ship_' + S.id]) ctx.filter = `hue-rotate(${S.h}deg)`; fitDraw(ctx, sim, sim.width / sim.height > 1.3 ? 118 : 96); }
         else { ctx.fillStyle = S.c; ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(24, 24); ctx.lineTo(-24, 24); ctx.closePath(); ctx.fill(); }
         ctx.restore();
         d.parts.forEach(q => { ctx.globalAlpha = Math.max(0, q.life * 2); ctx.fillStyle = q.c; ctx.fillRect(q.x, q.y, 3, 3); }); ctx.globalAlpha = 1;
+        this.drawDemoExtra(ctx, d);
         ctx.fillStyle = 'rgba(0,0,10,0.46)'; ctx.fillRect(0, 0, W, H);                 // 暗化，避免影響前方畫面
         if (d.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${d.fade})`; ctx.fillRect(0, 0, W, H); }
     }
@@ -967,7 +1096,8 @@ class Game {
     }
 
     // ===== 離線資料包（Service Worker + Cache API）=====
-    offlineInfo() { try { const i = JSON.parse(localStorage.getItem('idiomOfflineInfo') || 'null'); return i ? `已下載 ${i.n} 個檔案` : '下載後可完全離線遊玩'; } catch (e) { return ''; } }
+    offlineInfo() { try { const i = JSON.parse(localStorage.getItem('idiomOfflineInfo') || 'null'); return i ? `版本 ${i.v || '舊版'}・已下載 ${i.n} 個檔案` : '下載後可完全離線遊玩'; } catch (e) { return ''; } }
+    packInfo() { try { return JSON.parse(localStorage.getItem('idiomOfflineInfo') || 'null'); } catch (e) { return null; } }
     offlineList() {
         const L = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'sw.js'];
         Object.values(ASSET_FILES).forEach(u => L.push(u));
@@ -985,33 +1115,72 @@ class Game {
             <button class="btn btn-start" id="off-go" ${ok ? '' : 'disabled'} onclick="game.downloadOffline()">下載／更新離線資料包</button>
             <button class="btn" ${ok ? '' : 'disabled'} onclick="game.deleteOffline()">刪除離線資料</button><button class="btn" onclick="game.closeDlg()">關閉 [Esc]</button>`);
     }
-    async downloadOffline() {
+    async downloadOffline(onlyMissing) {
         if (this._offBusy) return; this._offBusy = true;
-        const btn = document.getElementById('off-go'), info = document.getElementById('off-info'), bar = document.getElementById('off-bar'), fill = document.getElementById('off-fill');
+        const btn = document.getElementById('off-go'), bar = document.getElementById('off-bar');
         if (btn) btn.disabled = true; if (bar) bar.style.display = 'block';
+        const CN = 'idiom-offline-' + APP_VERSION;
         try {
             if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
-            const cache = await caches.open('idiom-offline-v1'), list = this.offlineList(); let done = 0, ok = 0;
+            const cache = await caches.open(CN), old = this.packInfo(), had404 = new Set((old && old.v === APP_VERSION && old.miss) || []);
+            let list = this.offlineList();
+            if (onlyMissing) { const keys = new Set((await cache.keys()).map(r => r.url)); list = list.filter(u => !had404.has(u) && !keys.has(new URL(u, location.href).href)); }
+            let done = 0, ok = 0; const miss = new Set(had404);
             const get = async url => {
                 try {
                     const cross = new URL(url, location.href).origin !== location.origin;
                     const r = await fetch(url, cross ? { mode: 'no-cors' } : { cache: 'reload' });
-                    if (r.ok || r.type === 'opaque') { await cache.put(url, r); ok++; }
+                    if (r.ok || r.type === 'opaque') { await cache.put(url, r); ok++; } else if (r.status === 404) miss.add(url);
                 } catch (e) {}
                 done++; const f = document.getElementById('off-fill'), i = document.getElementById('off-info');
-                if (f) f.style.width = (done / list.length * 100) + '%'; if (i) i.textContent = `下載中… ${done}/${list.length}`;
+                if (f) f.style.width = (done / Math.max(1, list.length) * 100) + '%'; if (i) i.textContent = `下載中… ${done}/${list.length}`;
             };
             for (let i = 0; i < list.length; i += 4) await Promise.all(list.slice(i, i + 4).map(get));
-            localStorage.setItem('idiomOfflineInfo', JSON.stringify({ n: ok, ts: Date.now() }));
-            const i2 = document.getElementById('off-info'); if (i2) i2.textContent = ok ? `完成！已儲存 ${ok} 個檔案，現在可以離線遊玩了` : '沒有下載到任何檔案，請確認網路';
-        } catch (e) { const i2 = document.getElementById('off-info'); if (i2) i2.textContent = '下載失敗：' + (e.message || e); }
+            const all = this.offlineList(), have = new Set((await cache.keys()).map(r => r.url)), n = all.filter(u => have.has(new URL(u, location.href).href)).length;
+            const total = all.length - [...miss].filter(u => all.includes(u)).length;
+            this._offResult = { ok: n, total: Math.max(1, total) };
+            if (n / Math.max(1, total) >= 0.9) {
+                localStorage.setItem('idiomOfflineInfo', JSON.stringify({ v: APP_VERSION, n, miss: [...miss], ts: Date.now() }));
+                for (const k of await caches.keys()) if (k.startsWith('idiom-offline-') && k !== CN) await caches.delete(k);   // 新版本下載完成 → 覆蓋掉舊檔案
+            }
+            const i2 = document.getElementById('off-info'); if (i2) i2.textContent = n ? `完成！版本 ${APP_VERSION}，已儲存 ${n} 個檔案，現在可以離線遊玩了` : '沒有下載到任何檔案，請確認網路';
+        } catch (e) { this._offResult = { ok: 0, total: 1 }; const i2 = document.getElementById('off-info'); if (i2) i2.textContent = '下載失敗：' + (e.message || e); }
         this._offBusy = false; const b2 = document.getElementById('off-go'); if (b2) b2.disabled = false;
     }
+    // ===== 連網自動檢查：版本號不同 → 下載新資料包並覆蓋舊檔；版本相同 → 只補缺少的檔案 =====
+    offlineSupported() { return 'caches' in window && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol); }
+    needFirstDownload() { try { const i = this.packInfo(); return this.offlineSupported() && navigator.onLine && (!i || i.v !== APP_VERSION); } catch (e) { return false; } }
+    async quietCheck() {   // 版本相同時，背景補齊缺少的檔案
+        try {
+            if (!this.offlineSupported() || !navigator.onLine || this._offBusy) return; const i = this.packInfo(); if (!i || i.v !== APP_VERSION) return;
+            const cache = await caches.open('idiom-offline-' + APP_VERSION), keys = new Set((await cache.keys()).map(r => r.url)), miss = new Set(i.miss || []);
+            if (this.offlineList().some(u => !miss.has(u) && !keys.has(new URL(u, location.href).href))) await this.downloadOffline(true);
+        } catch (e) {}
+    }
+    forceDownload(done) {
+        const old = this.packInfo(), isUpdate = !!old;
+        this.uiLayer.innerHTML = `<div class="menu-overlay" style="width:min(92vw,460px)"><h2 class="shop-title">${isUpdate ? '發現新版本・更新資料包' : '首次啟動・下載資源包'}</h2>
+            <p style="text-align:left;font-size:.95rem;line-height:1.7">${isUpdate ? `目前版本 ${esc(old.v || '舊版')} → 最新版本 ${APP_VERSION}。會自動下載並覆蓋舊檔案。` : '第一次進入遊戲需要先下載圖片與音樂資源包（約 26 MB），會花比較久的時間；之後進入遊戲就能快速讀取，也能離線遊玩。'}請保持網路連線。</p>
+            <p id="off-info" class="muted">準備下載…</p>
+            <div class="ip-bar" id="off-bar" style="display:block"><i id="off-fill" style="animation:none;width:0%"></i></div>
+            <button class="btn btn-start" id="off-go" style="display:none">重新下載</button>${isUpdate ? '<button class="btn" id="off-skip" style="display:none">先用舊版進入</button>' : ''}</div>`;
+        const run = async () => {
+            const b = document.getElementById('off-go'); if (b) b.style.display = 'none';
+            if (navigator.serviceWorker) { try { const r = await navigator.serviceWorker.register('sw.js'); r.update && r.update(); } catch (e) {} }
+            await this.downloadOffline();
+            const r = this._offResult || { ok: 0, total: 1 };
+            if (r.ok / r.total >= 0.9) { setTimeout(done, 600); return; }
+            const i = document.getElementById('off-info'); if (i) i.textContent = `下載不完整（${r.ok}/${r.total}），請確認網路後重試`;
+            const b2 = document.getElementById('off-go'); if (b2) { b2.style.display = 'block'; b2.disabled = false; b2.onclick = run; }
+            const sk = document.getElementById('off-skip'); if (sk) { sk.style.display = 'block'; sk.onclick = done; }
+        };
+        run();
+    }
     async deleteOffline() {
-        try { await caches.delete('idiom-offline-v1'); localStorage.removeItem('idiomOfflineInfo'); const i = document.getElementById('off-info'); if (i) i.textContent = '已刪除離線資料'; } catch (e) {}
+        try { for (const k of await caches.keys()) if (k.startsWith('idiom-offline-')) await caches.delete(k); localStorage.removeItem('idiomOfflineInfo'); const i = document.getElementById('off-info'); if (i) i.textContent = '已刪除離線資料'; } catch (e) {}
     }
     resetProgress() {
-        this.darkMatter = 0; this.maxSlots = 3; this.magnetLvl = 0; this.dmLvl = 0; this.bestStage = 1; this.startStage = 1; this.shipId = 'star';
+        this.darkMatter = 0; this.maxSlots = 1; this.magnetLvl = 0; this.dmLvl = 0; this.bestStage = 1; this.startStage = 1; this.shipId = 'star';
         this.fleet = {}; SHIPS.forEach(S => { this.fleet[S.id] = { own: S.price === 0, ...S.base }; }); this.applyUpgrades();
     }
     tryFullscreen() {
@@ -1071,6 +1240,7 @@ class Game {
             <label>音效音量（射擊、爆炸、招式聲）<input type="range" min="0" max="100" value="${Math.round(this.volSfx * 100)}" oninput="game.setVol('sfx', this.value)"></label>
             <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" ${localStorage.getItem('idiomFS') !== '0' ? 'checked' : ''} onchange="game.setAutoFS(this.checked)" style="width:auto;"> 開啟遊戲時自動全螢幕</label><button class="btn" onclick="game.toggleFullscreen()">全螢幕 ／ 離開全螢幕</button>
             <small style="color:#8aa;">快捷鍵：O 設定　H 回首頁（戰鬥中）　P／Esc 暫停</small>
+            <button class="btn" onclick="game.offlineDialog()">離線資料包：${this.offlineInfo()}</button><button class="btn" onclick="game.aboutDialog()">關於（版本 ${APP_VERSION}）</button>
             <button class="btn btn-start" onclick="game.closeDlg()">關閉 [Esc]</button>`);
     }
     setVol(k, v) {   // 音樂與音效各自獨立調整
@@ -1093,15 +1263,15 @@ class Game {
     hurt(n) { if (this.shield > 0) { const a = Math.min(this.shield, n); this.shield -= a; n -= a; } this.hp -= n; }
     shieldOf(e) {
         if (e.maxShield === undefined) {
-            const k = e === this.boss ? ({ TANK: 0.2, FINAL: 0.25 }[e.type] || 0) : (e.type === 'TANK' ? 0.4 : e.type === 'GUARD' ? 0.6 : (e.type === 'FIGHTER' && this.currentStage >= 4 ? 0.25 : 0));
+            const k = e === this.boss ? bossMods(e.stage, e.type).shield : (e.type === 'TANK' ? 0.4 : e.type === 'GUARD' ? 0.6 : (e.type === 'FIGHTER' && this.currentStage >= 4 ? 0.25 : 0));
             e.maxShield = e.shield = Math.round(e.maxHp * k);
         }
         return e.shield;
     }
-    dmgEnt(e, n, pf) {
+    dmgEnt(e, n, pf, hit) {
         this.shieldOf(e);
         let pierce = 0;
-        if ((this.pierceTimer > 0 || pf) && e.shield > 0) { pierce = 2 + Math.random(); n *= pierce; }   // 穿甲彈：對有裝甲（護盾）的目標造成 2~3 倍傷害
+        if ((this.pierceTimer > 0 || pf) && e.shield > 0) { pierce = 2 + Math.random(); n *= pierce; if (hit) n += (e.maxHp || 0) * 0.01; }   // 穿甲：每次子彈命中裝甲單位，額外損失目標總血量 1%   // 穿甲彈：對有裝甲（護盾）的目標造成 2~3 倍傷害
         const dealt = n;
         if (e.shield > 0) { const a = Math.min(e.shield, n); e.shield -= a; n -= a; }
         e.hp -= n;
@@ -1110,9 +1280,22 @@ class Game {
     }
     showDamage(e, v, pierce) {
         if (!(v >= 0.05)) return;
-        this.dmgTexts.push({ x: e.pos.x + (Math.random() - 0.5) * 24, y: e.pos.y - (e.radius || 30) - 6, t: 0, text: (v >= 10 ? String(Math.round(v)) : v.toFixed(1)) + (pierce ? '!' : ''),
-            color: pierce ? '#ffb347' : (e.shield > 0 ? '#7ad7ff' : '#ffffff'), big: pierce ? 1.35 : 1 });
+        this.dmgTexts.push({ x: e.pos.x + (Math.random() - 0.5) * 24, y: e.pos.y - (e.radius || 30) - 6, t: 0, text: String(Math.max(1, Math.round(v))) + (pierce ? '!' : ''),
+            kind: pierce ? 'p' : (e.shield > 0 ? 's' : 'n'), big: pierce ? 1.3 : 1, rot: (Math.random() - 0.5) * 0.36, seed: Math.random() * 100 });
         if (this.dmgTexts.length > 40) this.dmgTexts.shift();
+    }
+    drawDmg(ctx, d) {   // 爆炸樣式對話框＋放大的傷害數字
+        const a = d.t < 0.12 ? d.t / 0.12 : d.t < 0.65 ? 1 : Math.max(0, 1 - (d.t - 0.65) / 0.3);
+        const pop = d.t < 0.12 ? 0.45 + d.t / 0.12 * 1.0 : d.t < 0.26 ? 1.45 - (d.t - 0.12) / 0.14 * 0.45 : 1;
+        const px = Math.round(32 * d.big), C = { n: ['#ffe14a', '#d62a0f'], s: ['#8fe3ff', '#0b4f8a'], p: ['#ff9a2e', '#8f1500'] }[d.kind];
+        ctx.save(); ctx.globalAlpha = a; ctx.translate(d.x, d.y - px * 0.4); ctx.rotate(d.rot); ctx.scale(pop, pop);
+        ctx.font = `bold ${px}px ${KAI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const w = ctx.measureText(d.text).width, R = Math.max(px * 0.95, w / 2 + px * 0.6), n = 10;
+        ctx.beginPath();
+        for (let i = 0; i < n * 2; i++) { const ang = i * Math.PI / n - Math.PI / 2, r = i % 2 === 0 ? R * (1 + 0.14 * Math.sin(d.seed + i * 2.3)) : R * 0.62, x = Math.cos(ang) * r * 1.12, y = Math.sin(ang) * r * 0.9; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+        ctx.closePath(); ctx.fillStyle = C[0]; ctx.fill(); ctx.lineJoin = 'round'; ctx.lineWidth = 3.5; ctx.strokeStyle = C[1]; ctx.stroke();
+        ctx.lineWidth = Math.max(4, px * 0.2); ctx.strokeStyle = '#2a0600'; ctx.strokeText(d.text, 0, 1); ctx.fillStyle = '#ffffff'; ctx.fillText(d.text, 0, 1);
+        ctx.restore();
     }
     updateDmgTexts(dt) { this.dmgTexts.forEach(d => { d.t += dt; d.y -= 22 * dt; }); this.dmgTexts = this.dmgTexts.filter(d => d.t < 0.95); }
     drawBars(ctx, x, y, w, hp, max, sh, maxSh, col) {   // 血條在上，護盾條在血條下方
@@ -1145,46 +1328,33 @@ class Game {
     upgrade(id, k) {
         const S = this.ship(id), L = this.fleet[id], cost = (L[k] + 1) * 80;
         if (!L.own || L[k] >= S.cap[k] || this.darkMatter < cost) return;
-        this.darkMatter -= cost; L[k]++; this.applyUpgrades(); sfx.playReady(); this.save(); this.renderHangar();
+        this.darkMatter -= cost; L[k]++; this.applyUpgrades(); sfx.playUpgradeOk(); this.save(); this.renderHangar();
     }
 
     renderLobby() {
-        const S = this.ship(), st = this.statsOf(S.id), T = BOSS_TYPES[this.startStage], info = BOSS_INFO[T], rec = this.recommend(this.startStage), ok = rec.ship.id === S.id;
+        const S = this.ship(), st = this.statsOf(S.id), rec = this.recommend(this.startStage), ok = rec.ship.id === S.id;
         const img = S.id === 'star' ? 'assets/player.png' : `assets/ship_${S.id}.png`;
         const im = src => `<img src="${src}" onerror="this.style.display='none'">`;
-        const roster = Object.entries(BOSS_TYPES).map(([k, v]) => `${k}${BOSS_INFO[v].short}`).join(' ');
         this.uiLayer.innerHTML = `
-            <div class="menu-overlay" style="width:min(96vw,800px);max-width:none;">
+            <div class="menu-overlay lobby" style="width:min(96vw,800px);max-width:none;">
                 <h1 class="lob-title">成語戰機</h1>
                 <div class="dmline">暗物質 <b>${this.darkMatter}</b> DM</div>
                 <div class="tiles">
-                    <div class="tile live w2 h2" style="--a:#0aa5ff;--b:#7b2ff7;--d:0s" onclick="game.startNewGame()">
+                    <div class="tile w2 h2" style="--a:#0aa5ff;--b:#7b2ff7" onclick="game.startNewGame()">
                         ${im(`assets/boss_${this.startStage}.png`)}
-                        <div class="f1"><h4>開始出擊</h4><small>第 ${this.startStage} 關</small><small>Boss：${bossLabel(this.startStage)}</small><small>[Enter]</small></div>
-                        <div class="f2"><h4>${S.name}</h4><small>${ok ? '很適合本關 Boss' : '建議改用 ' + rec.ship.name}</small><small>${info.tip}</small></div>
+                        <div class="f1"><h4>開始出擊 [Enter]</h4>
+                            <div class="stg"><button onclick="event.stopPropagation();game.changeStart(-1)">◀</button><b>第 ${this.startStage} 關</b><button onclick="event.stopPropagation();game.changeStart(1)">▶</button></div>
+                            <small>Boss：${bossLabel(this.startStage)}</small><small>${S.name}：${ok ? '很適合本關 Boss' : '建議改用 ' + rec.ship.name}</small>
+                            ${ok ? '' : `<button class="sm2" onclick="event.stopPropagation();game.equip('${rec.ship.id}')">換成 ${rec.ship.name} [R]</button>`}
+                            <small style="opacity:.7">←／→ 切換關卡（最高解鎖第 ${this.bestStage} 關）</small></div>
                     </div>
-                    <div class="tile live w2" style="--a:#b026ff;--b:#ff3366;--d:.08s" onclick="game.openHangar()">
+                    <div class="tile w2" style="--a:#b026ff;--b:#ff3366" onclick="game.openHangar()">
                         ${im(img)}
-                        <div class="f1"><h4>戰機管理 [H]</h4><small>${S.name}｜${S.role}</small></div>
-                        <div class="f2"><small>傷害 ${st.dmg.toFixed(1)}　射速 ${(1000 / st.iv).toFixed(1)}/秒</small><small>血量 ${Math.round(st.hp)}　移速 ${Math.round(st.spd)}</small></div>
+                        <div class="f1"><h4>戰機管理 [H]</h4><small>${S.name}｜${S.role}</small><small>傷害 ${Math.round(st.dmg)}　射速 ${(1000 / st.iv).toFixed(1)}/秒</small><small>血量 ${Math.round(st.hp)}　移速 ${Math.round(st.spd)}</small></div>
                     </div>
-                    <div class="tile live" style="--a:#ffcc00;--b:#ff7a00;--d:.16s" onclick="game.setState('SHOP')">
-                        <div class="f1"><h4>軍械庫</h4><small>[S]</small></div><div class="f2"><small>持有</small><h4>${this.darkMatter} DM</h4></div>
-                    </div>
-                    <div class="tile" style="--a:#2b3a67;--b:#4b5b8f;--d:.24s" onclick="game.openSettings()"><h4>設定</h4><small>[O]</small><span class="ico">⚙</span></div>
-                    <div class="tile pic w2" style="--d:.32s;background-image:linear-gradient(rgba(0,0,10,.55),rgba(0,0,10,.55)),url(assets/bg/stage${this.startStage}.jpg);">
-                        <h4>起始關卡</h4>
-                        <div class="stg"><button onclick="event.stopPropagation();game.changeStart(-1)">◀</button><b>第 ${this.startStage} 關</b><button onclick="event.stopPropagation();game.changeStart(1)">▶</button></div>
-                        <small>←／→ 切換（最高解鎖第 ${this.bestStage} 關）</small>
-                    </div>
-                    <div class="tile live w2" style="--a:#ff3366;--b:#7a0f2a;--d:.4s" onclick="game.equip('${rec.ship.id}')">
-                        <div class="f1"><h4>Boss：${bossLabel(this.startStage)}</h4><small>${info.desc}</small></div>
-                        <div class="f2"><h4>推薦：${rec.ship.name}</h4><small>${ok ? '目前戰機很適合' : '點此或按 [R] 一鍵換裝'}</small>${rec.ideal ? `<small>商店有更合適的 ${rec.ideal.name}</small>` : ''}</div>
-                    </div>
-                <div class="tile" style="--a:#0f2027;--b:#2c5364;--d:.46s" onclick="game.offlineDialog()"><h4>離線資料包</h4><small>${this.offlineInfo()}</small><span class="ico">⇩</span></div>
-                    <div class="tile" style="--a:#3a1c71;--b:#d76d77;--d:.5s" onclick="game.aboutDialog()"><h4>關於</h4><small>版本 ${APP_VERSION}</small><span class="ico">i</span></div>
+                    <div class="tile" style="--a:#ffcc00;--b:#ff7a00" onclick="game.setState('SHOP')"><h4>軍械改裝工廠</h4><small>[S]</small><small>持有 ${this.darkMatter} DM</small><span class="ico">⚒</span></div>
+                    <div class="tile" style="--a:#2b3a67;--b:#4b5b8f" onclick="game.openSettings()"><h4>設定</h4><small>[O]</small><small>音量・離線・關於</small><span class="ico">⚙</span></div>
                 </div>
-                <div class="roster">各關 Boss：${roster}</div>
             </div>`;
     }
 
@@ -1200,7 +1370,7 @@ class Game {
             const img = S.id === 'star' ? 'assets/player.png' : `assets/ship_${S.id}.png`;
             return `<div class="card ${i === this.hIdx ? 'sel' : ''} ${S.id === this.shipId ? 'eq' : ''} ${own ? '' : 'locked'}" onclick="game.hSel(${i})">
                 <img src="${img}" onerror="this.style.visibility='hidden'"><h3 style="color:${S.c};">${S.name}</h3><div style="font-size:0.8rem;color:#aaa;">${S.role}　等級上限 火${S.cap.dmg}/速${S.cap.rate}/甲${S.cap.hp}/動${S.cap.spd}</div>
-                ${own ? rows : `<div class="st" style="color:var(--neon-gold);">尚未擁有・商店 ${S.price} DM</div>${rows}`}</div>`;
+                ${own ? rows : `<div class="st" style="color:var(--neon-gold);">尚未擁有・軍械改裝工廠 ${S.price} DM</div>${rows}`}</div>`;
         }).join('');
         this.uiLayer.innerHTML = `
             <div class="menu-overlay" style="width:min(96vw,1100px);max-width:none;">
@@ -1233,7 +1403,7 @@ class Game {
         const html = this.shopRows().map((r, i) => `${heads[i] ? `<div style="color:var(--neon-gold);margin-top:8px;font-size:0.9rem;">${heads[i]}</div>` : ''}<button class="btn btn-shop" style="font-size:0.85rem;padding:5px;margin:4px auto;" ${r.dis ? 'disabled' : ''} onclick="game.buyItem(${i})">[${i + 1}] ${r.t}<br><small>${r.sub}</small></button>`).join('');
         this.uiLayer.innerHTML = `
             <div class="menu-overlay">
-                <h2 class="shop-title" style="margin-bottom:5px;">暗物質軍械庫</h2>
+                <h2 class="shop-title" style="margin-bottom:5px;">軍械改裝工廠</h2>
                 <p style="font-size:1.1rem; color:var(--neon-purple); margin:4px 0;">持有暗物質: <b>${this.darkMatter} DM</b></p>
                 ${html}
                 <button class="btn btn-start" style="margin-top:10px;" onclick="game.setState('LOBBY')">返回大廳 [Esc]</button>
@@ -1243,7 +1413,7 @@ class Game {
     buyItem(i) {
         const r = this.shopRows()[i];
         if (!r || r.dis) return;
-        r.run(); this.applyUpgrades(); sfx.playReady(); this.save(); this.renderShop();
+        r.run(); this.applyUpgrades(); if (i < SHIPS.length) sfx.playBuy(); else sfx.playFeatureUp(); this.save(); this.renderShop();
     }
 
     save() {
@@ -1252,7 +1422,7 @@ class Game {
     load() {
         try {
             const v = JSON.parse(localStorage.getItem('idiomShooterSave') || 'null'); if (!v) return;
-            this.darkMatter = v.dm || 0; this.maxSlots = v.s || 3; this.magnetLvl = v.m || 0; this.dmLvl = v.d || 0;
+            this.darkMatter = v.dm || 0; this.maxSlots = v.s || 1; this.magnetLvl = v.m || 0; this.dmLvl = v.d || 0;
             this.bestStage = Math.min(9, v.b || 1); this.startStage = Math.min(v.t || 1, this.bestStage);
             if (v.f) { SHIPS.forEach(S => { if (v.f[S.id]) Object.assign(this.fleet[S.id], v.f[S.id]); }); if (this.fleet[v.i] && this.fleet[v.i].own) this.shipId = v.i; }
             else { const f = this.fleet.star; f.dmg = Math.min(v.w || 1, 8); f.hp = Math.min(v.h || 0, 8); f.spd = Math.min(v.e || 0, 8); }   // 舊版存檔轉入星藍號
@@ -1261,7 +1431,7 @@ class Game {
     }
 
     startNewGame() {
-        sfx.init(); this.tryFullscreen(); this.applyUpgrades(); this.shield = 0; this.pierceTimer = 0; this.missileTimer = 0; this.allies = []; this.allyTimer = 0; this.runDM = 0; this.runKills = 0; this.runCasts = 0; this.clearT = 0; this.currentStage = Math.min(this.startStage, this.bestStage); this.currentSub = 1; this.score = 0; 
+        sfx.init(); this.tryFullscreen(); this.applyUpgrades(); this.shield = 0; this.pierceTimer = 0; this.missileTimer = 0; this.allies = []; this.allyTimer = 0; this.runDM = 0; this.runKills = 0; this.runCasts = 0; this.clearT = 0; this.idleT = 0; this.idleGain = 0; this.idleAnchor = null; this.currentStage = Math.min(this.startStage, this.bestStage); this.currentSub = 1; this.score = 0; 
         this.hp = this.maxHp; this.slots = []; 
         this.fillEmptySlots(); // 遊戲開始時塞滿隨機成語任務
         this.resetStage(); this.setState('PLAYING');
@@ -1336,7 +1506,7 @@ class Game {
 
     startCast(idiom) {
         this.casting = { idiom, t: 5 }; sfx.playIdiomCast();
-        const info = IDIOM_INFO[idiom.word] || ['', ''], useMeaning = Math.random() < 0.5, label = useMeaning ? '意思' : '造句', text = info[useMeaning ? 0 : 1] || '';
+        const info = IDIOM_INFO[idiom.word] || ['', ''], useMeaning = Math.random() < 0.5, label = useMeaning ? '解釋' : '造句', text = info[useMeaning ? 0 : 1] || '';
         let p = document.getElementById('idiom-popup');
         if (!p) { p = document.createElement('div'); p.id = 'idiom-popup'; document.getElementById('game-container').appendChild(p); }
         p.innerHTML = `<div class="ip-word">${idiom.word}</div><div class="ip-effect">大招效果：${idiom.desc}</div><div class="ip-line"><b>${label}</b>　<span id="ip-text"></span><span class="ip-cur">▌</span></div><div class="ip-bar"><i></i></div>`;
@@ -1377,7 +1547,7 @@ class Game {
     triggerLaser() { this.laserTimer = 3.0; }
 
     showFloatText(text, x, y, color = "#fff") { const t = this.texts.get(); t.pos = new Vec2(x, y); t.text = text; t.color = color; t.life = 1.5; }
-    dropDarkMatter(x, y, amount) { amount = Math.max(1, Math.round(amount * (1 + 0.2 * this.dmLvl) * (1 + 0.25 * (this.currentStage - 1)) * DM_RATE)); this.runDM = (this.runDM || 0) + amount; this.burst(x, y, amount >= 20 ? 18 : 4); this.darkMatter += amount; this.showFloatText(`+${amount} DM`, x, y, "#b026ff"); this.updateHUD(); }
+    dropDarkMatter(x, y, amount) { amount = Math.max(1, Math.round(amount * (1 + 0.2 * this.dmLvl) * (1 + 0.25 * (this.currentStage - 1)) * DM_RATE)); this.runDM = (this.runDM || 0) + amount; this.idleGain = (this.idleGain || 0) + amount; this.burst(x, y, amount >= 20 ? 18 : 4); this.darkMatter += amount; this.showFloatText(`+${amount} DM`, x, y, "#b026ff"); this.updateHUD(); }
 
     updateHUD() {
         if(this.gameState !== 'PLAYING' && this.gameState !== 'TRANSITION') return;
@@ -1387,7 +1557,7 @@ class Game {
 
     loop(timestamp) {
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1); this.lastTime = timestamp;
-        if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); } else { this.bgClock += dt; this.runClock += dt; if (this.pkMode) this.pkTime += dt; this.update(dt); } } } else if (this.gameState === 'TRANSITION') { this.bgClock += dt; this.runClock += dt; this.updateTransition(dt); } else if (this.gameState === 'INIT') this.updateDemo(dt);
+        if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); this.tickClear(dt); } else { this.tickClear(dt); this.bgClock += dt; this.runClock += dt; if (this.pkMode) this.pkTime += dt; this.update(dt); } } } else if (this.gameState === 'TRANSITION') { this.bgClock += dt; this.runClock += dt; this.updateTransition(dt); } else if (this.isMenu()) this.updateDemo(dt);
         this.draw(); requestAnimationFrame((t) => this.loop(t));
     }
 
@@ -1410,6 +1580,14 @@ class Game {
         const v = 70 + this.currentStage * 14, D = Math.PI / 2;
         const shot = (x, y, a, sp, r, dmg) => { const b = this.bullets.get(); b.pos = new Vec2(x, y); b.vel = new Vec2(Math.cos(a) * sp, Math.sin(a) * sp); b.color = e.color; b.isPlayer = false; b.radius = r; b.damage = dmg; };
         const aim = () => Math.atan2(this.player.pos.y - e.pos.y, this.player.pos.x - e.pos.x);
+        if (e.snipe) {                              // 狙擊：瞄準線會追著玩家，線「不動」滿 2.5 秒才開槍；一直移動就打不到
+            const sn = e.snipe, want = aim(); let d = want - sn.a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+            const step = Math.max(-8 * dt, Math.min(8 * dt, d)); sn.a += step; e.lockA = sn.a;
+            if (Math.abs(step) / dt < 0.05) sn.still += dt; else sn.still = 0;
+            e.charge = 1; e.snipeP = Math.min(1, sn.still / 2.5);
+            if (sn.still >= 2.5) { e.snipe = null; e.charge = 0; e.snipeP = 0; shot(e.pos.x, e.pos.y + e.radius, sn.a, 1100, 8, 4); sfx.playSnipe && sfx.playSnipe(); }
+            return;
+        }
         if (e.q && e.q.length) {                    // 連發／蓄力／雙擊的後續動作
             e.q[0].t -= dt; if (e.type === 'SNIPER') e.charge = Math.max(0, e.q[0].t);
             if (e.q[0].t <= 0) e.q.shift().f();
@@ -1424,7 +1602,7 @@ class Game {
             case 'SWARM': { const k = e.form && e.form.kind;                                                              // 依隊形：直射／瞄準／向外放射
                 if (k === 'ring') shot(x, e.pos.y, Math.atan2(e.pos.y - e.cy, e.pos.x - e.cx), v * 0.7, 3, 1);
                 else if (k === 'v') shot(x, y0, aim(), v * 0.9, 3, 1); else shot(x, y0, D, v * 0.9, 3, 1); break; }
-            case 'SNIPER': e.lockA = aim(); e.charge = 0.9; push(0.9, () => { shot(e.pos.x, e.pos.y + e.radius, e.lockA, v * 1.9, 4, 1.5); e.charge = 0; sfx.playEnemyShoot(); }); sfx.playIdiomCast && 0; return;   // 蓄力瞄準後高速狙擊
+            case 'SNIPER': e.lockA = aim(); e.snipe = { a: e.lockA, still: 0 }; e.charge = 1; return;   // 開始瞄準（線不動 2.5 秒後射出高傷害極速子彈）
             case 'BOMBER': { const p = (e.pat = e.pat || 0) % 3; e.pat++;                                                 // 三向 → 五向 → 慢速大炸彈 輪替
                 if (p === 0) [-0.35, 0, 0.35].forEach(o => shot(x, y0, D + o, v * 0.9, 5, 1));
                 else if (p === 1) [-0.6, -0.3, 0, 0.3, 0.6].forEach(o => shot(x, y0, D + o, v * 0.85, 5, 1));
@@ -1508,7 +1686,19 @@ class Game {
         } else make(Math.random() * (W - 60) + 30, -30);
     }
 
+    checkIdle(dt) {   // 防掛機：連續 60 秒沒有移動 → 扣回這 60 秒獲得的暗物質並暫停
+        const p = this.player.pos, a = this.idleAnchor;
+        if (!a || Math.hypot(p.x - a.x, p.y - a.y) > 8) { this.idleAnchor = { x: p.x, y: p.y }; this.idleT = 0; this.idleGain = 0; return; }
+        this.idleT += dt;
+        if (this.idleT >= 60) {
+            const g = Math.min(this.darkMatter, Math.round(this.idleGain || 0)); this.darkMatter -= g; this.runDM = Math.max(0, (this.runDM || 0) - g);
+            if (typeof online !== 'undefined' && online.stat && g) online.stat('totalDM', -g);
+            this.idleT = 0; this.idleGain = 0; this.idleAnchor = null; this.updateHUD(); this.save();
+            this.dialog(`<h3 style="color:var(--neon-red)">偵測到長時間未操作</h3><p style="line-height:1.7">已扣回這 60 秒獲得的暗物質（-${g} DM）。<br><b>如不遊玩，請關閉遊戲，延長手機壽命。</b></p><button class="btn btn-start" onclick="game.closeDlg()">我知道了，繼續遊玩</button>`);
+        }
+    }
     update(dt) {
+        this.checkIdle(dt);
         const spd = this.player.speed * ((this.keys['ShiftLeft'] || this.keys['ShiftRight']) ? 0.45 : 1);
         // 鍵盤（斜向也不會變快）與拖曳使用同一個移動速度
         const kx = ((this.keys['KeyD'] || this.keys['ArrowRight']) ? 1 : 0) - ((this.keys['KeyA'] || this.keys['ArrowLeft']) ? 1 : 0);
@@ -1531,7 +1721,7 @@ class Game {
             const shootBullet = (offset, angle) => {
                 const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + offset, this.player.pos.y - 25);
                 b.vel = new Vec2(Math.sin(angle)*800, -Math.cos(angle)*800);
-                b.color = SKINS[this.skin].c; b.isPlayer = true; b.radius = 4 + (this.weaponLvl * 0.5); b.damage = dmg; b.homing = this.missileTimer > 0; b.pierce = !!SKINS[this.skin].pierce;
+                b.isPlayer = true; b.damage = dmg; styleBullet(b, dmg); b.homing = this.missileTimer > 0; b.pierce = !!SKINS[this.skin].pierce;
             };
             shootBullet(0, 0); 
             if (this.weaponLvl >= 3 || this.player.spreadFire > 0) { shootBullet(-15, -0.15); shootBullet(15, 0.15); }
@@ -1540,7 +1730,6 @@ class Game {
             this.player.lastShoot = Date.now(); sfx.playShoot(this.player.spreadFire > 0 ? 2 : this.player.rapidFire > 0 ? 1 : 0);
         }
 
-        if (this.clearT > 0) { this.clearT -= dt; if (this.clearT <= 0) { this.clearT = 0; this.startTransition(this.clearNext); } }
         if (!this.boss && !(this.clearT > 0)) {
             if (this.currentSub < 3) {
                 if (this.enemiesSpawned < this.waveQuota) {
@@ -1585,7 +1774,7 @@ class Game {
             this.enemyFire(e, dt);
 
             if (Math.hypot(e.pos.x - this.player.pos.x, e.pos.y - this.player.pos.y) < e.radius + this.player.radius && this.invincibleTimer <= 0) {
-                this.hurt(e.type === 'TANK' ? 25 : 15); this.invincibleTimer = 1.0; sfx.playHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
+                this.hurt(e.type === 'TANK' ? 25 : 15); this.invincibleTimer = 1.0; sfx.playPlayerHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
             }
         });
 
@@ -1597,11 +1786,11 @@ class Game {
                 
                 if (b.isPlayer) {
                     if (this.boss && Math.hypot(b.pos.x - this.boss.pos.x, b.pos.y - this.boss.pos.y) < this.boss.radius) {
-                        this.dmgEnt(this.boss, b.damage, b.pierce); b.active = false; sfx.playHit();
+                        this.dmgEnt(this.boss, b.damage, b.pierce, true); b.active = false; sfx.playHit();
                     }
                     this.enemies.forEach((e, i) => {
                         if (Math.hypot(b.pos.x - e.pos.x, b.pos.y - e.pos.y) < e.radius) {
-                            this.dmgEnt(e, b.damage, b.pierce); b.active = false; sfx.playHit();
+                            this.dmgEnt(e, b.damage, b.pierce, true); b.active = false; sfx.playHit();
                             if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); this.runKills = (this.runKills || 0) + 1; this.enemyDrop(e); sfx.playExplosion(); this.enemies.splice(i, 1); }
                         }
                     });
@@ -1616,7 +1805,7 @@ class Game {
                     });
                 } else {
                     if (Math.hypot(b.pos.x - this.player.pos.x, b.pos.y - this.player.pos.y) < this.player.radius && this.invincibleTimer <= 0) {
-                        this.hurt(b.damage * 10); b.active = false; this.invincibleTimer = 0.5; sfx.playHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
+                        this.hurt(b.damage * 10); b.active = false; this.invincibleTimer = 0.5; sfx.playPlayerHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
                     }
                 }
             }
@@ -1715,6 +1904,11 @@ class Game {
         }
     }
 
+    tickClear(dt) {   // 區塊清除倒數：不受大招蓄力影響；蓄力中倒數到 0 會等蓄力結束再出發
+        if (!(this.clearT > 0)) return;
+        this.clearT -= dt;
+        if (this.clearT <= 0) { if (this.casting) { this.clearT = 0.001; return; } this.clearT = 0; this.startTransition(this.clearNext); }
+    }
     clearStage(next) {   // 區塊清除：倒數 5 秒（可以趁機撿字卡）後才前往下一關
         if (this.pkMode) { this.startTransition(next); return; }
         if (this.clearT > 0) return;
@@ -1784,7 +1978,7 @@ class Game {
     draw() {
         const ctx = this.ctx; ctx.setTransform(WORLD.k, 0, 0, WORLD.k, 0, 0);
         ctx.fillStyle = "#050510"; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
-        if (this.gameState === 'INIT') { this.drawDemo(ctx); return; }
+        if (this.isMenu()) { this.drawDemo(ctx); return; }
         const bg = BG[this.currentStage];
         if (bg && this.gameState !== 'LOBBY') {
             const W = WORLD.w, H = WORLD.h, h = Math.ceil(bg.height * W / bg.width);
@@ -1893,7 +2087,7 @@ class Game {
             if (this.boss) {
                 const bimg = IMG['boss_' + this.boss.stage] || IMG.boss;
                 if (bimg) { const R = this.boss.radius * 2; ctx.save(); ctx.shadowBlur = 25; ctx.shadowColor = this.boss.color; ctx.translate(this.boss.pos.x, this.boss.pos.y); fitDraw(ctx, bimg, this.boss.size);
-                    ctx.fillStyle = '#fff'; ctx.font = "bold 18px 'Microsoft JhengHei'"; ctx.textAlign = 'center'; ctx.fillText('BOSS・' + bossLabel(this.boss.stage), 0, this.boss.size * 0.5 + 18); ctx.restore(); }
+                    ctx.fillStyle = '#fff'; ctx.font = "bold 18px "+KAI_FONT; ctx.textAlign = 'center'; ctx.fillText('BOSS・' + bossLabel(this.boss.stage), 0, this.boss.size * 0.5 + 18); ctx.restore(); }
                 else this.boss.draw(ctx);
             }
             this.bullets.pool.forEach(b => { if(b.active) b.draw(ctx); });
@@ -1949,7 +2143,7 @@ class Game {
                 if (IMG.block) { ctx.fillStyle = 'rgba(5,12,30,0.6)'; ctx.fillRect(-m.radius, -m.radius, m.radius * 2, m.radius * 2); fitDraw(ctx, IMG.block, m.radius * 2.7); }
                 else { ctx.beginPath(); ctx.rect(-m.radius, -m.radius, m.radius*2, m.radius*2); ctx.fill(); ctx.stroke(); }
                 
-                ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 5; ctx.font = `bold ${m.radius}px 'Microsoft JhengHei'`;
+                ctx.fillStyle = "#ffffff"; ctx.shadowBlur = 5; ctx.font = `bold ${m.radius}px ${KAI_FONT}`;
                 ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(m.char, 0, 0);
 
                 ctx.fillStyle = "rgba(0, 242, 255, 0.8)"; ctx.fillRect(-m.radius, m.radius + 5, (m.hp/m.maxHp)*m.radius*2, 3);
@@ -1959,7 +2153,7 @@ class Game {
             this.charItems.forEach(c => { 
                 ctx.save();
                 ctx.fillStyle = "#ffea00"; ctx.shadowBlur = 15; ctx.shadowColor = "#ffea00";
-                ctx.font = "bold 28px 'Microsoft JhengHei'"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.font = "bold 28px "+KAI_FONT; ctx.textAlign = "center"; ctx.textBaseline = "middle";
                 ctx.fillText(c.char, c.pos.x, c.pos.y); 
                 
                 ctx.strokeStyle = "rgba(255, 234, 0, 0.5)"; ctx.lineWidth = 2; ctx.beginPath();
@@ -1970,8 +2164,8 @@ class Game {
             this.texts.pool.forEach(t => { if(t.active) t.draw(ctx); });
             ctx.save();
             this.enemies.forEach(e => {   // 狙擊機蓄力時顯示瞄準線
-                if (e.charge > 0) { ctx.save(); ctx.strokeStyle = '#ff4466'; ctx.globalAlpha = 0.35 + 0.4 * Math.abs(Math.sin(this.bgClock * 20)); ctx.lineWidth = 2; ctx.setLineDash([10, 8]);
-                    ctx.beginPath(); ctx.moveTo(e.pos.x, e.pos.y + e.radius); ctx.lineTo(e.pos.x + Math.cos(e.lockA) * 1400, e.pos.y + Math.sin(e.lockA) * 1400); ctx.stroke(); ctx.restore(); }
+                if (e.charge > 0) { const pr = e.snipeP || 0; ctx.save(); ctx.strokeStyle = pr > 0.7 ? '#ffffff' : '#ff4466'; ctx.globalAlpha = 0.35 + 0.5 * pr + 0.2 * Math.abs(Math.sin(this.bgClock * (20 + pr * 30))); ctx.lineWidth = 2 + pr * 4; ctx.setLineDash(pr > 0.01 ? [10, 8] : [4, 10]);
+                    ctx.beginPath(); ctx.moveTo(e.pos.x, e.pos.y + e.radius); ctx.lineTo(e.pos.x + Math.cos(e.lockA) * 1400, e.pos.y + Math.sin(e.lockA) * 1400); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#ff4466'; ctx.fillRect(e.pos.x - 20, e.pos.y - e.radius - 12, 40 * pr, 4); ctx.strokeStyle = '#ff4466'; ctx.lineWidth = 1; ctx.strokeRect(e.pos.x - 20, e.pos.y - e.radius - 12, 40, 4); ctx.restore(); }
             });
             this.allies.forEach(a => {
                 const S = this.ship(a.sid), im = IMG['ship_' + a.sid] || IMG.player;
@@ -1986,16 +2180,12 @@ class Game {
             if (this.boss) { this.shieldOf(this.boss); this.drawBars(ctx, this.boss.pos.x, this.boss.pos.y - this.boss.size * 0.5 - 14, 150, this.boss.hp, this.boss.maxHp, this.boss.shield, this.boss.maxShield, '#ff3333'); }
             this.drawBars(ctx, this.player.pos.x, this.player.pos.y + 54 * SKINS[this.skin].s, 64, this.hp, this.maxHp, this.shield, this.maxHp, '#33ff88');
             if (this.clearT > 0) {
-                ctx.save(); ctx.textAlign = 'center'; ctx.font = "bold 24px 'Microsoft JhengHei', Arial"; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.fillStyle = '#ffea00';
+                ctx.save(); ctx.textAlign = 'center'; ctx.font = "bold 24px 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif"; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.fillStyle = '#ffea00';
                 const msg = `區塊清除！${Math.ceil(this.clearT)} 秒後前往${this.clearNext ? '下一關' : '下一波'}`, sub = '趁現在撿起掉落的字卡';
                 ctx.strokeText(msg, WORLD.w / 2, WORLD.h * 0.3); ctx.fillText(msg, WORLD.w / 2, WORLD.h * 0.3);
-                ctx.font = "16px 'Microsoft JhengHei', Arial"; ctx.fillStyle = '#fff'; ctx.strokeText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.fillText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.restore();
+                ctx.font = "16px 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif"; ctx.fillStyle = '#fff'; ctx.strokeText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.fillText(sub, WORLD.w / 2, WORLD.h * 0.3 + 28); ctx.restore();
             }
-            this.dmgTexts.forEach(d => {   // 傷害數字：0.15 秒淡入 → 停留 0.5 秒 → 0.3 秒淡出
-                ctx.globalAlpha = d.t < 0.15 ? d.t / 0.15 : d.t < 0.65 ? 1 : Math.max(0, 1 - (d.t - 0.65) / 0.3);
-                ctx.font = `bold ${Math.round(18 * d.big)}px 'Microsoft JhengHei', Arial`; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-                ctx.strokeText(d.text, d.x, d.y); ctx.fillStyle = d.color; ctx.fillText(d.text, d.x, d.y);
-            });
+            this.dmgTexts.forEach(d => this.drawDmg(ctx, d));
             ctx.globalAlpha = 1;
             this.particles.forEach(p => { ctx.globalAlpha = Math.max(0, p.life * 2); ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 3, 3); });
             ctx.globalAlpha = 1;
@@ -2014,8 +2204,8 @@ class Game {
             if (this.paused) {
                 const W = WORLD.w, H = WORLD.h;
                 ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H);
-                ctx.fillStyle = '#00f2ff'; ctx.textAlign = 'center'; ctx.font = "bold 48px 'Microsoft JhengHei'"; ctx.fillText('暫停中', W / 2, H / 2);
-                ctx.font = "20px 'Microsoft JhengHei'"; ctx.fillText('按 P / Esc / Enter 繼續', W / 2, H / 2 + 50);
+                ctx.fillStyle = '#00f2ff'; ctx.textAlign = 'center'; ctx.font = "bold 48px "+KAI_FONT; ctx.fillText('暫停中', W / 2, H / 2);
+                ctx.font = "20px "+KAI_FONT; ctx.fillText('按 P / Esc / Enter 繼續', W / 2, H / 2 + 50);
             }
             ctx.restore();
         }
@@ -2044,6 +2234,7 @@ const toast = (msg, ms = 2800) => {
     let t = $('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; $('game-container').appendChild(t); }
     t.textContent = msg; t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = 0; }, ms);
 };
+const shipImg = id => id === 'star' || !id ? 'assets/player.png' : `assets/ship_${id}.png`;
 const BACK = `<button class="btn btn-start" style="margin-top:8px" onclick="game.setState('LOBBY')">返回大廳 [Esc]</button>`;
 const errMsg = e => ({ 'auth/user-not-found': '帳號或密碼錯誤', 'auth/wrong-password': '帳號或密碼錯誤', 'auth/invalid-credential': '帳號或密碼錯誤', 'auth/invalid-login-credentials': '帳號或密碼錯誤',
     'auth/email-already-in-use': '這個帳號已經有人使用', 'auth/weak-password': '密碼太短（至少 6 碼）', 'auth/network-request-failed': '網路連線失敗',
@@ -2056,7 +2247,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .lg-msg{color:#ff6b6b;min-height:1.3em;font-size:.9rem;margin-bottom:4px}.muted{color:#8aa;font-size:.85rem}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:8px 0}.tabs button{padding:5px 10px;border-radius:8px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.1);color:#fff;cursor:pointer;font-family:inherit}
 .tabs button.on{background:var(--neon-blue);color:#000;font-weight:bold}
-.rk{display:flex;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid #223;text-align:left}.rk b.n{width:28px;color:var(--neon-gold)}.rk span{flex:1}.rk.me{background:rgba(255,234,0,.12)}
+.rk img{width:34px;height:34px;object-fit:contain;flex:none;filter:drop-shadow(0 0 4px rgba(0,242,255,.5))}.rk{display:flex;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid #223;text-align:left}.rk b.n{width:28px;color:var(--neon-gold)}.rk span{flex:1}.rk.me{background:rgba(255,234,0,.12)}
 .lst{max-height:46vh;overflow-y:auto;text-align:left}.row{display:flex;gap:6px;align-items:center;padding:6px 4px;border-bottom:1px solid #223;flex-wrap:wrap}.row span{flex:1;min-width:80px}
 .sm{padding:3px 8px;border-radius:6px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.12);color:#fff;cursor:pointer;font-size:.8rem;font-family:inherit}.sm.red{border-color:#ff6b6b}
 #toast{position:absolute;top:14%;left:50%;transform:translateX(-50%);z-index:70;background:rgba(5,5,16,.95);border:1px solid var(--neon-gold);color:var(--neon-gold);padding:8px 16px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90vw;text-align:center}
@@ -2115,6 +2306,7 @@ const online = window.online = {
         } catch (e) { msg(errMsg(e)); const b = $('lg-go'); if (b) b.disabled = false; }
     },
     async onLogin(u) {
+        try { const bs = await db.collection('banned').doc(u.uid).get(); if (bs.exists) { this.user = u; await this.kick(bs.data()); return; } else { const k = JSON.parse(localStorage.getItem('idiomBanned') || 'null'); if (k && k.uid === u.uid) localStorage.removeItem('idiomBanned'); } } catch (e) {}
         this.offline = false; this.user = u; const username = (u.email || '').split('@')[0], ref = db.collection('users').doc(u.uid);
         let snap;
         try { snap = await Promise.race([ref.get(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), navigator.onLine ? 10000 : 1500))]); }
@@ -2128,7 +2320,7 @@ const online = window.online = {
             if (this.profile.save) localStorage.setItem(SAVEKEY, JSON.stringify(this.profile.save)); else localStorage.removeItem(SAVEKEY);
             G.resetProgress(); G.load(); G.applyUpgrades();
         }
-        this.pending = null;
+        this.pending = null; this._adminSeen = this.profile.adminAt || 0; this._pendingAdmin = null;
         { const m = this.readMirror();   // 離線期間的進度比雲端新 → 以離線進度為準並同步上去
           if (m && m.uid === u.uid && m.dirty && m.save && (m.updatedAt || 0) > (this.profile.updatedAt || 0)) {
             Object.assign(this.profile, m.profile); localStorage.setItem(SAVEKEY, JSON.stringify(m.save)); G.resetProgress(); G.load(); G.applyUpgrades(); this.queuePush(); toast('已同步離線期間的進度');
@@ -2136,6 +2328,21 @@ const online = window.online = {
         try { this.isAdmin = (await db.collection('admins').doc(u.uid).get()).exists; } catch (e) { this.isAdmin = false; }
         this.startListeners(); this.mountChat();
         if (G.gameState === 'LOGIN') G.setState(this.profile.tutorialDone ? 'LOBBY' : 'TUTORIAL');
+    },
+    async kick(b) {   // 黑名單：登出並顯示停權原因
+        const reason = (b && b.reason) || '（管理員未填寫原因）';
+        try { localStorage.setItem('idiomBanned', JSON.stringify({ uid: (this.user && this.user.uid) || (b && b.uid) || '', reason })); } catch (e) {}
+        try { if (fbOk) await auth.signOut(); } catch (e) {}
+        this.onLogout();
+        setTimeout(() => G.dialog(`<h3 style="color:var(--neon-red)">此帳號已被停權</h3><p style="text-align:left;line-height:1.7">停權原因：<br><b>${esc(reason)}</b></p><p class="muted">如有疑問請聯絡管理員。</p><button class="btn btn-start" onclick="game.closeDlg()">我知道了</button>`), 400);
+    },
+    applyAdminDoc(d) {   // 管理員修改了你的帳號：把新資料套用到目前遊戲
+        this._adminSeen = d.adminAt || 0; this._pendingAdmin = null;
+        this.profile = Object.assign({}, d);
+        if (d.save) localStorage.setItem(SAVEKEY, JSON.stringify(d.save)); else localStorage.removeItem(SAVEKEY);
+        G.resetProgress(); G.load(); G.applyUpgrades(); this.writeMirror();
+        const st = G.gameState; if (st === 'LOBBY') G.renderLobby(); else if (st === 'HANGAR') G.renderHangar(); else if (st === 'SHOP') G.renderShop();
+        toast('管理員已調整你的帳號資料', 4000);
     },
     onLogout() {
         this.unsubs.forEach(f => { try { f(); } catch (e) {} }); this.unsubs = []; this.stopChat();
@@ -2150,12 +2357,13 @@ const online = window.online = {
     readMirror() { try { return JSON.parse(localStorage.getItem(MIRROR) || 'null'); } catch (e) { return null; } },
     writeMirror() {
         const uid = this.user ? this.user.uid : this.offlineUid; if (!uid || !this.profile) return;
-        const keys = ['bestScore', 'totalDM', 'spentDM', 'pkWins', 'pkLosses', 'bestClearMs', 'clearAt', 'clearKey', 'tutorialDone'], pr = {}; keys.forEach(k => { if (this.profile[k] !== undefined) pr[k] = this.profile[k]; });
+        const keys = ['bestScore', 'totalDM', 'spentDM', 'pkWins', 'pkLosses', 'bestClearMs', 'clearAt', 'clearKey', 'tutorialDone', 'shipUse', 'topShip', 'clearShip'], pr = {}; keys.forEach(k => { if (this.profile[k] !== undefined) pr[k] = this.profile[k]; });
         let sv = null; try { sv = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); } catch (e) {}
         try { localStorage.setItem(MIRROR, JSON.stringify({ uid, username: this.profile.username, name: this.profile.name, profile: pr, save: sv, dirty: !!(this.offline || this._dirty), updatedAt: Date.now() })); } catch (e) {}
     },
     startOffline() {
         const m = this.readMirror(); if (!m) return toast('這台裝置還沒有登入過，第一次需要網路');
+        try { const k = JSON.parse(localStorage.getItem('idiomBanned') || 'null'); if (k && k.uid === m.uid) return G.dialog(`<h3 style="color:var(--neon-red)">此帳號已被停權</h3><p>停權原因：<b>${esc(k.reason)}</b></p><button class="btn btn-start" onclick="game.closeDlg()">我知道了</button>`); } catch (e) {}
         this.offline = true; this.offlineUid = m.uid; this.user = null;
         this.profile = Object.assign({ username: m.username, name: m.name, tutorialDone: true }, m.profile);
         if (m.save) localStorage.setItem(SAVEKEY, JSON.stringify(m.save)); else localStorage.removeItem(SAVEKEY);
@@ -2167,20 +2375,23 @@ const online = window.online = {
     // ===== 雲端存檔 / 統計 =====
     queuePush() { this._dirty = true; this.writeMirror(); clearTimeout(this._pt); this._pt = setTimeout(() => this.pushNow(), 1500); },
     pushNow() {
-        if (!this.user || !this.profile || !db) return;
+        if (!this.user || !this.profile || !db || this._pendingAdmin) return;
         let sv = null; try { sv = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); } catch (e) {}
         const doc = Object.assign({}, this.profile, { save: sv, darkMatter: G.darkMatter, updatedAt: Date.now() });
+        if (this.isAdmin || this.profile.username === ADMIN_USER) doc.hideRank = true;   // 管理員不列入排行榜
         db.collection('users').doc(this.user.uid).set(doc, { merge: true }).then(() => { this._dirty = false; this.writeMirror(); }).catch(() => {});
     },
     stat(k, d) { if (!this.profile) return; this.profile[k] = (this.profile[k] || 0) + d; this.queuePush(); },
+    topShip(p) { const u = (p && p.shipUse) || {}; let best = null, n = 0; Object.keys(u).forEach(k => { if (u[k] > n) { n = u[k]; best = k; } }); return best || (p && p.topShip) || 'star'; },
     finishRun(victory) {
         if (!this.profile || G.pkMode) return;
+        { const use = this.profile.shipUse = Object.assign({}, this.profile.shipUse), sid = G.shipId; use[sid] = (use[sid] || 0) + 1; this.profile.topShip = this.topShip(this.profile); }
         const score = Math.round((G.runDM || 0) * 10); this.profile.bestScore = Math.max(this.profile.bestScore || 0, score);
         let extra = '';
         if (victory && G.runStart === 1) {
             const ms = Math.round(G.runClock * 1000), best = this.profile.bestClearMs;
             if (best === undefined || ms < best) {
-                this.profile.bestClearMs = ms; this.profile.clearAt = Date.now(); this.profile.clearKey = pad(ms, 9) + pad(this.profile.clearAt, 14);
+                this.profile.bestClearMs = ms; this.profile.clearShip = G.shipId; this.profile.clearAt = Date.now(); this.profile.clearKey = pad(ms, 9) + pad(this.profile.clearAt, 14);
                 extra = `<br>全關卡破關時間 <b>${fmtTime(ms)}</b>（新紀錄！）`;
             } else extra = `<br>全關卡破關時間 ${fmtTime(ms)}（個人紀錄 ${fmtTime(best)}）`;
         } else if (victory) extra = '<br><small>從第 1 關出發並通關才會計入「全關卡破關時間」排行</small>';
@@ -2193,17 +2404,29 @@ const online = window.online = {
     renderState(st) {
         this.updateChatVis();
         ({ LOGIN: () => this.renderLogin(false), RANK: () => this.renderRank('bestScore'), FRIENDS: () => this.renderFriends(), PK: () => this.renderPK(),
-           DB: () => this.renderDB(), TUTORIAL: () => this.renderTutorial(0), ADMIN: () => this.renderAdmin('lobby') }[st])();
+           DB: () => this.renderDB(), DB2: () => this.renderDex('ship'), STATS: () => this.renderStats(), TUTORIAL: () => this.renderTutorial(0), ADMIN: () => this.renderAdmin('users') }[st])();
     },
     refresh() { const st = G.gameState; if (st === 'FRIENDS') this.renderFriends(); else if (st === 'PK') this.renderPK(); },
     extraTiles() {
-        const p = this.profile || {};
-        return `<div class="tile live" style="--a:#f7971e;--b:#ffd200;--d:.48s;color:#222" onclick="game.setState('RANK')"><div class="f1"><h4>排行榜</h4><small>線上</small></div><div class="f2"><small>最高分</small><h4>${p.bestScore || 0}</h4></div></div>
-            <div class="tile live" style="--a:#11998e;--b:#38ef7d;--d:.56s;color:#022" onclick="game.setState('FRIENDS')"><div class="f1"><h4>好友</h4><small>聊天 / 邀請</small></div><div class="f2"><small>好友 ${this.friends.length}</small><small>${this.reqIn.length ? this.reqIn.length + ' 筆邀請' : '無新邀請'}</small></div></div>
-            <div class="tile" style="--a:#cb2d3e;--b:#ef473a;--d:.64s" onclick="game.setState('PK')"><h4>PK 對戰</h4><small>與好友對決</small><span class="ico">⚔</span></div>
-            <div class="tile" style="--a:#614385;--b:#516395;--d:.72s" onclick="game.setState('DB')"><h4>圖鑑</h4><small>成語・戰機・Boss</small><span class="ico">字</span></div>
-            <div class="tile" style="--a:#134e5e;--b:#71b280;--d:.8s" onclick="game.setState('TUTORIAL')"><h4>新手教學</h4><small>圖文說明</small><span class="ico">?</span></div>
-            <div class="tile w2" style="--a:#1d2b64;--b:#3a6073;--d:.96s" onclick="game.openSettings()"><h4>${esc(p.name || '')}</h4><small>帳號 ${esc(p.username || '')}　PK ${p.pkWins || 0} 勝 ${p.pkLosses || 0} 敗</small><button class="sm" style="position:relative;margin-top:6px" onclick="event.stopPropagation();${this.user ? 'online.logout()' : 'online.goLogin()'}">${this.user ? '登出' : '連線登入（同步進度）'}</button></div>`;
+        const T = (a, b, h, sm, ico, onclick, cls = '', col = '') => `<div class="tile ${cls}" style="--a:${a};--b:${b}${col ? ';color:' + col : ''}" onclick="${onclick}"><h4>${h}</h4><small>${sm}</small><span class="ico">${ico}</span></div>`;
+        return T('#f7971e', '#ffd200', '排行榜', '線上排名', '★', "game.setState('RANK')", '', '#222')
+            + T('#11998e', '#38ef7d', '好友', `聊天／邀請${this.reqIn.length ? '（' + this.reqIn.length + ' 筆邀請）' : ''}`, '友', "game.setState('FRIENDS')", '', '#022')
+            + T('#614385', '#516395', '圖鑑', '成語・戰機・敵機・Boss', '鑑', "game.setState('DB')")
+            + T('#cb2d3e', '#ef473a', '好友 PK', '與好友對決', '⚔', "game.setState('PK')")
+            + T('#1d2b64', '#3a6073', '個人戰績', '分數・暗物質・常用戰機', '績', "game.setState('STATS')", 'w2')
+            + T('#134e5e', '#71b280', '新手教學', '圖文說明', '?', "game.setState('TUTORIAL')", 'w2');
+    },
+
+    // ===== 個人戰績 =====
+    renderStats() {
+        const p = this.profile || {}, use = p.shipUse || {}, total = Object.values(use).reduce((a, b) => a + b, 0), top = SHIPS.find(x => x.id === this.topShip(p)) || SHIPS[0];
+        const row = (k, v) => `<div class="rrow"><span>${k}</span><b>${v}</b></div>`;
+        const uses = SHIPS.filter(x => use[x.id]).sort((a, b) => use[b.id] - use[a.id]).map(x => `${x.name} ${use[x.id]} 次`).join('、') || '尚無出擊紀錄';
+        ui(`<div class="menu-overlay" style="width:min(92vw,420px)"><h2 class="shop-title">個人戰績</h2><p class="muted">${esc(p.name || '')}（${esc(p.username || '')}）</p>
+            <img src="${shipImg(top.id)}" style="height:90px;object-fit:contain;filter:drop-shadow(0 0 8px ${top.c})" onerror="this.style.display='none'"><p style="margin:2px 0 8px;color:${top.c}">最常使用：${top.name}</p>
+            <div class="res-rows">${row('歷史最高分', p.bestScore || 0)}${row('累積暗物質', (p.totalDM || 0) + ' DM')}${row('已花費暗物質', (p.spentDM || 0) + ' DM')}
+            ${row('全關卡破關時間', p.bestClearMs !== undefined ? fmtTime(p.bestClearMs) : '尚未破關')}${row('PK 戰績', `${p.pkWins || 0} 勝 ${p.pkLosses || 0} 敗`)}${row('出擊次數', total)}</div>
+            <p class="muted" style="margin:8px 0">${uses}</p>${BACK}</div>`);
     },
 
     // ===== 排行榜 =====
@@ -2212,10 +2435,13 @@ const online = window.online = {
         ui(`<div class="menu-overlay" style="width:min(94vw,520px)"><h2 class="shop-title">線上排行榜</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderRank('${t[0]}')">${t[1]}</button>`).join('')}</div>
             <div class="lst" id="rk-list">載入中…</div><p class="muted">${tab === 'clear' ? '從第 1 關出發並全部通關；時間越短越前面，時間相同則先達成者排前面' : '前 20 名'}</p>${BACK}</div>`);
         try {
-            const q = tab === 'clear' ? db.collection('users').orderBy('clearKey', 'asc').limit(20) : db.collection('users').orderBy(tab, 'desc').limit(20);
+            const q = tab === 'clear' ? db.collection('users').orderBy('clearKey', 'asc').limit(30) : db.collection('users').orderBy(tab, 'desc').limit(30);
             const s = await q.get(); if (G.gameState !== 'RANK') return;
-            const rows = s.docs.map((d, i) => { const x = d.data(), v = tab === 'clear' ? fmtTime(x.bestClearMs) : (x[tab] || 0);
-                return `<div class="rk ${this.user && d.id === this.user.uid ? 'me' : ''}"><b class="n">${i + 1}</b><span>${esc(x.name)}</span><b>${v}</b></div>`; });
+            // 管理員帳號只用於測試與管理，不列入排行榜
+            const docs = s.docs.filter(d => { const x = d.data(); return x.username !== ADMIN_USER && !x.hideRank; }).slice(0, 20);
+            // 破關紀錄 → 破紀錄當下使用的戰機；其他（成就）→ 該玩家最常使用的戰機
+            const rows = docs.map((d, i) => { const x = d.data(), v = tab === 'clear' ? fmtTime(x.bestClearMs) : (x[tab] || 0), sid = tab === 'clear' ? (x.clearShip || this.topShip(x)) : this.topShip(x);
+                return `<div class="rk ${this.user && d.id === this.user.uid ? 'me' : ''}"><b class="n">${i + 1}</b><img src="${shipImg(sid)}" onerror="this.style.visibility='hidden'"><span>${esc(x.name)}</span><b>${v}</b></div>`; });
             $('rk-list').innerHTML = rows.length ? rows.join('') : '<p class="muted">還沒有人上榜</p>';
         } catch (e) { const l = $('rk-list'); if (l) l.textContent = errMsg(e); }
     },
@@ -2223,6 +2449,8 @@ const online = window.online = {
     // ===== 好友 =====
     startListeners() {
         const uid = this.user.uid, U = db.collection('users').doc(uid), on = (q, f) => this.unsubs.push(q.onSnapshot(f, () => {}));
+        on(U, s => { const d = s.exists && s.data(); if (!d || s.metadata.hasPendingWrites) return; if ((d.adminAt || 0) > (this._adminSeen || 0)) { if (['PLAYING', 'TRANSITION'].includes(G.gameState)) { this._pendingAdmin = d; this._adminSeen = d.adminAt; } else this.applyAdminDoc(d); } });
+        on(db.collection('banned').doc(uid), s => { if (s.exists) this.kick(s.data()); });
         on(U.collection('friends'), s => { this.friends = s.docs.map(d => Object.assign({ uid: d.id }, d.data())); this.refresh(); this.chatSel(); });
         on(db.collection('friendRequests').where('to', '==', uid).where('status', '==', 'pending'), s => { this.reqIn = s.docs.map(d => Object.assign({ id: d.id }, d.data())); this.refresh(); });
         on(db.collection('friendRequests').where('from', '==', uid).where('status', '==', 'accepted'), s => s.docs.forEach(d => { const x = d.data();
@@ -2370,16 +2598,78 @@ const online = window.online = {
     async renderAdmin(tab, id) {
         if (!this.isAdmin && !this.adminDb) return G.setState('LOBBY');
         const adb = this.adminDb || db;
-        const T = [['lobby', '大廳'], ['group', '群組聊天'], ['dm', '好友私聊']];
-        ui(`<div class="menu-overlay" style="width:min(94vw,560px)"><h2 class="shop-title">管理員：聊天紀錄</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderAdmin('${t[0]}')">${t[1]}</button>`).join('')}</div>
-            <div class="lst" id="ad-list">載入中…</div><h4 id="ad-title"></h4><div class="lst" id="ad-msgs" style="min-height:120px"></div><button class="sm red" onclick="online.adminLogout()">登出管理員</button>${BACK}</div>`);
+        const T = [['users', '玩家管理'], ['lobby', '大廳'], ['group', '群組聊天'], ['dm', '好友私聊']];
+        tab = tab || 'users';
+        const usersBody = `<div class="row" style="gap:6px"><input class="inp" id="ad-q" placeholder="輸入玩家帳號（登入用帳號）" style="margin:0" onkeydown="if(event.key==='Enter')online.adFind()"><button class="sm" onclick="online.adFind()">搜尋</button></div><p id="ad-umsg" class="muted"></p><div id="ad-user" style="text-align:left"></div>`;
+        ui(`<div class="menu-overlay" style="width:min(94vw,600px);max-height:92vh;overflow-y:auto"><h2 class="shop-title">管理員</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderAdmin('${t[0]}')">${t[1]}</button>`).join('')}</div>
+            ${tab === 'users' ? usersBody : `<div class="lst" id="ad-list">載入中…</div><h4 id="ad-title"></h4><div class="lst" id="ad-msgs" style="min-height:120px"></div>`}<button class="sm red" onclick="online.adminLogout()">登出管理員</button>${BACK}</div>`);
         if (this._adUnsub) { this._adUnsub(); this._adUnsub = null; }
+        if (tab === 'users') { if (this._adT) this.adCard(); return; }
         try {
             if (tab === 'lobby') { $('ad-list').innerHTML = ''; return this.adView(adb.collection('lobbyChat'), '大廳'); }
             const s = await adb.collection(tab === 'group' ? 'groups' : 'dms').limit(100).get();
             $('ad-list').innerHTML = s.docs.length ? s.docs.map(d => { const x = d.data(); const label = tab === 'group' ? `${x.name}（${Object.values(x.memberNames || {}).join('、')}）` : Object.values(x.names || {}).join(' ⇄ ');
                 return `<div class="row"><span>${esc(label)}</span><button class="sm" onclick="online.adOpen('${tab}','${d.id}')">查看</button></div>`; }).join('') : '<p class="muted">沒有資料</p>';
         } catch (e) { $('ad-list').textContent = errMsg(e); }
+    },
+    // ----- 玩家管理：設定暗物質／免費升級戰機／重置／黑名單 -----
+    adDefaultSave() { const f = {}; SHIPS.forEach(S => { f[S.id] = Object.assign({ own: S.price === 0 }, S.base); }); return { dm: 0, s: 1, m: 0, d: 0, f, i: 'star', b: 1, t: 1 }; },
+    async adFind() {
+        const adb = this.adminDb || db, q = (($('ad-q') || {}).value || '').trim().toLowerCase(), m = $('ad-umsg'); if (!q) return;
+        m.textContent = '搜尋中…'; $('ad-user').innerHTML = '';
+        try {
+            let s = await adb.collection('users').where('username', '==', q).limit(1).get();
+            if (s.empty) s = await adb.collection('users').where('nameLower', '==', q).limit(1).get();
+            if (s.empty) { m.textContent = '找不到這個帳號'; this._adT = null; return; }
+            await this.adLoad(s.docs[0].id); m.textContent = '';
+        } catch (e) { m.textContent = errMsg(e); }
+    },
+    async adLoad(uid) {
+        const adb = this.adminDb || db, d = (await adb.collection('users').doc(uid).get()).data() || {}, b = await adb.collection('banned').doc(uid).get();
+        const save = d.save || this.adDefaultSave(); SHIPS.forEach(S => { save.f = save.f || {}; save.f[S.id] = Object.assign({ own: S.price === 0 }, S.base, save.f[S.id] || {}); });
+        this._adT = { uid, d, save, ban: b.exists ? b.data() : null }; this.adCard();
+    },
+    adCard() {
+        const T = this._adT, box = $('ad-user'); if (!T || !box) return; const d = T.d, sv = T.save, K = [['dmg', '火力'], ['rate', '射速'], ['hp', '裝甲'], ['spd', '機動']];
+        box.innerHTML = `<div style="padding:10px;border:1px solid #334;border-radius:10px;margin-bottom:8px">
+            <h3 style="margin:0 0 4px;color:var(--neon-gold)">${esc(d.name || '')} <small style="color:#aaa">帳號 ${esc(d.username || '')}</small></h3>
+            <div class="muted">最高分 ${d.bestScore || 0}・累積暗物質 ${d.totalDM || 0}・PK ${d.pkWins || 0} 勝 ${d.pkLosses || 0} 敗${T.ban ? '<br><b style="color:var(--neon-red)">★ 黑名單停權中：' + esc(T.ban.reason || '（無原因）') + '</b>' : ''}</div></div>
+            <div class="row" style="gap:6px;margin:6px 0"><b>暗物質</b><input class="inp" id="ad-dm" type="number" min="0" value="${sv.dm || 0}" style="margin:0;width:140px"><button class="sm" onclick="online.adSetDM()">設定</button></div>
+            <div style="margin-top:8px"><b>戰機（調整不扣暗物質）</b></div>
+            ${SHIPS.map(S => { const f = sv.f[S.id]; return `<div style="margin:6px 0;padding:6px;border:1px solid #223;border-radius:8px"><label><input type="checkbox" ${f.own ? 'checked' : ''} onchange="online.adShip('${S.id}','own',this.checked)"> <b style="color:${S.c}">${S.name}</b> 已擁有</label>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${K.map(([k, n]) => `<span>${n} <button class="sm" onclick="online.adShip('${S.id}','${k}',-1)">−</button> ${f[k]}/${S.cap[k]} <button class="sm" onclick="online.adShip('${S.id}','${k}',1)">＋</button></span>`).join('')}<button class="sm" onclick="online.adShip('${S.id}','max')">全部升滿</button></div></div>`; }).join('')}
+            <div style="margin:10px 0;padding:8px;border:1px solid #522;border-radius:8px"><b>黑名單／停權</b>
+                ${T.ban ? `<button class="sm" onclick="online.adUnban()">解除停權</button>` : `<textarea class="inp" id="ad-reason" rows="2" maxlength="200" placeholder="輸入被封原因（玩家登入時會看到）"></textarea><button class="sm red" onclick="online.adBan()">加入黑名單</button>`}</div>
+            <button class="sm red" onclick="online.adReset()">重置此帳號（回到全新狀態）</button>`;
+    },
+    async adWrite(extra, okMsg) {
+        const T = this._adT, adb = this.adminDb || db, m = $('ad-umsg'); if (!T) return;
+        try {
+            const now = Date.now(), upd = Object.assign({ adminAt: now, updatedAt: now }, extra);
+            await adb.collection('users').doc(T.uid).set(upd, { merge: true }); if (m) m.textContent = okMsg || '已更新'; return true;
+        } catch (e) { if (m) m.textContent = errMsg(e); }
+    },
+    async adSaveSave(msg) { const T = this._adT; if (await this.adWrite({ save: T.save, darkMatter: T.save.dm || 0 }, msg)) this.adCard(); },
+    adSetDM() { const v = Math.max(0, Math.floor(+($('ad-dm') || {}).value || 0)); this._adT.save.dm = v; this.adSaveSave(`已把暗物質設為 ${v}`); },
+    adShip(id, k, v) {
+        const S = SHIPS.find(x => x.id === id), f = this._adT.save.f[id];
+        if (k === 'own') f.own = !!v; else if (k === 'max') { f.own = true; ['dmg', 'rate', 'hp', 'spd'].forEach(x => f[x] = S.cap[x]); }
+        else f[k] = Math.max(S.base[k] || 0, Math.min(S.cap[k], (f[k] || 0) + v));
+        this.adSaveSave('戰機已更新（未扣暗物質）');
+    },
+    async adReset() {
+        const T = this._adT; if (!T || !confirm('確定要把這個帳號重置回全新狀態嗎？（存檔、暗物質、戰機、分數統計都會清空）')) return;
+        const del = firebase.firestore.FieldValue.delete(), z = { save: del, darkMatter: 0, bestScore: 0, totalDM: 0, spentDM: 0, pkWins: 0, pkLosses: 0, bestClearMs: del, clearAt: del, clearKey: del, tutorialDone: false };
+        if (await this.adWrite(z, '帳號已重置')) { await this.adLoad(T.uid); }
+    },
+    async adBan() {
+        const T = this._adT, adb = this.adminDb || db, reason = (($('ad-reason') || {}).value || '').trim(); if (!T) return;
+        if (!reason && !confirm('沒有填寫停權原因，仍要停權嗎？')) return;
+        try { await adb.collection('banned').doc(T.uid).set({ uid: T.uid, username: T.d.username || '', name: T.d.name || '', reason, at: Date.now() }); T.ban = { reason }; this.adCard(); $('ad-umsg').textContent = '已加入黑名單'; } catch (e) { $('ad-umsg').textContent = errMsg(e); }
+    },
+    async adUnban() {
+        const T = this._adT, adb = this.adminDb || db; if (!T) return;
+        try { await adb.collection('banned').doc(T.uid).delete(); T.ban = null; this.adCard(); $('ad-umsg').textContent = '已解除停權'; } catch (e) { $('ad-umsg').textContent = errMsg(e); }
     },
     adOpen(tab, id) { this.adView((this.adminDb || db).collection(tab === 'group' ? 'groups' : 'dms').doc(id).collection('messages'), id); },
     adView(ref, title) {
@@ -2391,7 +2681,7 @@ const online = window.online = {
     renderDB(eff, word) { this.renderDex('idiom', eff, word); },
     renderDex(tab, a, b) {
         tab = tab || 'idiom';
-        const T = [['idiom', '成語圖鑑'], ['ship', '我方戰機'], ['enemy', '敵方戰機'], ['boss', 'Boss']];
+        const T = [['idiom', '成語'], ['ship', '我方戰機'], ['enemy', '敵方戰機'], ['boss', 'Boss']];
         const body = { idiom: () => this.dexIdiom(a, b), ship: () => this.dexShips(), enemy: () => this.dexEnemies(), boss: () => this.dexBosses() }[tab]();
         ui(`<div class="menu-overlay" style="width:min(95vw,700px)"><h2 class="shop-title">圖鑑</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderDex('${t[0]}')">${t[1]}</button>`).join('')}</div>${body}${BACK}</div>`);
     },
@@ -2404,21 +2694,21 @@ const online = window.online = {
         return `<div class="tabs">${Object.keys(DOC).map(k => `<button class="${k === eff ? 'on' : ''}" onclick="online.renderDex('idiom','${k}')">${DOC[k][0]}</button>`).join('')}</div>
             <p style="color:var(--neon-gold)"><b>${DOC[eff][0]}</b>　${DOC[eff][1]}</p>
             <div>${list.map(i => `<button class="chip ${i.word === word ? 'on' : ''}" onclick="online.renderDex('idiom','${eff}','${i.word}')">${i.word}</button>`).join('')}</div>
-            <div style="text-align:left;min-height:90px;margin-top:8px;padding:10px;border:1px solid #334;border-radius:10px">${info ? `<h3 style="margin:0 0 6px;color:var(--neon-gold)">${word}</h3><p><b style="color:var(--neon-blue)">意思</b>　${info[0]}</p><p><b style="color:var(--neon-blue)">造句</b>　${info[1]}</p>` : '<span class="muted">點選成語查看意思與造句（共 ' + list.length + ' 個，全部成語 ' + CONFIG.IDIOMS.length + ' 個）</span>'}</div>`;
+            <div style="text-align:left;min-height:90px;margin-top:8px;padding:10px;border:1px solid #334;border-radius:10px">${info ? `<h3 style="margin:0 0 6px;color:var(--neon-gold)">${word}</h3><p><b style="color:var(--neon-blue)">解釋</b>　${info[0]}</p><p><b style="color:var(--neon-blue)">造句</b>　${info[1]}</p>` : '<span class="muted">點選成語查看解釋與造句（共 ' + list.length + ' 個，全部成語 ' + CONFIG.IDIOMS.length + ' 個）</span>'}</div>`;
     },
     dexShips() {
         const TRAIT = { star: '均衡型：各項能力上限相同，適合新手。', wind: '機動靈巧：體型小、移動速度上限最高，但火力與裝甲上限低。適合對付玻璃砲型 Boss。', bastion: '重裝厚皮：血量與裝甲上限最高，移動較慢。最適合對付彈幕型 Boss。',
             blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', lance: '穿甲型：子彈自帶穿甲彈，對有裝甲（護盾）的敵人固定造成 2～3 倍傷害，對沒有裝甲的敵人則是一般傷害。適合鐵甲型 Boss、坦克與護衛機。' };
         return '<div class="lst">' + SHIPS.map(S => { const own = G.fleet && G.fleet[S.id] && G.fleet[S.id].own, c = S.cap;
             return `<div class="dx"><img src="${S.id === 'star' ? 'assets/player.png' : 'assets/ship_' + S.id + '.png'}" onerror="this.style.visibility='hidden'"><div><h3 style="color:${S.c}">${S.name} <small style="color:#aaa">${S.role}</small></h3>
-                <div class="t"><b>初始</b> 血量 ${S.hp}・移速 ${S.spd}・傷害 ${S.dmg}・射速 ${(1000 / S.int).toFixed(1)}/秒<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}<br>${TRAIT[S.id]}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '商店 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
+                <div class="t"><b>初始</b> 血量 ${S.hp}・移速 ${S.spd}・傷害 ${S.dmg}・射速 ${(1000 / S.int).toFixed(1)}/秒<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}<br>${TRAIT[S.id]}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '軍械改裝工廠 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
     },
     dexEnemies() {
         const E = [['SCOUT', '偵察機', '第 1 關起', '緩慢下降並大幅左右擺盪', '單發慢彈（頻率最低之一）', '血量低，新手關主力', 1.5],
             ['DART', '俯衝機', '第 1 關第 2 波起', '3～5 台排成 V 字編隊，朝你的位置直線衝刺', '不開火，靠撞擊', '速度最快、血量很低', 1],
             ['SWARM', '蜂群機', '第 2 關起', '整隊陣列一起移動：橫列、V 字或旋轉圓環（4～6 台）', '依隊形：直射、瞄準或向外放射，每台頻率很低', '體型小但成群出現', 1],
             ['FIGHTER', '戰鬥機', '第 2 關起', '下降到定位後，橫向追著你的位置跑', '三連發瞄準彈', '第 4 關起帶 25% 護盾', 3],
-            ['SNIPER', '狙擊機', '第 3 關起', '定位後與你「鏡像」移動（你往左它往右）', '蓄力 0.9 秒、顯示紅色瞄準線後高速狙擊', '蓄力時不會移動', 2.5],
+            ['SNIPER', '狙擊機', '第 3 關起', '定位後與你「鏡像」移動（你往左它往右）', '紅色瞄準線會追著你；線不動滿 2.5 秒就射出高傷害極速子彈（一直移動就能閃）', '瞄準時不會移動', 2.5],
             ['BOMBER', '轟炸機', '第 4 關起', '橫掃整個畫面，到邊緣就往下一排', '三向彈、五向彈、慢速大炸彈輪替', '射擊頻率高、體型大', 6],
             ['TANK', '坦克', '第 5 關起', '沉重地直線推進並駐守，只有輕微橫移', '重砲五向齊射（頻率低、彈大）', '帶 40% 護盾，血量最高', 10],
             ['GUARD', '護衛機', '第 5 關起', '成對繞圈巡邏', '兩次雙發瞄準彈（雙擊）', '帶 60% 護盾', 5]];
@@ -2427,10 +2717,10 @@ const online = window.online = {
     },
     dexBosses() {
         const MV = { hover: '懸停漂移', sweep: '左右橫掃', orbit: '橢圓環繞', dash: '隨機衝刺', chase: '追蹤玩家', zigzag: '快速折返' }, SH = { aim: '瞄準單發', aim3: '三連瞄準', burst: '扇形彈', ring: '環形彈', spiral: '螺旋彈', rain: '雨狀彈', wall: '彈牆（留缺口）' };
-        const MULT = { GLASS: 0.45, TANK: 1.5, BARRAGE: 1, FINAL: 1 };
-        return '<div class="lst">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(st => { const ty = BOSS_TYPES[st], inf = BOSS_INFO[ty], cfg = BOSS_CFG[st], hp = Math.round((st === 9 ? 5000 : 150 + (st - 1) * 350) * MULT[ty]);
+        
+        return '<div class="lst">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(st => { const ty = BOSS_TYPES[st], inf = BOSS_INFO[ty], cfg = BOSS_CFG[st], hp = Math.round((st === 9 ? 5000 : 150 + (st - 1) * 350) * bossMods(st, ty).hp), bm = bossMods(st, ty);
             return `<div class="dx"><img src="assets/boss_${st}.png" onerror="this.style.visibility='hidden'"><div><h3>第 ${st} 關　${bossLabel(st)}</h3>
-                <div class="t">${inf.desc}<br><b>移動</b> ${MV[cfg.mv]}　<b>攻擊</b> ${cfg.sh.map(x => SH[x]).join('、')}<br><b>血量</b> 約 ${hp}　<b>建議</b> ${inf.tip}</div></div></div>`; }).join('') + '</div>';
+                <div class="t">${inf.desc}<br><b>移動</b> ${MV[cfg.mv]}　<b>攻擊</b> ${cfg.sh.map(x => SH[x]).join('、')}<br><b>血量</b> 約 ${hp}　<b>能力加成</b> ${Math.round(bm.f * 100)}%　<b>建議</b> ${inf.tip}</div></div></div>`; }).join('') + '</div>';
     },
 
     // ===== 新手教學 =====
@@ -2442,11 +2732,11 @@ const online = window.online = {
             ['移動與射擊', `${im('assets/player.png')}<div><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或 <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></div><div><kbd>Shift</kbd> 精準微調</div><div>手機：手指拖曳</div></div>`, '戰機會自動射擊。鍵盤與觸控拖曳的移動速度一樣，升級「機動」可以變快。'],
             ['打字卡、撿字元', `${im('assets/idiom_block.png', 'max-height:90px')}<span style="font-size:2rem">➜</span><span style="font-size:2.4rem;color:var(--neon-blue)">破</span>`, '射擊天上掉下來的字卡，會掉出一個字，飛過去撿起來。字卡只是機關，碰到不會受傷。'],
             ['湊成語、發動招式', `${slotMock}<span style="font-size:1.6rem">➜</span><span><kbd>1</kbd>~<kbd>6</kbd> 或 <kbd>Space</kbd></span>`, '字元集滿四字就會發光，按對應數字鍵（手機直接點）發動。每個招式都有 10 個以上的相關成語。'],
-            ['時間凍結與成語演示', `<div style="border:2px solid var(--neon-gold);border-radius:10px;padding:10px 16px;text-align:center"><div style="font-size:1.8rem;color:var(--neon-gold);letter-spacing:.2em">破釜沉舟</div><div class="muted">意思或造句 5 秒</div></div>`, '發動後全場凍結 5 秒（敵機、子彈、背景都不會動），畫面會逐字浮現該成語的意思或造句，結束後才發動招式。'],
-            ['九種招式', `<div style="text-align:left;line-height:1.7;font-size:.9rem">爆破・無敵・護盾<br>穿甲彈・追蹤導彈・貫穿雷射<br>治療・時緩・呼叫友軍</div>`, '到大廳的「圖鑑」可以查成語、我方與敵方戰機、Boss，點成語還能看意思與造句。'],
+            ['時間凍結與成語演示', `<div style="border:2px solid var(--neon-gold);border-radius:10px;padding:10px 16px;text-align:center"><div style="font-size:1.8rem;color:var(--neon-gold);letter-spacing:.2em">破釜沉舟</div><div class="muted">解釋或造句 5 秒</div></div>`, '發動後全場凍結 5 秒（敵機、子彈、背景都不會動），畫面會逐字浮現該成語的解釋或造句，結束後才發動招式。'],
+            ['九種招式', `<div style="text-align:left;line-height:1.7;font-size:.9rem">爆破・無敵・護盾<br>穿甲彈・追蹤導彈・貫穿雷射<br>治療・時緩・呼叫友軍</div>`, '到大廳的「圖鑑」可以查成語、我方與敵方戰機、Boss，點成語還能看解釋與造句。'],
             ['血條與護盾', `${im('assets/player.png', 'max-height:80px')}<div style="width:90px"><div style="height:8px;background:#33ff88"></div><div style="height:6px;margin-top:3px;background:#4dd2ff;width:60%"></div></div>`, '血條在戰機後方，護盾在血條下方；受到傷害時護盾先抵掉。敵機的血條在它上方。'],
             ['敵機與 Boss', `${im('assets/enemy_scout.png', 'max-height:70px')}${im('assets/enemy_bomber.png', 'max-height:70px')}${im('assets/boss_1.png', 'max-height:110px')}`, `小關有多種敵機（俯衝、蜂群、狙擊、轟炸、護衛…）。Boss 各有名字與類型：${bossLabel(1)}皮薄但傷害高、${bossLabel(2)}血厚、${bossLabel(3)}彈幕密集。`],
-            ['暗物質、商店與戰機', `${im('assets/ship_wind.png', 'max-height:80px')}${im('assets/ship_bastion.png', 'max-height:80px')}${im('assets/ship_blaze.png', 'max-height:80px')}`, '打敗敵人得到暗物質，可到「軍械庫」買戰機，到「戰機管理」升級；每種戰機能力上限不同。出戰前大廳會推薦適合的戰機。'],
+            ['暗物質、軍械改裝工廠與戰機', `${im('assets/ship_wind.png', 'max-height:80px')}${im('assets/ship_bastion.png', 'max-height:80px')}${im('assets/ship_blaze.png', 'max-height:80px')}`, '打敗敵人得到暗物質，可到「軍械改裝工廠」買戰機，到「戰機管理」升級；每種戰機能力上限不同。出戰前大廳會推薦適合的戰機。'],
             ['線上功能', `<div style="line-height:1.8;text-align:left">排行榜：分數、暗物質、花費、全關破關時間<br>好友與聊天（右下角對話框）<br>PK：主控端建房，給 4 位數密碼</div>`, '全部關卡破關時間越短排名越高；時間相同則先達成的排前面。PK 時成語演示雙方畫面都會凍結演示。']
         ];
         this.tut = Math.max(0, Math.min(S.length - 1, i)); const t = S[this.tut], last = this.tut === S.length - 1;
@@ -2549,7 +2839,7 @@ const online = window.online = {
         const D = { BOMB_BOOST: 30, LASER_BEAM: 35, MISSILE: 25, PIERCE: 25 }[idiom.effect]; sfx.playIdiomFire(idiom.effect);
         if (!D) return; if (idiom.effect === 'PIERCE') G.shield = Math.floor(G.shield / 2);
         if (G.invincibleTimer > 1.05) { G.showFloatText('免疫', G.player.pos.x, G.player.pos.y - 50, '#7dffb0'); return; }
-        G.hurt(D); G.showFloatText('-' + D, G.player.pos.x, G.player.pos.y - 50, '#ff3366'); G.burst(G.player.pos.x, G.player.pos.y, 16);
+        G.hurt(D); sfx.playPlayerHit(); G.showFloatText('-' + D, G.player.pos.x, G.player.pos.y - 50, '#ff3366'); G.burst(G.player.pos.x, G.player.pos.y, 16);
         if (idiom.effect === 'BOMB_BOOST') G.shock = { t: 0, x: G.player.pos.x, y: G.player.pos.y };
         G.updateHUD(); if (G.hp <= 0) this.pkSelfDead();
     },
@@ -2578,15 +2868,15 @@ function msgHtml(m, me) { const d = new Date(m.ts || 0); return `<div class="msg
 
 // ---------- 掛接到遊戲 ----------
 const wrap = (name, fn) => { const o = P[name]; P[name] = function (...a) { return fn.call(this, o, ...a); }; };
-const NEW = new Set(['LOGIN', 'RANK', 'FRIENDS', 'PK', 'DB', 'TUTORIAL', 'ADMIN']);
+const NEW = new Set(['LOGIN', 'RANK', 'FRIENDS', 'PK', 'DB', 'DB2', 'TUTORIAL', 'ADMIN', 'STATS']);
 wrap('setState', function (o, state) {
     if (this.pkMode && (state === 'GAMEOVER' || state === 'VICTORY')) { online.pkSelfDead(); return; }
-    if (NEW.has(state) && !['LOGIN', 'TUTORIAL', 'DB'].includes(state) && !online.user && !(state === 'ADMIN' && online.adminDb)) { toast('這個功能需要網路並登入'); return; }
+    if (NEW.has(state) && !['LOGIN', 'TUTORIAL', 'DB', 'DB2', 'STATS'].includes(state) && !online.user && !(state === 'ADMIN' && online.adminDb)) { toast('這個功能需要網路並登入'); return; }
     if (NEW.has(state)) { o.call(this, 'LOBBY'); this.gameState = state; online.renderState(state); return; }
     o.call(this, state); online.updateChatVis();
     if (state === 'GAMEOVER') online.finishRun(false); else if (state === 'VICTORY') online.finishRun(true);
 });
-wrap('renderLobby', function (o) { o.call(this); const t = document.querySelector('.tiles'); if (t) t.insertAdjacentHTML('beforeend', online.extraTiles()); });
+wrap('renderLobby', function (o) { if (online._pendingAdmin && !['PLAYING', 'TRANSITION'].includes(this.gameState)) { const d = online._pendingAdmin; online._pendingAdmin = null; online.applyAdminDoc(d); this.renderLobby(); return; } o.call(this); const t = document.querySelector('.tiles'); if (t) t.insertAdjacentHTML('beforeend', online.extraTiles()); });
 wrap('save', function (o) { o.call(this); online.queuePush(); });
 wrap('dropDarkMatter', function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = this.darkMatter - b; if (d > 0) online.stat('totalDM', d); });
 ['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); }));
@@ -2617,7 +2907,7 @@ wrap('handleKey', function (o, e) {
     o.call(this, e);
 });
 
-window.addEventListener('online', () => { if (online.offline) toast('已恢復網路：點大廳的「連線登入」即可同步進度', 5000); });
+window.addEventListener('online', () => { setTimeout(() => G.quietCheck(), 1500);  if (online.offline) toast('已恢復網路：點大廳的「連線登入」即可同步進度', 5000); });
 
 // ---------- 啟動 ----------
 online.authReady = new Promise(res => {
