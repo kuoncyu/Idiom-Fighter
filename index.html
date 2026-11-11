@@ -2284,7 +2284,7 @@ const online = window.online = {
     chat: { open: false, tab: 'lobby', th: null, unsub: null, msgs: [], unread: 0, first: true, dmReady: {} },
 
     // ===== 登入 / 帳號 =====
-    afterBoot() { Promise.race([this.authReady || Promise.resolve(), new Promise(r => setTimeout(r, 12000))]).then(() => { if ((this.user || this.offline) && this.profile) G.setState(this.profile.tutorialDone ? 'LOBBY' : 'TUTORIAL'); else G.setState('LOGIN'); }); },
+    afterBoot() { (this.authReady || Promise.resolve()).then(() => { if ((this.user || this.offline) && this.profile) G.setState(this.profile.tutorialDone ? 'LOBBY' : 'TUTORIAL'); else G.setState('LOGIN'); }); },
     renderLogin(reg) {
         ui(`<div class="menu-overlay" style="width:min(92vw,380px)"><h2 class="shop-title">${reg ? '註冊帳號' : '登入'}</h2>
             <div id="lg-msg" class="lg-msg">${fbOk ? '' : '無法載入 Firebase，請確認網路後重新整理頁面'}</div>
@@ -2310,7 +2310,7 @@ const online = window.online = {
         } catch (e) { msg(errMsg(e)); const b = $('lg-go'); if (b) b.disabled = false; }
     },
     async onLogin(u) {
-        try { const bs = await Promise.race([db.collection('banned').doc(u.uid).get(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))]); if (bs.exists) { this.user = u; await this.kick(bs.data()); return; } else { const k = JSON.parse(localStorage.getItem('idiomBanned') || 'null'); if (k && k.uid === u.uid) localStorage.removeItem('idiomBanned'); } } catch (e) {}
+        try { const bs = await db.collection('banned').doc(u.uid).get(); if (bs.exists) { this.user = u; await this.kick(bs.data()); return; } else { const k = JSON.parse(localStorage.getItem('idiomBanned') || 'null'); if (k && k.uid === u.uid) localStorage.removeItem('idiomBanned'); } } catch (e) {}
         this.offline = false; this.user = u; const username = (u.email || '').split('@')[0], ref = db.collection('users').doc(u.uid);
         let snap;
         try { snap = await Promise.race([ref.get(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), navigator.onLine ? 10000 : 1500))]); }

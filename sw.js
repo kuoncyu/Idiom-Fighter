@@ -1,7 +1,7 @@
 // 成語戰機：離線支援（Service Worker）
 // - 網頁本身：有網路時用最新版並更新快取，沒網路時改用快取
 // - 圖片 / 音樂 / Firebase SDK：只要存進「離線資料包」就從快取直接讀取
-const VERSION = '20261112';
+const VERSION = '20261112b';
 const SHELL = 'idiom-shell-' + VERSION;
 
 self.addEventListener('install', e => {
