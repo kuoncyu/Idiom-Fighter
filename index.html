@@ -3089,7 +3089,7 @@ const online = window.online = {
     },
     dexIdiom(eff, word) {
         const DOC = { BOMB_BOOST: ['全螢幕爆破', '清空畫面敵彈與小型敵機並有爆炸動畫；對 Boss 傷害最高為其滿血的 1/4。'], INVINCIBLE: ['無敵', '10 秒內不會受到傷害。'],
-            SHIELD: ['護盾', '獲得 50 點護盾（可累積），會一直存在直到把傷害抵掉。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
+            SHIELD: ['護盾', '獲得 5000 點護盾（可累積），會一直存在直到把傷害抵掉。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
             MISSILE: ['追蹤導彈', '10 秒內主炮子彈會自動追蹤：先打血量少的敵機，沒有敵機才打字卡。'], LASER_BEAM: ['貫穿雷射', '3 秒的直線雷射，持續貫穿傷害。'],
             HEAL: ['治療', '立刻回復 3000 點血量。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。'] };
         eff = eff || 'BOMB_BOOST'; const list = CONFIG.IDIOMS.filter(i => i.effect === eff), info = word && IDIOM_INFO[word];
