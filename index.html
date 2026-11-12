@@ -1649,7 +1649,7 @@ class Game {
     }
 
     resetStage() {
-        this.boss = null; this.clearT = 0; this.bossSumT = 0; if (this.currentSub === 1) this.stageStart = this.runClock || 0;
+        this.boss = null; this.clearT = 0; this.bossSumT = 0; if (this.currentSub === 1) { this.stageStart = this.runClock || 0; this.stageStartFor = this.currentStage; }
         this.enemies = []; this.idiomBlocks = []; this.charItems = [];
         this.player.pos = new Vec2(WORLD.w / 2, WORLD.h - 150);
         this.bullets.pool.forEach(b => b.active = false);
@@ -1967,7 +1967,7 @@ class Game {
             this.boss.update(dt, this.player.pos, () => { const b = this.bullets.get(); b.damage = this.boss.dmgMul; b.radius = 6; return b; }, (x,y) => this.spawnIdiomBlock(x,y));
             document.getElementById('boss-hp-fill').style.width = (this.boss.hp / this.boss.maxHp * 100) + "%";
             if (this.boss.hp <= 0) {
-                if (!this.pkMode && this.stageStart !== undefined && window.online && online.stageClear) online.stageClear(this.currentStage, Math.round((this.runClock - this.stageStart) * 1000));
+                if (!this.pkMode && this.stageStart !== undefined && this.stageStartFor === this.currentStage) this.noteStageClear(this.currentStage, Math.round((this.runClock - this.stageStart) * 1000));
                 this.dropDarkMatter(this.boss.pos.x, this.boss.pos.y, this.boss.dmReward); this.runKills = (this.runKills || 0) + 1; this.enemyDrop({ type: 'BOSS', pos: this.boss.pos });
                 sfx.playExplosion(); this.boss = null; this.clearStage(true);
             }
@@ -2150,6 +2150,12 @@ class Game {
         if (this.pkMode) { this.startTransition(next); return; }
         if (this.clearT > 0 || this.gameState !== 'PLAYING') return;   // 轉場中不可重啟倒數
         this.clearT = 5; this.clearNext = next; document.getElementById('boss-bar').style.display = 'none'; sfx.playReady();
+    }
+    noteStageClear(st, ms) {   // 擊敗 Boss：先記在「本次出擊」的暫存清單，等結束出擊（退出／結束／陣亡／全破）時才與紀錄榜核對
+        if (!(ms > 0)) return; const rc = this.runStageClears = this.runStageClears || {};
+        if (!rc[st] || ms < rc[st].ms) rc[st] = { ms, ship: this.shipId };
+        const s = ms / 1000, t = Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0');
+        this.showFloatText(`第 ${st} 關擊敗 Boss　${t}`, WORLD.w / 2, WORLD.h * 0.35, '#ffea00');
     }
     randomChar(pNeed) {   // 有機率掉「目前還缺的字」，否則從全部成語隨機抽一個字
         const need = [];
@@ -2652,17 +2658,27 @@ const online = window.online = {
     },
     stat(k, d) { if (!this.profile) return; this.profile[k] = (this.profile[k] || 0) + d; this.queuePush(); },
     topShip(p) { const u = (p && p.shipUse) || {}; let best = null, n = 0; Object.keys(u).forEach(k => { if (u[k] > n) { n = u[k]; best = k; } }); return best || (p && p.topShip) || 'star'; },
-    stageClear(st, ms) {   // 各關卡單獨排行：從該關第 1 區塊開始，到擊敗 Boss 的時間
-        if (!this.profile || !(ms > 0)) return; const k = 's' + st, best = this.profile[k + 'Ms'];
-        if (best === undefined || ms < best) {
-            const at = Date.now(); this.profile[k + 'Ms'] = ms; this.profile[k + 'Ship'] = G.shipId; this.profile[k + 'Key'] = pad(ms, 9) + pad(at, 14);
-            this.queuePush(); G.showFloatText(`第 ${st} 關新紀錄 ${fmtTime(ms)}`, WORLD.w / 2, WORLD.h * 0.35, '#ffea00');
-        }
+    settleStages() {   // 結束出擊時：把本次擊敗 Boss 的各關成績與紀錄榜（個人最佳）核對，破紀錄就記上
+        if (!this.profile || G.pkMode) return [];
+        const rc = G.runStageClears, keys = rc ? Object.keys(rc) : [];
+        if (!keys.length) return this._rep && this._rep.seq === G.runSeq ? this._rep.items : [];   // 同一局重複結算時沿用結果
+        const items = [], at = Date.now();
+        keys.map(Number).sort((x, y) => x - y).forEach(st => {
+            const k = 's' + st, c = rc[st], old = this.profile[k + 'Ms'];
+            if (old === undefined || c.ms < old) {
+                this.profile[k + 'Ms'] = c.ms; this.profile[k + 'Ship'] = c.ship; this.profile[k + 'Key'] = pad(c.ms, 9) + pad(at, 14);
+                items.push({ st, ms: c.ms, old, isNew: true });
+            } else items.push({ st, ms: c.ms, best: old, isNew: false });
+        });
+        G.runStageClears = {}; this._rep = { seq: G.runSeq, items };
+        return items;
     },
     finishRun(victory) {
         if (!this.profile || G.pkMode) return;
         { const use = this.profile.shipUse = Object.assign({}, this.profile.shipUse), sid = G.shipId; use[sid] = (use[sid] || 0) + 1; this.profile.topShip = this.topShip(this.profile); }
         const score = Math.round((G.runDM || 0) * 10); this.profile.bestScore = Math.max(this.profile.bestScore || 0, score);
+        const rep = this.settleStages();   // 不論退出、結束、陣亡或全破，都先把各關擊敗 Boss 的成績核對進紀錄榜
+        const stx = rep.length ? '<span style="display:block;text-align:left;line-height:1.6;margin-top:4px">' + rep.map(r => `第 ${r.st} 關 ${fmtTime(r.ms)}　` + (r.isNew ? '<b style="color:#33ff88">新紀錄！</b>' + (r.old !== undefined ? `（原 ${fmtTime(r.old)}）` : '') : `（個人紀錄 ${fmtTime(r.best)}）`)).join('<br>') + '</span>' : '';
         let extra = '';
         if (victory && G.runStart === 1) {
             const ms = Math.round(G.runClock * 1000), best = this.profile.bestClearMs;
@@ -2671,9 +2687,9 @@ const online = window.online = {
                 extra = `<br>全關卡破關時間 <b>${fmtTime(ms)}</b>（新紀錄！）`;
             } else extra = `<br>全關卡破關時間 ${fmtTime(ms)}（個人紀錄 ${fmtTime(best)}）`;
         } else if (victory) extra = '<br><small>從第 1 關出發並通關才會計入「全關卡破關時間」排行</small>';
-        this.queuePush();
+        this.queuePush(); clearTimeout(this._pt); this.pushNow();   // 結算後立刻上傳，不等延遲
         const el = $('res-extra') || G.uiLayer.querySelector('.menu-overlay');
-        if (el) el.insertAdjacentHTML('beforeend', `<p style="color:var(--neon-gold)">歷史最高分 <b>${this.profile.bestScore}</b>${extra}</p>`);
+        if (el) el.insertAdjacentHTML('beforeend', `<p style="color:var(--neon-gold)">歷史最高分 <b>${this.profile.bestScore}</b>${extra}${stx}</p>`);
     },
 
     // ===== 畫面分派 =====
@@ -2754,7 +2770,7 @@ const online = window.online = {
         if (!this._actBound) {
             this._actBound = true;
             ['pointerdown', 'pointermove', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, () => online.touch(), { passive: true }));
-            window.addEventListener('pagehide', () => online.goOffline());
+            window.addEventListener('pagehide', () => { try { if (online.settleStages().some(x => x.isNew)) { online.queuePush(); online.pushNow(); } } catch (e) {} online.goOffline(); });
         }
         this.onl = {}; this.onlSet = null; this._presT0 = Date.now(); this.touch(true);
         this.unsubs.push(db.collection('presence').where('lastActive', '>', Date.now() - 30 * 60000).onSnapshot(s => {
@@ -3391,7 +3407,7 @@ wrap('draw', function (o) { o.call(this); if (this.pkMode && this.gameState === 
 wrap('save', function (o) { o.call(this); online.queuePush(); });
 wrap('dropDarkMatter', function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = this.darkMatter - b; if (d > 0) online.stat('totalDM', d); });
 ['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); }));
-wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; });
+wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; this.runStageClears = {}; this.stageStartFor = undefined; this.runSeq = (this.runSeq || 0) + 1; });
 wrap('startTransition', function (o, n) { if (this.pkMode) { this.currentSub = 1; this.resetStage(); return; } o.call(this, n); });
 wrap('startCast', function (o, idiom, remote) {
     o.call(this, idiom);
