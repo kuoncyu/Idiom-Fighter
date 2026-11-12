@@ -1275,15 +1275,17 @@ class Game {
     steer(b, dt) {   // 主炮追蹤：只鎖定敵機／Boss（先打血量少的），沒有敵機才找字卡
         const live = t => this.enemies.includes(t) || t === this.boss || this.idiomBlocks.includes(t);
         if (!b.target || !live(b.target)) {
-            const c = this.enemies.concat(this.boss ? [this.boss] : []), pool = c.length ? c : this.idiomBlocks;
+            const c = this.enemies.concat(this.boss ? [this.boss] : []); let pool = c.length ? c : this.idiomBlocks;
+            if (b.pierce) { const ir = c.filter(t => this.isIron(t)); if (ir.length) pool = ir; }   // 穿甲號：優先追鐵甲類
             let best = null, bh = 1e9, bd = 1e9;
             pool.forEach(t => { const h = t.hp || 0, d = Math.hypot(t.pos.x - b.pos.x, t.pos.y - b.pos.y); if (h < bh || (h === bh && d < bd)) { bh = h; bd = d; best = t; } });
             b.target = best;
         }
         const sp = Math.hypot(b.vel.x, b.vel.y) || 800; let a = Math.atan2(b.vel.y, b.vel.x);
-        if (b.target && (b.turn || 0) < 1.1) {   // 只微調飛行方向：累計最多轉 約63°，目標在側後方就不再追，沒打中就直線飛出畫面（不會繞圈）
+        const TR = b.pierce ? 4.5 : 3.2, TL = b.pierce ? 1.6 : 1.1, TA = b.pierce ? 1.6 : 1.3;   // 穿甲號子彈轉向速度、累計轉角上限都比導彈道具大一些
+        if (b.target && (b.turn || 0) < TL) {   // 只微調飛行方向：累計最多轉 約63°，目標在側後方就不再追，沒打中就直線飛出畫面（不會繞圈）
             let da = Math.atan2(b.target.pos.y - b.pos.y, b.target.pos.x - b.pos.x) - a; da = Math.atan2(Math.sin(da), Math.cos(da));
-            if (Math.abs(da) < 1.3) { const st = Math.max(-3.2 * dt, Math.min(3.2 * dt, da)); a += st; b.turn = (b.turn || 0) + Math.abs(st); }
+            if (Math.abs(da) < TA) { const st = Math.max(-TR * dt, Math.min(TR * dt, da)); a += st; b.turn = (b.turn || 0) + Math.abs(st); }
         }
         b.vel.x = Math.cos(a) * sp; b.vel.y = Math.sin(a) * sp;
     }
@@ -1340,6 +1342,7 @@ class Game {
         }
         return e.shield;
     }
+    isIron(e) { return !!e && (e.type === 'TANK' || e.type === 'GUARD'); }   // 鐵甲類：坦克、護衛機、鐵甲型 Boss（Boss 的 type 也叫 TANK）
     armorLv(e) {   // 單位的裝甲等級：隨關卡成長；我方穿甲等級可以抵銷
         if (e._armor === undefined) {
             if (e === this.boss) e._armor = (BOSS_ARMOR[e.type] || 0) + Math.floor(e.stage / 2);
@@ -1413,7 +1416,8 @@ class Game {
             const def = (src && src.pierce) ? 0 : Math.max(0, this.armorLv(e) - ((src && src.pen) || 0)) * DEF_PER_LV;   // 防禦力＝裝甲等級－穿甲等級，最低 0；穿甲號的子彈無視裝甲（防禦視為 0）
             n = Math.max(n * MIN_DMG_K, n - def);
         }
-        if ((this.pierceTimer > 0 || pf) && e.shield > 0) { pierce = 2 + Math.random(); n *= pierce; if (hit) n += (e.maxHp || 0) * 0.01; }   // 穿甲彈：對有護盾的目標造成 2~3 倍傷害，另外損失目標總血量 1%
+        const iron = !!(hit && src && src.pierce && this.isIron(e));   // 穿甲號子彈打到鐵甲類（坦克、護衛機、鐵甲型 Boss）
+        if (iron || ((this.pierceTimer > 0 || pf) && e.shield > 0)) { pierce = 2 + Math.random(); n *= pierce; if (hit && e.shield > 0) n += (e.maxHp || 0) * 0.01; }   // 2~3 倍傷害（已先扣掉防禦力；鐵甲＋護盾只乘一次）   // 穿甲彈：對有護盾的目標造成 2~3 倍傷害，另外損失目標總血量 1%
         const dealt = n;
         if (e.shield > 0) { const a = Math.min(e.shield, n); e.shield -= a; n -= a; }
         e.hp -= n;
@@ -1886,7 +1890,7 @@ class Game {
             const shootBullet = (offset, angle, rs, dm) => {
                 const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + offset, this.player.pos.y - 25);
                 b.vel = new Vec2(Math.sin(angle)*800, -Math.cos(angle)*800);
-                b.isPlayer = true; b.damage = dmg * (dm || 1); b.pen = this.st.pen; b.crit = this.st.crit; b.turn = 0; b.target = null; styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; b.homing = this.missileTimer > 0; b.pierce = !!SKINS[this.skin].pierce;
+                b.isPlayer = true; b.damage = dmg * (dm || 1); b.pen = this.st.pen; b.crit = this.st.crit; b.turn = 0; b.target = null; styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; b.pierce = !!SKINS[this.skin].pierce; b.homing = this.missileTimer > 0 || (b.pierce && !this.pkMode);
             };
             const shots = patternShots(SKINS[this.skin], this.covLv);   // 依戰機的火力覆蓋等級決定彈道
             shots.forEach(sh => shootBullet(sh.o, sh.a, sh.rs, sh.dm));
@@ -3089,7 +3093,7 @@ const online = window.online = {
     },
     dexIdiom(eff, word) {
         const DOC = { BOMB_BOOST: ['全螢幕爆破', '清空畫面敵彈與小型敵機並有爆炸動畫；對 Boss 傷害最高為其滿血的 1/4。'], INVINCIBLE: ['無敵', '10 秒內不會受到傷害。'],
-            SHIELD: ['護盾', '獲得 5000 點護盾（可累積），會一直存在直到把傷害抵掉。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
+            SHIELD: ['護盾', '獲得 50 點護盾（可累積），會一直存在直到把傷害抵掉。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
             MISSILE: ['追蹤導彈', '10 秒內主炮子彈會自動追蹤：先打血量少的敵機，沒有敵機才打字卡。'], LASER_BEAM: ['貫穿雷射', '3 秒的直線雷射，持續貫穿傷害。'],
             HEAL: ['治療', '立刻回復 3000 點血量。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。'] };
         eff = eff || 'BOMB_BOOST'; const list = CONFIG.IDIOMS.filter(i => i.effect === eff), info = word && IDIOM_INFO[word];
@@ -3100,7 +3104,7 @@ const online = window.online = {
     },
     dexShips() {
         const TRAIT = { star: '均衡型：各項能力上限接近，適合新手。', wind: '機動靈巧：體型小、移動速度上限最高，但火力與裝甲上限低。適合對付玻璃砲型 Boss。', bastion: '重裝厚皮：血量與裝甲上限最高，移動較慢。最適合對付彈幕型 Boss。',
-            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。PK 對戰中狙擊改為高速子彈（傷害降低，對手看得到預警線，有機會躲開）。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：子彈無視敵人的裝甲（防禦視為 0），並且對有護盾的目標固定造成 2～3 倍傷害。適合鐵甲型 Boss、坦克與護衛機。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。升滿後 16 發子彈平均散佈在圓周各方向同時放射，不怕被包夾；代價是單發威力低於其他戰機。適合對付玻璃砲型 Boss 與成群的小怪。' };
+            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。PK 對戰中狙擊改為高速子彈（傷害降低，對手看得到預警線，有機會躲開）。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：子彈自帶追蹤（優先追鐵甲類目標），無視敵人的裝甲（防禦視為 0），打到鐵甲類（坦克、護衛機、鐵甲型 Boss）去掉防禦後再造成 2～3 倍傷害，對有護盾的目標同樣是 2～3 倍（不重複疊加）。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。升滿後 16 發子彈平均散佈在圓周各方向同時放射，不怕被包夾；代價是單發威力低於其他戰機。適合對付玻璃砲型 Boss 與成群的小怪。' };
         return '<div class="lst">' + SHIPS.map(S => { const own = G.fleet && G.fleet[S.id] && G.fleet[S.id].own, c = S.cap;
             return `<div class="dx"><img src="${S.id === 'star' ? 'assets/player.png' : 'assets/ship_' + S.id + '.png'}" onerror="this.style.visibility='hidden'"><div><h3 style="color:${S.c}">${S.name} <small style="color:#aaa">${S.role}</small></h3>
                 <div class="t"><b>初始</b> 血量 ${S.hp * SHOW}・移速 ${S.spd}・傷害 ${Math.round(S.dmg * SHOW)}・基礎爆擊率 20%（上限 ${Math.round((S.critMax || 0.5) * 100)}%）・${S.pat === 'snipe' ? '狙擊鎖定 3 秒（射速滿級 1 秒）' : '射速 ' + (1000 / S.int).toFixed(1) + '/秒'}<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}・穿甲 ${c.pen}・爆擊 ${c.crit}・火力覆蓋 ${c.cov}<br><b>火力覆蓋・${COV_INFO[S.pat][0]}</b>（初始 ${covLabel(S, S.base.cov)} → 滿級 ${covLabel(S, c.cov)}）：${COV_INFO[S.pat][1]}<br>${TRAIT[S.id]}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '軍械商店 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
