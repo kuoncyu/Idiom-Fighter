@@ -466,42 +466,44 @@ function bossMods(stage, type) {
     return { f, hp: L(M[0]), dmg: L(M[1]), rate: L(M[2]), shield: ({ TANK: 0.2, FINAL: 0.25 }[type] || 0) * (0.25 + 0.75 * f) };
 }
 // ===== 機種 × Boss 屬性相剋（一物剋一物）=====
-// 只對 Boss 生效的傷害倍率：>1 剋制、1 普通、<1 被剋制；星藍號是均衡型，對任何 Boss 都是 1.0
-// 相剋鏈：① 穿甲號→鐵甲→連射號→玻璃砲→穿甲號　② 烈焰號→鐵甲→疾風號／環陣號→彈幕→烈焰號　③ 堡壘號→彈幕→暗殺號→玻璃砲→堡壘號
-// 穿甲號打鐵甲已有「無視裝甲＋2～3 倍」的專屬機制，所以表內倍率只取 1.3（其餘剋制 1.5、被剋制 0.7）
+// 只對 Boss 生效的傷害倍率。每種 Boss（玻璃砲／鐵甲／彈幕）都是：2 台適合（加成）、2 台普通 ×1.0、2 台被剋 ×0.7。
+// 星藍號（均衡）與環陣號（靠抵銷敵彈）對所有 Boss 都是 ×1.0；終焉 Boss 數值全面偏高、沒有相剋，所有機種都是 ×1.0。
+// 相剋鏈：① 穿甲號→鐵甲→連射號→玻璃砲→穿甲號　② 烈焰號→鐵甲→疾風號→彈幕→烈焰號　③ 堡壘號→彈幕→暗殺號→玻璃砲→堡壘號
+// 加成倍率依機種本身的輸出（單發傷害×射速×彈數）反向調整：輸出越低加成越高（堡壘、疾風 ×1.5），輸出越高加成越低（連射 ×1.25）；
+// 穿甲號打鐵甲另有「無視裝甲＋2～3 倍」的專屬機制，所以表內只給 ×1.15。
 // 環陣號抵銷敵彈所需的子彈數（依敵彈傷害分 5 級）：傷害 1（一般彈）→1 發、1.3～1.5（強化 Boss 彈）→2 發、2（坦克／轟炸）→3 發、3 → 4 發、4 以上（狙擊彈）→5 發
 function cancelNeed(d) { return d < 1.2 ? 1 : d < 1.8 ? 2 : d < 2.6 ? 3 : d < 3.6 ? 4 : 5; }
 const TYPE_MUL = {
-    star:     { GLASS: 1.0, TANK: 1.0, BARRAGE: 1.0 },   // 均衡：沒有弱點、也沒有特別突出
-    wind:     { GLASS: 1.0, TANK: 0.7, BARRAGE: 1.5 },   // 靈活穿梭彈幕，但輕彈被鐵甲擋掉
-    bastion:  { GLASS: 0.7, TANK: 1.0, BARRAGE: 1.5 },   // 厚皮硬吃彈幕，但太慢追不上玻璃砲
-    blaze:    { GLASS: 1.0, TANK: 1.5, BARRAGE: 0.7 },   // 單發重擊打穿鐵甲，但射速慢被彈幕壓制
-    storm:    { GLASS: 1.5, TANK: 0.7, BARRAGE: 1.0 },   // 高射速速殺玻璃砲，但單發太輕破不了鐵甲
-    lance:    { GLASS: 0.7, TANK: 1.3, BARRAGE: 1.0 },   // 穿甲專剋鐵甲，但玻璃砲沒有裝甲可穿
-    assassin: { GLASS: 1.5, TANK: 1.0, BARRAGE: 0.7 },   // 一擊必殺玻璃砲，但彈幕逼你移動、無法蓄力
-    nova:     { GLASS: 1.0, TANK: 0.7, BARRAGE: 1.5 }    // 全向火網不怕彈幕 Boss 繞圈，子彈還能抵銷敵彈；但單發太輕被鐵甲克制
+    star:     { GLASS: 1.0,  TANK: 1.0,  BARRAGE: 1.0 },   // 均衡：沒有弱點、也沒有特別突出
+    nova:     { GLASS: 1.0,  TANK: 1.0,  BARRAGE: 1.0 },   // 全向火網：不吃相剋，靠抵銷敵彈
+    wind:     { GLASS: 1.0,  TANK: 0.7,  BARRAGE: 1.5 },   // 靈活穿梭彈幕；輕彈被鐵甲擋掉
+    bastion:  { GLASS: 0.7,  TANK: 1.0,  BARRAGE: 1.5 },   // 厚皮硬吃彈幕；太慢追不上玻璃砲
+    blaze:    { GLASS: 1.0,  TANK: 1.4,  BARRAGE: 0.7 },   // 單發重擊打穿鐵甲；射速慢被彈幕壓制
+    storm:    { GLASS: 1.25, TANK: 0.7,  BARRAGE: 1.0 },   // 高射速速殺玻璃砲；單發太輕破不了鐵甲
+    lance:    { GLASS: 0.7,  TANK: 1.15, BARRAGE: 1.0 },   // 穿甲專剋鐵甲（另有穿甲機制）；玻璃砲沒有裝甲可穿
+    assassin: { GLASS: 1.3,  TANK: 1.0,  BARRAGE: 0.7 }    // 一擊必殺玻璃砲；彈幕逼你移動、無法蓄力
 };
-function typeMul(sid, bt) {   // 機種對 Boss 類型的傷害倍率；終焉兼具三種特性，取三者平均
-    const m = TYPE_MUL[sid]; if (!m) return 1;
-    return bt === 'FINAL' ? (m.GLASS + m.TANK + m.BARRAGE) / 3 : (m[bt] || 1);
+function typeMul(sid, bt) {   // 機種對 Boss 類型的傷害倍率；終焉沒有相剋，一律 1.0
+    const m = TYPE_MUL[sid]; return m && bt !== 'FINAL' ? (m[bt] || 1) : 1;
 }
-function shipMatchText(sid) {   // 圖鑑：某機種剋制／被剋制哪些 Boss
+function shipMatchText(sid) {   // 圖鑑：某機種適合／被剋的 Boss
     const m = TYPE_MUL[sid]; if (!m) return '';
     const up = [], dn = [];
     ['GLASS', 'TANK', 'BARRAGE'].forEach(k => { const t = BOSS_INFO[k].name + ' ×' + m[k]; if (m[k] > 1) up.push(t); else if (m[k] < 1) dn.push(t); });
-    if (!up.length && !dn.length) return '均衡型：對任何 Boss 都是 ×1.0，沒有弱點，也沒有特別突出。';
-    return (up.length ? '<span style="color:#33ff88">剋制 ' + up.join('、') + '</span>' : '') + (up.length && dn.length ? '　' : '') + (dn.length ? '<span style="color:#ff6b6b">被剋制 ' + dn.join('、') + '</span>' : '') + '（其餘 Boss ×1.0）';
+    if (!up.length && !dn.length) return sid === 'nova' ? '不吃相剋：對任何 Boss 都是 ×1.0，靠抵銷敵彈的特殊功能應付彈幕。' : '均衡型：對任何 Boss 都是 ×1.0，沒有弱點，也沒有特別突出。';
+    return '<span style="color:#33ff88">適合 ' + up.join('、') + '</span>　<span style="color:#ff6b6b">被剋 ' + dn.join('、') + '</span>（其餘 Boss ×1.0；終焉無相剋）';
 }
-function matchupText(bt) {   // 圖鑑：某類 Boss 被哪些機種剋制／剋制哪些機種
-    if (bt === 'FINAL') return '兼具三種特性，各機種傷害差距小（約 ×1.0），靠升級與操作取勝。';
-    const up = SHIPS.filter(S => TYPE_MUL[S.id][bt] > 1).map(S => S.name + ' ×' + TYPE_MUL[S.id][bt]), dn = SHIPS.filter(S => TYPE_MUL[S.id][bt] < 1).map(S => S.name + ' ×' + TYPE_MUL[S.id][bt]);
-    return '<span style="color:#33ff88">怕 ' + up.join('、') + '</span>　<span style="color:#ff6b6b">克制 ' + dn.join('、') + '</span>（星藍號 ×1.0）';
+function matchupText(bt) {   // 圖鑑：某類 Boss 對各機種的相剋
+    if (bt === 'FINAL') return '各項數值都很高，沒有屬性相剋：所有機種傷害都是 ×1.0。';
+    const sp = SHIPS.filter(S => S.id !== 'star' && S.id !== 'nova'), nm = (S, v) => S.name + (v === 1 ? '' : ' ×' + v);
+    const pick = f => sp.filter(S => f(TYPE_MUL[S.id][bt])).map(S => nm(S, TYPE_MUL[S.id][bt])).join('、');
+    return '<span style="color:#33ff88">適合 ' + pick(v => v > 1) + '</span>　普通 ' + pick(v => v === 1) + '　<span style="color:#ff6b6b">被剋 ' + pick(v => v < 1) + '</span>（星藍號、環陣號 ×1.0）';
 }
 const BOSS_INFO = {
     GLASS:   { name:'玻璃砲', short:'玻', desc:'皮薄，但每發子彈傷害極大', tip:'射速快或一擊必殺的戰機最有效；穿甲、重裝反而吃虧' },
     TANK:    { name:'鐵甲',   short:'甲', desc:'血量極厚，需要高傷害才打得穿', tip:'高單發傷害與穿甲最有效；低單發傷害的輕彈戰機打不穿' },
     BARRAGE: { name:'彈幕',   short:'幕', desc:'彈幕密度極高，需要厚皮硬撐', tip:'耐打、靈活或火力覆蓋廣的戰機最有效；要站定蓄力或射速慢的吃虧' },
-    FINAL:   { name:'終焉',   short:'終', desc:'傷害、血量、彈幕兼具的最終 Boss', tip:'火力與裝甲兼備的戰機，機種差距不大' }
+    FINAL:   { name:'終焉',   short:'終', desc:'傷害、血量、彈幕兼具的最終 Boss', tip:'沒有屬性相剋，所有機種都是 ×1.0，靠升級與操作取勝' }
 };
 Object.entries(ASSET_FILES).forEach(([k, src]) => { const im = new Image(); im.onload = () => { IMG[k] = im; }; im.src = src; });
 
@@ -3142,7 +3144,7 @@ const online = window.online = {
     },
     dexShips() {
         const TRAIT = { star: '均衡型：各項能力上限接近，適合新手。', wind: '機動靈巧：體型小、移動速度上限最高，但火力與裝甲上限低。適合對付彈幕型 Boss。', bastion: '重裝厚皮：血量與裝甲上限最高，移動較慢。最適合對付彈幕型 Boss。',
-            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。PK 對戰中狙擊改為高速子彈（傷害降低，對手看得到預警線，有機會躲開）。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：子彈自帶追蹤（優先追鐵甲類目標），無視敵人的裝甲（防禦視為 0），打到鐵甲類（坦克、護衛機、鐵甲型 Boss）去掉防禦後再造成 2～3 倍傷害，對有護盾的目標同樣是 2～3 倍（不重複疊加）。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。升滿後 16 發子彈平均散佈在圓周各方向同時放射，不怕被包夾；子彈碰到敵方子彈時會抵銷：敵彈威力越高需要越多發（一般彈 1 發、強化彈 2 發、重砲彈 3 發、狙擊彈 5 發），能幫自己清出安全空間；代價是單發威力低於其他戰機。適合對付彈幕型 Boss 與成群的小怪。' };
+            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。PK 對戰中狙擊改為高速子彈（傷害降低，對手看得到預警線，有機會躲開）。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：子彈自帶追蹤（優先追鐵甲類目標），無視敵人的裝甲（防禦視為 0），打到鐵甲類（坦克、護衛機、鐵甲型 Boss）去掉防禦後再造成 2～3 倍傷害，對有護盾的目標同樣是 2～3 倍（不重複疊加）。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。升滿後 16 發子彈平均散佈在圓周各方向同時放射，不怕被包夾；子彈碰到敵方子彈時會抵銷：敵彈威力越高需要越多發（一般彈 1 發、強化彈 2 發、重砲彈 3 發、狙擊彈 5 發），能幫自己清出安全空間；代價是單發威力低於其他戰機。對 Boss 沒有相剋（×1.0），靠抵銷敵彈應付彈幕與成群的小怪。' };
         return '<div class="lst">' + SHIPS.map(S => { const own = G.fleet && G.fleet[S.id] && G.fleet[S.id].own, c = S.cap;
             return `<div class="dx"><img src="${S.id === 'star' ? 'assets/player.png' : 'assets/ship_' + S.id + '.png'}" onerror="this.style.visibility='hidden'"><div><h3 style="color:${S.c}">${S.name} <small style="color:#aaa">${S.role}</small></h3>
                 <div class="t"><b>初始</b> 血量 ${S.hp * SHOW}・移速 ${S.spd}・傷害 ${Math.round(S.dmg * SHOW)}・基礎爆擊率 20%（上限 ${Math.round((S.critMax || 0.5) * 100)}%）・${S.pat === 'snipe' ? '狙擊鎖定 3 秒（射速滿級 1 秒）' : '射速 ' + (1000 / S.int).toFixed(1) + '/秒'}<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}・穿甲 ${c.pen}・爆擊 ${c.crit}・火力覆蓋 ${c.cov}<br><b>火力覆蓋・${COV_INFO[S.pat][0]}</b>（初始 ${covLabel(S, S.base.cov)} → 滿級 ${covLabel(S, c.cov)}）：${COV_INFO[S.pat][1]}<br>${TRAIT[S.id]}<br><b>屬性相剋</b> ${shipMatchText(S.id)}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '軍械商店 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
