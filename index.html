@@ -1068,6 +1068,7 @@ class Game {
             <p style="margin:4px 0 8px">${win ? '宇宙已恢復和平！' : this.leftRun ? '本次出擊結算，暗物質已保留' : '升級戰機後再來挑戰吧'}</p><div id="res-extra"></div>
             <div class="res-rows">${rows.map(([k, v]) => `<div class="rrow"><span>${k}</span><b>${v}</b></div>`).join('')}</div>
             <button class="btn btn-start" onclick="game.startNewGame()">再次出擊 [R]</button><button class="btn" onclick="game.setState('LOBBY')">返回大廳 [Enter]</button></div>`;
+        if (window.online && online.showResBlock) online.showResBlock();
     }
 
     isMenu() { return !['PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(this.gameState); }   // 選單類畫面都用戰鬥示範當背景
@@ -2313,7 +2314,8 @@ class Game {
         this.clearT = 5; this.clearNext = next; document.getElementById('boss-bar').style.display = 'none'; sfx.playReady();
     }
     noteStageClear(st, ms) {   // 擊敗 Boss：先記在「本次出擊」的暫存清單，等結束出擊（退出／結束／陣亡／全破）時才與紀錄榜核對
-        if (!(ms > 0)) return; const rc = this.runStageClears = this.runStageClears || {};
+        if (!(ms > 0)) return; const rc = this.runStageClears = this.runStageClears || {}, lg = this.runClearLog = this.runClearLog || {};
+        if (!lg[st] || ms < lg[st].ms) lg[st] = { ms, ship: this.shipId };   // 本局完整紀錄：結算後也不會被清掉，供結算畫面查看
         if (!rc[st] || ms < rc[st].ms) rc[st] = { ms, ship: this.shipId };
         const s = ms / 1000, t = Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0');
         this.showFloatText(`第 ${st} 關擊敗 Boss　${t}`, WORLD.w / 2, WORLD.h * 0.35, '#ffea00');
@@ -2918,13 +2920,29 @@ const online = window.online = {
         G.runStageClears = {}; this._rep = { seq: G.runSeq, items };
         return items;
     },
+    showResBlock() {   // 把「歷史最高分／各關破關時間」放進結算畫面（畫面被重畫時也能補回來）
+        const b = this._resBlock; if (!b || b.seq !== G.runSeq || !['GAMEOVER', 'VICTORY'].includes(G.gameState)) return;
+        const ov = G.uiLayer.querySelector('.menu-overlay'); if (!ov || ov.querySelector('#res-block')) return;
+        (ov.querySelector('#res-extra') || ov).insertAdjacentHTML('beforeend', `<div id="res-block">${b.html}</div>`);
+    },
+    showStageDlg() {   // 結算：本次出擊各關破關時間（含新紀錄、個人紀錄、當時戰機）
+        const log = G.runClearLog || {}, by = {}; ((this._rep && this._rep.seq === G.runSeq) ? this._rep.items : []).forEach(r => { by[r.st] = r; });
+        const keys = Object.keys(log).map(Number), from = G.runStart || 1, to = Math.max(G.currentStage || from, ...keys, from), rows = [];
+        for (let st = from; st <= to; st++) {
+            const c = log[st], r = by[st], best = this.profile ? this.profile['s' + st + 'Ms'] : undefined;
+            const st2 = !c ? '<small>未擊敗</small>' : r && r.isNew ? `<small style="color:#33ff88">新紀錄！已更新榜單${r.old !== undefined ? `（原 ${fmtTime(r.old)}）` : ''}</small>` : best !== undefined ? `<small>個人紀錄 ${fmtTime(best)}</small>` : '';
+            rows.push(`<div class="mx-card ${c ? '' : 'lk'}"><img class="sh" src="assets/boss_${st}.png" onerror="this.style.visibility='hidden'"><div class="tx"><b style="color:var(--neon-gold)">第 ${st} 關 ${c ? fmtTime(c.ms) : '—'}</b><small>${bossLabel(st)}${c ? '｜' + ((SHIPS.find(x => x.id === c.ship) || {}).name || '') : ''}</small>${st2}</div>${c && this.user ? `<button class="sm2" onclick="online.openStageRank(${st})">榜單</button>` : ''}</div>`);
+        }
+        G.dialog(`<div class="mx"><h3 style="color:var(--neon-gold)">各關破關時間</h3><small>從第 ${from} 關出發，到第 ${to} 關</small>${rows.join('')}<div style="text-align:center"><button class="btn btn-start" onclick="game.closeDlg()">關閉 [Esc]</button></div></div>`);
+    },
+    openStageRank(st) { G.closeDlg(); G.setState('RANK'); this.renderRank('stage', st); },
     finishRun(victory) {
         if (!this.profile || G.pkMode) return;
         { const use = this.profile.shipUse = Object.assign({}, this.profile.shipUse), sid = G.shipId; use[sid] = (use[sid] || 0) + 1; this.profile.topShip = this.topShip(this.profile); }
         const score = Math.round((G.runDM || 0) * 10); this.profile.bestScore = Math.max(this.profile.bestScore || 0, score);
         const rep = this.settleStages();   // 不論退出、結束、陣亡或全破，都先把各關擊敗 Boss 的成績核對進紀錄榜
-        const nNew = rep.filter(r => r.isNew).length;
-        const stx = rep.length ? `<details class="res-stages"><summary>各關破關時間（${rep.length} 關${nNew ? `・<b style="color:#33ff88">${nNew} 項新紀錄</b>` : ''}）</summary><div class="res-st-list">` + rep.map(r => `<div class="rst"><span>第 ${r.st} 關</span><b>${fmtTime(r.ms)}</b><em>` + (r.isNew ? '<i style="color:#33ff88;font-style:normal">新紀錄！已更新榜單</i>' + (r.old !== undefined ? `<small>（原 ${fmtTime(r.old)}）</small>` : '') : `<small>個人紀錄 ${fmtTime(r.best)}</small>`) + '</em></div>').join('') + '</div></details>' : '';
+        const nNew = rep.filter(r => r.isNew).length, nLog = Object.keys(G.runClearLog || {}).length;
+        const stx = nLog ? `<button class="btn" style="margin:6px 0" onclick="online.showStageDlg()">各關破關時間（${nLog} 關${nNew ? `・${nNew} 項新紀錄` : ''}）▸ 點開查看</button>` : '';
         let extra = '';
         if (victory && G.runStart === 1) {
             const ms = Math.round(G.runClock * 1000), best = this.profile.bestClearMs;
@@ -2934,8 +2952,8 @@ const online = window.online = {
             } else extra = `<br>全關卡破關時間 ${fmtTime(ms)}（個人紀錄 ${fmtTime(best)}）`;
         } else if (victory) extra = '<br><small>從第 1 關出發並通關才會計入「全關卡破關時間」排行</small>';
         this.queuePush(); clearTimeout(this._pt); this.pushNow();   // 結算後立刻上傳，不等延遲
-        const el = $('res-extra') || G.uiLayer.querySelector('.menu-overlay');
-        if (el) el.insertAdjacentHTML('beforeend', `<p style="color:var(--neon-gold)">歷史最高分 <b>${this.profile.bestScore}</b>${extra}</p>${stx}`);
+        this._resBlock = { seq: G.runSeq, html: `<p style="color:var(--neon-gold)">歷史最高分 <b>${this.profile.bestScore}</b>${extra}</p>${stx}` };
+        this.showResBlock();
     },
 
     // ===== 畫面分派 =====
@@ -3681,7 +3699,7 @@ wrap('draw', function (o) { o.call(this); if (this.pkMode && this.gameState === 
 wrap('save', function (o) { o.call(this); online.queuePush(); });
 wrap('dropDarkMatter', function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = this.darkMatter - b; if (d > 0) online.stat('totalDM', d); });
 ['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); }));
-wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; this.runStageClears = {}; this.stageStartFor = undefined; this.runSeq = (this.runSeq || 0) + 1; });
+wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; this.runStageClears = {}; this.runClearLog = {}; this.stageStartFor = undefined; this.runSeq = (this.runSeq || 0) + 1; });
 wrap('startTransition', function (o, n) { if (this.pkMode) { this.currentSub = 1; this.resetStage(); return; } o.call(this, n); });
 wrap('startCast', function (o, idiom, remote) {
     o.call(this, idiom);
