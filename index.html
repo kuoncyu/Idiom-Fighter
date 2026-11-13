@@ -988,7 +988,10 @@ class Game {
             if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
             if (!e.repeat) this.handleKey(e);
         });
-        ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click'].forEach(ev => window.addEventListener(ev, () => this.anyInputResume(true), { capture: true, passive: true }));   // 暫停中：手機觸控、電腦滑鼠點一下畫面就回到遊戲
+        ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click'].forEach(ev => window.addEventListener(ev, (e) => {
+            const t = e.target; if (t && t.closest && t.closest('#chat-fab, #chat-panel')) { if (ev === 'pointerdown' || ev === 'touchstart') this.chatPause(); return; }   // 點聊天室：戰鬥中自動暫停；暫停中點聊天室內不會恢復
+            this.anyInputResume(true);
+        }, { capture: true, passive: true }));   // 暫停中：手機觸控、電腦滑鼠點一下畫面就回到遊戲
         document.addEventListener('visibilitychange', () => { if (document.hidden && this.gameState === 'PLAYING' && !this.paused) { this.paused = true; music.pause(true); } });   // 手機切到背景（不一定會觸發 blur）也先暫停，回來點一下就繼續
         window.addEventListener('blur', () => { this.keys = {}; if (this.gameState === 'PLAYING') { this.paused = true; music.pause(true); } });
         window.addEventListener('keyup', (e) => this.keys[e.code] = false);
@@ -1446,6 +1449,12 @@ class Game {
         this.paused = false; music.pause(false); this._resumedAt = now; if (fromPointer) this._swallowUntil = now + 300;   // 這一下點擊只用來恢復，不要同時施放成語
         return true;
     }
+    chatPause() {   // 戰鬥中點到聊天室：自動暫停（聊天室裡的操作不會讓戰鬥恢復，點聊天室以外的地方才會恢復）
+        if (this.gameState !== 'PLAYING' || this.paused || this.dlgOpen || this.pkMode) return;
+        this.paused = true; music.pause(true);
+    }
+    battleChatOn() { try { return localStorage.getItem('idiomChatBattle') !== '0'; } catch (e) { return true; } }   // 戰鬥中是否顯示聊天室（預設顯示）
+    setBattleChat(on) { try { localStorage.setItem('idiomChatBattle', on ? '1' : '0'); } catch (e) {} if (window.online) online.updateChatVis(); }
     togglePause() {   // 畫面上方的暫停鍵（手機／平板用）。暫停中點任何地方（含這個鍵）都會先由 anyInputResume 恢復，所以這裡只負責「暫停」
         if (this.gameState !== 'PLAYING' || this.paused || this.casting || this.dlgOpen || this.pkMode) return;
         if (performance.now() - (this._resumedAt || 0) < 600) return;   // 剛剛這一下點擊已經用來恢復遊戲，不要又立刻暫停
@@ -1476,6 +1485,7 @@ class Game {
             <label>音樂音量（大廳、關卡、結算音樂）<input type="range" min="0" max="100" value="${Math.round(this.volMusic * 100)}" oninput="game.setVol('music', this.value)"></label>
             <label>音效音量（射擊、爆炸、招式聲）<input type="range" min="0" max="100" value="${Math.round(this.volSfx * 100)}" oninput="game.setVol('sfx', this.value)"></label>
             <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" ${localStorage.getItem('idiomFS') !== '0' ? 'checked' : ''} onchange="game.setAutoFS(this.checked)" style="width:auto;"> 開啟遊戲時自動全螢幕</label><button class="btn" onclick="game.toggleFullscreen()">全螢幕 ／ 離開全螢幕</button>
+            <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" ${this.battleChatOn() ? 'checked' : ''} onchange="game.setBattleChat(this.checked)" style="width:auto;"> 戰鬥中顯示聊天室（右下角）</label>
             <small style="color:#8aa;">快捷鍵：O 設定　H 回首頁（戰鬥中）　P／Esc 暫停</small>
             <button class="btn" onclick="game.offlineDialog()">離線資料包：${this.offlineInfo()}</button><button class="btn" onclick="game.aboutDialog()">關於（版本 ${APP_VERSION}）</button>
             <button class="btn btn-start" onclick="game.closeDlg()">關閉 [Esc]</button>`);
@@ -2745,6 +2755,8 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .sm{padding:3px 8px;border-radius:6px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.12);color:#fff;cursor:pointer;font-size:.8rem;font-family:inherit}.sm.red{border-color:#ff6b6b}
 #toast{position:absolute;top:14%;left:50%;transform:translateX(-50%);z-index:70;background:rgba(5,5,16,.95);border:1px solid var(--neon-gold);color:var(--neon-gold);padding:8px 16px;border-radius:10px;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90vw;text-align:center}
 #chat-fab{position:absolute;right:14px;bottom:14px;z-index:40;width:52px;height:52px;border-radius:50%;border:2px solid var(--neon-blue);background:rgba(5,5,16,.92);color:#fff;font-size:1.5rem;cursor:pointer;display:none;box-shadow:0 0 14px rgba(0,242,255,.5)}
+#chat-fab.bt{width:42px;height:42px;font-size:1.15rem;opacity:.85}
+@media (max-width:700px){#chat-fab.bt{bottom:100px}#chat-panel.bt{bottom:150px;height:min(50vh,380px)}}
 #chat-fab i{position:absolute;top:-6px;right:-6px;min-width:20px;box-sizing:border-box;text-align:center;background:#ff3366;color:#fff;border:1px solid #fff;border-radius:11px;font-size:.7rem;font-weight:bold;line-height:1.3;padding:1px 5px;font-style:normal;display:none}
 .tbd{display:inline-block;margin-left:4px;min-width:16px;box-sizing:border-box;background:#ff3366;color:#fff;border-radius:9px;font-size:.65rem;padding:0 4px;font-style:normal}
 .fnum{color:var(--neon-gold);min-width:1.8em;text-align:right}.fname{cursor:pointer;text-decoration:underline dotted #667}.msg b.mn{cursor:pointer}
@@ -3194,7 +3206,7 @@ const online = window.online = {
         $('ch-send').onclick = () => this.sendChat(); $('ch-input').onkeydown = e => { if (e.key === 'Enter') this.sendChat(); };
         this.updateChatVis();
     },
-    updateChatVis() { const f = $('chat-fab'); if (!f) return; const show = this.user && !['INIT', 'LOGIN', 'PLAYING', 'TRANSITION'].includes(G.gameState); f.style.display = show ? 'block' : 'none'; if (!show) { $('chat-panel').style.display = 'none'; } else if (this.chat.open) $('chat-panel').style.display = 'flex'; },
+    updateChatVis() { const f = $('chat-fab'); if (!f) return; const bt = ['PLAYING', 'TRANSITION'].includes(G.gameState), show = this.user && !['INIT', 'LOGIN'].includes(G.gameState) && (!bt || (G.battleChatOn() && !G.pkMode)); f.classList.toggle('bt', bt); $('chat-panel').classList.toggle('bt', bt); f.style.display = show ? 'block' : 'none'; if (!show) { $('chat-panel').style.display = 'none'; } else if (this.chat.open) $('chat-panel').style.display = 'flex'; },
     toggleChat(v) {
         const c = this.chat; c.open = v === undefined ? !c.open : v; $('chat-panel').style.display = c.open ? 'flex' : 'none';
         if (c.open) { if (!c.th) this.openChat(c.tab); this.recount(); }
