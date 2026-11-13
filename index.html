@@ -460,6 +460,7 @@ function patternShots(S, lv, solo) {   // solo：沒有狙擊系統可用的場�
 }
 const SNIPE_SIDE_DM = 0.6, SNIPE_K = 10, SNIPE_CRIT_BONUS = 0.3, SNIPE_T0 = 3, SNIPE_T1 = 1;   // 附炮傷害倍率／狙擊傷害倍率／鎖定爆擊加成／基礎與滿級鎖定秒數
 // ===== PK 平衡：部分戰機輸出過高，PK 時削弱；狙擊改成高速子彈，可以被躲開 =====
+const PK_LV = 3;   // PK 場地：所有戰機各項能力一律固定的等級（不使用玩家自己的升級，也不影響真實進度）
 const PK_NERF = { blaze: 0.6, storm: 0.7, lance: 0.8 }, SNIPE_K_PK = 3.5, SNIPE_PK_CRIT = 0.1, PK_SNIPE_SPEED = 1500;   // 各戰機 PK 傷害倍率／PK 狙擊傷害倍率／爆擊加成／子彈速度（一般子彈 800）
 function segDist(ax, ay, bx, by, px, py) {   // 點到線段的距離（高速子彈用，避免一幀穿過目標）
     const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy; let t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0; t = Math.max(0, Math.min(1, t));
@@ -1463,7 +1464,7 @@ class Game {
         this.dlgResume = false;
     }
     goHome() {
-        if (this.dlgOpen || this.gameState === 'INIT' || this.gameState === 'LOBBY' || this.gameState === 'TRANSITION') return;
+        if (this.dlgOpen || this.gameState === 'INIT' || this.gameState === 'LOBBY') return;
         if (this.gameState !== 'PLAYING') { this.setState('LOBBY'); return; }
         this.dialog('<h3>回到首頁？</h3><p>本次出擊將結束，暗物質會保留。</p><button class="btn" onclick="game.closeDlg()">繼續戰鬥 [Esc]</button><button class="btn btn-start" onclick="game.leave()">回首頁 [Enter]</button>', () => this.leave());
     }
@@ -2646,19 +2647,33 @@ const FORCE_UPDATE = {
         try { const r = await fetch('index.html?_=' + Date.now(), { cache: 'reload' }); if (r.ok) { const m = /const APP_VERSION = '([^']+)'/.exec(await r.text()); if (m && VER_RE.test(m[1])) return m[1]; } } catch (e) {}
         return null;
     },
+    quiet(gs) { return gs === 'PLAYING' || gs === 'TRANSITION' || gs === 'GAMEOVER' || gs === 'VICTORY'; },   // 出擊中或結算畫面：不打斷，但之後不能再出擊／回大廳
+    known() { try { return localStorage.getItem('idiomLatestV') || ''; } catch (e) { return ''; } },
+    blocked() { return !!(this.pendingV && verNewer(this.pendingV, APP_VERSION)); },   // 目前這一版已經不是最新版
+    gate() {   // 已知有新版時擋住遊戲：線上→顯示「下載更新」；離線→要求連網更新。回傳 true＝已擋下
+        if (!this.blocked()) return false;
+        if (navigator.onLine && /^https?:$/.test(location.protocol)) this.prompt(this.pendingV); else this.offlineBlock(this.pendingV);
+        return true;
+    },
+    offlineBlock(v) {
+        if (this.prompting || this.busy) return;
+        this.overlay(`<h2 style="color:#ff6b6b;margin:0 0 8px">需要更新</h2><p>目前版本 ${APP_VERSION} 已不是最新版本（${v}）。<br>必須連上網路更新到最新版本，才能繼續遊玩。<br><small style="color:#9ab">連線後會自動出現更新視窗</small></p>`);
+    },
     async check(force) {
         try {
             if (this.busy || !/^https?:$/.test(location.protocol) || !navigator.onLine) return;
-            const gs = game.gameState; if (!force && (gs === 'PLAYING' || gs === 'TRANSITION')) return;   // 不打斷進行中的出擊，回到大廳後再更新
             if (!force && Date.now() - this.last < 60000) return; this.last = Date.now();
             const v = await this.latest(); if (!v) return;
-            if (!verNewer(v, APP_VERSION)) { try { sessionStorage.removeItem('idiomUpd'); } catch (e) {} return; }   // 線上版本不比目前新 → 不用更新
-            this.prompt(v);   // 不再自動更新：跳出視窗，等玩家按下「下載更新」
+            try { localStorage.setItem('idiomLatestV', v); } catch (e) {}   // 記下最新版本：離線時也能判斷自己是不是舊版
+            if (!verNewer(v, APP_VERSION)) { this.pendingV = null; try { sessionStorage.removeItem('idiomUpd'); } catch (e) {} return; }   // 線上版本不比目前新 → 不用更新
+            this.pendingV = v;
+            if (this.quiet(game.gameState)) return;   // 不打斷進行中的出擊；這局結束後，回大廳或再次出擊時就會被擋下，必須更新
+            this.prompt(v);   // 跳出視窗，玩家按下「下載更新」才清快取並重新載入；沒更新就無法繼續遊玩
         } catch (e) {}
     },
     prompt(newV) {
         if (this.prompting || this.busy) return; this.prompting = true; this.pendingV = newV;
-        this.overlay(`<h2 style="color:#00f2ff;margin:0 0 8px">發現新版本</h2><p>目前版本 ${APP_VERSION} → 最新版本 ${newV}<br>請先更新後再開始遊戲。</p>
+        this.overlay(`<h2 style="color:#00f2ff;margin:0 0 8px">發現新版本</h2><p>目前版本 ${APP_VERSION} → 最新版本 ${newV}<br>必須更新到最新版本才能繼續遊玩。</p>
             <button class="btn btn-start" onclick="FORCE_UPDATE.run('${newV}')">下載更新 [Enter]</button>`);
     },
     async run(newV) {
@@ -2685,8 +2700,9 @@ window.addEventListener('keydown', e => {
     e.preventDefault(); e.stopImmediatePropagation();
     if ((e.key === 'Enter' || e.key === ' ') && FORCE_UPDATE.prompting && !FORCE_UPDATE.busy) FORCE_UPDATE.run(FORCE_UPDATE.pendingV);
 }, true);
+{ const kv = FORCE_UPDATE.known(); if (kv && verNewer(kv, APP_VERSION)) FORCE_UPDATE.pendingV = kv; }   // 上次連網時已經知道有新版 → 這一版直接視為過期
 FORCE_UPDATE.check(true);
-window.addEventListener('online', () => FORCE_UPDATE.check());
+window.addEventListener('online', () => FORCE_UPDATE.check(true));
 document.addEventListener('visibilitychange', () => { if (!document.hidden) FORCE_UPDATE.check(); });
 setInterval(() => FORCE_UPDATE.check(), 10 * 60 * 1000);
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
@@ -2938,6 +2954,7 @@ const online = window.online = {
     openStageRank(st) { G.closeDlg(); G.setState('RANK'); this.renderRank('stage', st); },
     finishRun(victory) {
         if (!this.profile || G.pkMode) return;
+        this._finSeq = G.runSeq;   // 這一局已結算過（關閉網頁時避免重複結算）
         { const use = this.profile.shipUse = Object.assign({}, this.profile.shipUse), sid = G.shipId; use[sid] = (use[sid] || 0) + 1; this.profile.topShip = this.topShip(this.profile); }
         const score = Math.round((G.runDM || 0) * 10); this.profile.bestScore = Math.max(this.profile.bestScore || 0, score);
         const rep = this.settleStages();   // 不論退出、結束、陣亡或全破，都先把各關擊敗 Boss 的成績核對進紀錄榜
@@ -3034,7 +3051,7 @@ const online = window.online = {
         if (!this._actBound) {
             this._actBound = true;
             ['pointerdown', 'pointermove', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, () => online.touch(), { passive: true }));
-            window.addEventListener('pagehide', () => { try { if (online.settleStages().some(x => x.isNew)) { online.queuePush(); online.pushNow(); } } catch (e) {} online.goOffline(); });
+            window.addEventListener('pagehide', () => { try { if (['PLAYING', 'TRANSITION'].includes(G.gameState) && !G.pkMode && online.profile && online._finSeq !== G.runSeq) { G.leftRun = true; online.finishRun(false); } else if (online.settleStages().some(x => x.isNew)) { online.queuePush(); online.pushNow(); } } catch (e) {} online.goOffline(); });   // 戰鬥中直接關閉網頁也當作「結束出擊」，與陣亡、破關同樣結算
         }
         this.onl = {}; this.onlSet = null; this._presT0 = Date.now(); this.touch(true);
         this.unsubs.push(db.collection('presence').where('lastActive', '>', Date.now() - 30 * 60000).onSnapshot(s => {
@@ -3519,7 +3536,7 @@ const online = window.online = {
             ${host ? `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:6px 0">${[1,2,3,4,5,6,7,8,9].map(n => `<button onclick="online.pkMap(${n})" title="第 ${n} 關・${BOSS_NAMES[n]}" style="height:46px;border-radius:6px;cursor:pointer;color:#fff;font-size:.75rem;font-family:inherit;text-shadow:0 0 4px #000,0 0 4px #000;border:2px solid ${r.stage === n ? 'var(--neon-gold)' : '#334'};background:linear-gradient(rgba(0,0,10,.35),rgba(0,0,10,.35)),url(assets/bg/stage${n}.jpg) center/cover">${n}</button>`).join('')}<button onclick="online.pkMap(0)" style="height:46px;border-radius:6px;cursor:pointer;color:#fff;font-size:.85rem;font-family:inherit;border:2px solid ${!r.stage ? 'var(--neon-gold)' : '#334'};background:#0b0b22">🎲 隨機</button></div>` : ''}
             <div class="row"><span>主控端：${esc(r.hostName || '')}　${shipName(r.hostShip)}</span><b>${r.hostReady ? '已準備' : '未準備'}</b></div>
             <div class="row"><span>客戶端：${r.guest ? esc(r.guestName) + '　' + shipName(r.guestShip) : '等待玩家加入…'}</span><b>${r.guest ? (r.guestReady ? '已準備' : '未準備') : ''}</b></div>
-            <h4>選擇戰機</h4><div>${owned.map(S => `<button class="chip ${G.shipId === S.id ? 'on' : ''}" onclick="online.pkShip('${S.id}')">${S.name}</button>`).join('')}</div>
+            <h4>選擇戰機</h4><p class="muted" style="margin:2px 0 6px">PK 場地：所有戰機各項能力一律固定為 ${PK_LV} 級（不使用你的升級）</p><div>${owned.map(S => `<button class="chip ${G.shipId === S.id ? 'on' : ''}" onclick="online.pkShip('${S.id}')">${S.name}</button>`).join('')}</div>
             <div style="display:flex;gap:8px;margin-top:10px"><button class="btn ${r[me + 'Ready'] ? '' : 'btn-start'}" onclick="online.pkReady()">${r[me + 'Ready'] ? '取消準備' : '準備'}</button>
             ${host ? `<button class="btn btn-start" ${both ? '' : 'disabled'} onclick="online.pkStart()">開戰</button>` : ''}</div>
             ${host && this.friends.length ? `<h4>邀請好友</h4>${this.friends.map(f => `<button class="chip" onclick="online.invite('${f.uid}')">${esc(f.name)}</button>`).join('')}` : ''}
@@ -3566,10 +3583,21 @@ const online = window.online = {
     },
     roomUpdate(patch) { if (this.pk) return this.roomRef(this.pk.code).update(patch).catch(e => toast(errMsg(e))); },
     pkMap(n) { if (!this.pk || this.pk.role !== 'host') return; this.roomUpdate({ stage: Math.max(0, Math.min(9, n | 0)) }); },   // 0＝隨機（開戰時由主控端抽選，寫入 playStage）
+    pkEnterFleet() {   // 對戰用機庫：全部機種、各項能力固定 PK_LV 級（各項不超過該機種上限）
+        if (G._pkFleet) return;
+        const f = {}; SHIPS.forEach(S => { f[S.id] = { own: true }; STAT_KEYS.forEach(([k]) => { f[S.id][k] = Math.min(PK_LV, S.cap[k]); }); });
+        G._realFleet = G.fleet; G._pkFleet = G.fleet = f;
+    },
+    pkRestoreFleet() {   // 結束對戰：換回玩家真實的機庫
+        if (!G._pkFleet) return;
+        if (G.fleet === G._pkFleet && G._realFleet) G.fleet = G._realFleet;
+        G._pkFleet = G._realFleet = null; G.applyUpgrades();
+    },
     pkShip(id) { G.shipId = id; G.applyUpgrades(); G.save(); this.roomUpdate({ [this.pk.role + 'Ship']: id }); },
     pkReady() { const k = this.pk.role + 'Ready'; this.roomUpdate({ [k]: !this.pk.room[k] }); },
     pkStart() { const r = this.pk.room; if (r.guest && r.hostReady && r.guestReady) this.roomUpdate({ state: 'playing', startAt: Date.now(), playStage: r.stage || (1 + Math.floor(Math.random() * 9)) }); },
     pkLeave(userAction) {
+        this.pkRestoreFleet();
         const p = this.pk; if (!p) return; this.pk = null;
         try { p.unsub && p.unsub(); p.unsubEv && p.unsubEv(); p.unsubPos && p.unsubPos(); } catch (e) {}
         clearInterval(this._pkTimer); const h = $('pk-hud'); if (h) h.remove();
@@ -3582,6 +3610,7 @@ const online = window.online = {
         $('game-container').insertAdjacentHTML('beforeend', '<div id="pk-hud"></div>');
         const keep = { s: G.startStage, b: G.bestStage }; G.bestStage = 9; G.startStage = r.playStage || r.stage || 1; G.pkMode = true; G.pkTime = 0;
         const myShip = r[me + 'Ship']; if (myShip && G.fleet[myShip] && G.fleet[myShip].own) G.shipId = myShip;
+        this.pkEnterFleet();   // 全機種能力固定 3 級，雙方公平
         G.startNewGame(); G.startStage = keep.s; G.bestStage = keep.b;
         p.ghost = { x: WORLD.w / 2, y: 150, tx: WORLD.w / 2, ty: 150, cd: 600 }; p.gt = null; p.bk = 1;   // 對手（在我的畫面上方，面朝下）
         this.roomUpdate({ [me + 'St']: { dmg: G.st.dmg, iv: G.st.interval, pen: G.st.pen, crit: G.st.crit, wl: G.weaponLvl, pt: G.ship().id, cv: G.covLv || 0, r: G.player.radius, sn: G.snipeNeedOf(G.shipId) } });   // 讓對手畫面能模擬我的子彈
@@ -3696,10 +3725,12 @@ wrap('setState', function (o, state) {
 });
 wrap('renderLobby', function (o) { if (online._pendingAdmin && !['PLAYING', 'TRANSITION'].includes(this.gameState)) { const d = online._pendingAdmin; online._pendingAdmin = null; online.applyAdminDoc(d); this.renderLobby(); return; } o.call(this); const t = document.querySelector('.tiles'); if (t) t.insertAdjacentHTML('beforeend', online.extraTiles()); });
 wrap('draw', function (o) { o.call(this); if (this.pkMode && this.gameState === 'PLAYING' && online.pk) online.drawGhost(this.ctx); });
-wrap('save', function (o) { o.call(this); online.queuePush(); });
+wrap('save', function (o) { if (this._pkFleet && this._realFleet) { const f = this.fleet; this.fleet = this._realFleet; try { o.call(this); } finally { this.fleet = f; } } else o.call(this); online.queuePush(); });   // PK 期間存檔一律存真實進度，不會把 PK 用的 3 級數值存進去
 wrap('dropDarkMatter', function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = this.darkMatter - b; if (d > 0) online.stat('totalDM', d); });
 ['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); }));
 wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; this.runStageClears = {}; this.runClearLog = {}; this.stageStartFor = undefined; this.runSeq = (this.runSeq || 0) + 1; });
+wrap('startNewGame', function (o) { if (!this.pkMode && FORCE_UPDATE.gate()) return; o.call(this); });   // 不是最新版：不能開始出擊
+wrap('setState', function (o, state) { if (!['INIT', 'PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(state)) FORCE_UPDATE.gate(); return o.call(this, state); });   // 不是最新版：離開結算、進入大廳或任何選單時，立刻跳出更新視窗
 wrap('startTransition', function (o, n) { if (this.pkMode) { this.currentSub = 1; this.resetStage(); return; } o.call(this, n); });
 wrap('startCast', function (o, idiom, remote) {
     o.call(this, idiom);
