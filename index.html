@@ -384,10 +384,11 @@ const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 
 // 後面關卡的暗物質收入是第 1 關的數十倍（每關約 60 → 5000 DM），所以花費不能線性成長，要隨等級指數放大。
 // 戰機各項升級：目前等級 L → L+1 的費用，Lv1 約 160（前期和舊版接近），之後每升一級再 ×1.22（Lv5 約 1,000、Lv10 約 5,000、Lv15 約 20,000）
 const upgradeCost = L => Math.round(80 * (L + 1) * Math.pow(1.22, L - 1) / 10) * 10;
-// 軍械商店「全體升級」：依目前等級查表（成語列 1→6、磁吸字塊 0→5、暗物質回收 0→5）
-const SLOT_COST = [150, 500, 1500, 4500, 12000], MAGNET_COST = [300, 900, 2800, 8000, 20000], DMREC_COST = [500, 1500, 4500, 12000, 30000];
-// 磁吸字塊：各等級的吸附範圍（離戰機多遠的字塊會被吸過來；字塊掉落時彼此約隔 34）。Lv1 只吸身邊約 1 格，Lv5 = 全螢幕
-const MAGNET_RANGE = [0, 90, 190, 340, 560, Infinity];
+// 軍械商店「全體升級」：依目前等級查表（成語列 1→6、磁吸字塊 0→10、暗物質回收 0→5）
+const SLOT_COST = [150, 500, 1500, 4500, 12000], MAGNET_COST = [300, 900, 2800, 8000, 20000, 50000, 125000, 310000, 780000, 1950000],   // Lv1～5 原價不變；Lv6～10 每級約 ×2.5 往上加
+     DMREC_COST = [500, 1500, 4500, 12000, 30000];
+// 磁吸字塊：各等級的吸附範圍（離戰機多遠的字塊會被吸過來；字塊掉落時彼此約隔 34）。Lv1 只吸身邊約 1 格，Lv10 = 全螢幕（Lv2～9 依序遞增）
+const MAGNET_MAX = 10, MAGNET_RANGE = [0, 90, 150, 220, 300, 390, 490, 610, 750, 900, Infinity];
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
 function updateWorld() {
@@ -1753,7 +1754,7 @@ class Game {
                 run: () => { this.darkMatter -= X.price; this.fleet[X.id].own = true; } });
         });
         [['成語列', '同時收集的成語數', this.maxSlots, 6, SLOT_COST[this.maxSlots - 1] || 0, () => { this.maxSlots++; this.fillEmptySlots(); }, 'slots'],
-         ['磁吸字塊', '字塊自動吸附範圍（Lv1 只吸身邊約 1 格，Lv5 吸全螢幕）', this.magnetLvl, 5, MAGNET_COST[this.magnetLvl] || 0, () => this.magnetLvl++, 'magnet'],
+         ['磁吸字塊', '字塊自動吸附範圍（Lv1 只吸身邊約 1 格，Lv10 吸全螢幕）', this.magnetLvl, MAGNET_MAX, MAGNET_COST[this.magnetLvl] || 0, () => this.magnetLvl++, 'magnet'],
          ['暗物質回收', '暗物質獲得 +20%', this.dmLvl, 5, DMREC_COST[this.dmLvl] || 0, () => this.dmLvl++, 'dm']].forEach(([n, d, lv, max, cost, f, ic]) => {
             rows.push({ t: `${n} Lv.${lv}/${max}`, svg: SHOP_ICONS[ic], dis: lv >= max || this.darkMatter < cost, sub: lv >= max ? '已滿級' : `${d}・${cost} DM`, run: () => { this.darkMatter -= cost; f(); } });
         });
@@ -1785,7 +1786,7 @@ class Game {
     load() {
         try {
             const v = JSON.parse(localStorage.getItem('idiomShooterSave') || 'null'); if (!v) return;
-            this.darkMatter = v.dm || 0; this.maxSlots = v.s || 1; this.magnetLvl = v.m || 0; this.dmLvl = v.d || 0;
+            this.darkMatter = v.dm || 0; this.maxSlots = v.s || 1; this.magnetLvl = Math.min(MAGNET_MAX, v.m || 0); this.dmLvl = v.d || 0;
             this.bestStage = Math.min(9, v.b || 1); this.startStage = Math.min(v.t || 1, this.bestStage);
             if (v.f) { SHIPS.forEach(S => { if (v.f[S.id]) Object.assign(this.fleet[S.id], v.f[S.id]); }); if (this.fleet[v.i] && this.fleet[v.i].own) this.shipId = v.i; }
             else { const f = this.fleet.star; f.dmg = Math.min(v.w || 1, 8); f.hp = Math.min(v.h || 0, 8); f.spd = Math.min(v.e || 0, 8); }   // 舊版存檔轉入星藍號
@@ -2219,8 +2220,8 @@ class Game {
             }
             c.pos.y += 120 * dt; 
             const cd = Math.hypot(c.pos.x - this.player.pos.x, c.pos.y - this.player.pos.y);
-            if (this.magnetLvl > 0 && cd > 1 && cd < MAGNET_RANGE[Math.min(5, this.magnetLvl)]) { const sp = (240 + this.magnetLvl * 60) * dt; c.pos.x += (this.player.pos.x - c.pos.x) / cd * sp; c.pos.y += (this.player.pos.y - c.pos.y) / cd * sp; }
-            if (cd < 40 + this.magnetLvl * 10) {
+            if (this.magnetLvl > 0 && cd > 1 && cd < MAGNET_RANGE[Math.min(MAGNET_MAX, this.magnetLvl)]) { const sp = (240 + this.magnetLvl * 60) * dt; c.pos.x += (this.player.pos.x - c.pos.x) / cd * sp; c.pos.y += (this.player.pos.y - c.pos.y) / cd * sp; }
+            if (cd < 40 + Math.min(5, this.magnetLvl) * 10 + Math.max(0, this.magnetLvl - 5) * 5) {   // 拾取半徑：Lv5 以前同原本，之後每級 +5
                 this.collectChar(c.char); this.charItems.splice(i, 1);
             }
         });
@@ -3728,7 +3729,7 @@ wrap('draw', function (o) { o.call(this); if (this.pkMode && this.gameState === 
 wrap('save', function (o) { if (this._pkFleet && this._realFleet) { const f = this.fleet; this.fleet = this._realFleet; try { o.call(this); } finally { this.fleet = f; } } else o.call(this); online.queuePush(); });   // PK 期間存檔一律存真實進度，不會把 PK 用的 3 級數值存進去
 wrap('dropDarkMatter', function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = this.darkMatter - b; if (d > 0) online.stat('totalDM', d); });
 ['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); }));
-wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; this.runStageClears = {}; this.runClearLog = {}; this.stageStartFor = undefined; this.runSeq = (this.runSeq || 0) + 1; });
+wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; this.runStageClears = {}; this.runClearLog = {}; this.stageStart = 0; this.stageStartFor = this.currentStage; this.runSeq = (this.runSeq || 0) + 1; });
 wrap('startNewGame', function (o) { if (!this.pkMode && FORCE_UPDATE.gate()) return; o.call(this); });   // 不是最新版：不能開始出擊
 wrap('setState', function (o, state) { if (!['INIT', 'PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(state)) FORCE_UPDATE.gate(); return o.call(this, state); });   // 不是最新版：離開結算、進入大廳或任何選單時，立刻跳出更新視窗
 wrap('startTransition', function (o, n) { if (this.pkMode) { this.currentSub = 1; this.resetStage(); return; } o.call(this, n); });
