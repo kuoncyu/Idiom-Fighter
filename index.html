@@ -190,6 +190,16 @@
         .stg button { background:rgba(0,0,0,.5); border:1px solid #fff; color:#fff; border-radius:8px; padding:2px 12px; cursor:pointer; }
         .roster { color:#8aa; font-size:.8rem; }
         .menu-overlay.lobby { background:rgba(5,5,16,.22); border:3px solid var(--neon-blue); border-radius:18px; box-shadow:0 0 22px rgba(0,242,255,.55), inset 0 0 18px rgba(0,242,255,.25); }
+        .tile.start { padding:0; } .tile.start .f1 { position:relative; inset:auto; min-height:230px; justify-content:center; z-index:1; text-shadow:0 1px 4px rgba(0,0,0,.85); }
+        .tile.start img.bossimg { opacity:.26; height:88%; max-width:60%; filter:saturate(.7) blur(.4px); -webkit-mask-image:linear-gradient(to left,#000 25%,transparent 100%); mask-image:linear-gradient(to left,#000 25%,transparent 100%); pointer-events:none; }
+        .mrow { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin:3px 0; } .mrow .ml { font-size:.74rem; font-weight:bold; padding:1px 7px; border-radius:6px; text-shadow:none; color:#041; background:#33ff88; } .mrow .ml.no { background:#ff6b6b; color:#200; }
+        .mchip { display:inline-flex; align-items:center; gap:3px; background:rgba(0,0,0,.5); border:1px solid #aab; border-radius:999px; padding:1px 7px 1px 3px; font-size:.72rem; line-height:1.2; text-shadow:none; } .mchip.up { border-color:#33ff88; } .mchip.dn { border-color:#ff6b6b; } .mchip.lk { opacity:.55; } .mchip em { font-style:normal; opacity:.85; }
+        .tile .mchip img, .mx img.sh { position:static; height:20px; width:20px; max-width:none; object-fit:contain; filter:none; opacity:1; -webkit-mask-image:none; mask-image:none; }
+        .mx { width:min(88vw,560px); text-align:left; } .mx h3 { margin:0 0 4px; } .mx small { display:block; color:#9ab; line-height:1.4; }
+        .mx-head { display:flex; gap:12px; align-items:center; } .mx-head img { height:96px; max-width:40%; object-fit:contain; filter:drop-shadow(0 0 10px rgba(255,80,120,.6)); }
+        .mx-nav { display:flex; align-items:center; justify-content:center; gap:14px; margin:8px 0; } .mx-nav button { background:rgba(0,0,0,.5); border:1px solid #fff; color:#fff; border-radius:8px; padding:2px 12px; cursor:pointer; }
+        .mx-chain { display:flex; align-items:center; justify-content:center; gap:8px; margin:8px 0; padding:8px; background:rgba(255,255,255,.05); border-radius:10px; flex-wrap:wrap; } .mx-chain .grp { display:flex; flex-direction:column; align-items:center; gap:3px; font-size:.75rem; } .mx-chain .grp div { display:flex; gap:4px; } .mx-chain img { height:42px; object-fit:contain; } .mx-chain .arr { font-size:1.4rem; color:#ffea00; } .mx-chain .bs img { height:54px; }
+        .mx-sec { margin:10px 0 4px; font-weight:bold; padding-left:8px; border-left:4px solid; } .mx-card { display:flex; align-items:center; gap:10px; padding:6px 8px; margin:4px 0; border-radius:10px; background:rgba(255,255,255,.06); border:1px solid #334; } .mx-card.lk { opacity:.6; } .mx img.sh { height:54px; width:54px; flex:none; } .mx-card .tx { flex:1; min-width:0; } .mx-card b i { font-style:normal; font-size:.72rem; padding:1px 6px; border-radius:6px; margin-left:6px; } .mx-card .sm2 { flex:none; padding:3px 9px; border-radius:8px; border:1px solid #fff; background:rgba(0,0,0,.45); color:#fff; cursor:pointer; font-size:.78rem; }
         .tile .stg { margin:4px 0 6px; } .tile .sm2 { margin-top:6px; align-self:flex-start; padding:3px 10px; border-radius:8px; border:1px solid #fff; background:rgba(0,0,0,.45); color:#fff; cursor:pointer; font-family:inherit; font-size:.8rem; }
         @keyframes liveA { 0%,42% { opacity:1; transform:translateY(0); } 50%,92% { opacity:0; transform:translateY(-100%); } 100% { opacity:1; transform:translateY(0); } }
         @keyframes liveB { 0%,42% { opacity:0; transform:translateY(100%); } 50%,92% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(100%); } }
@@ -216,6 +226,7 @@
         .slot-key { width:clamp(15px,5vw,22px); height:clamp(15px,5vw,22px); line-height:clamp(15px,5vw,22px); font-size:clamp(.58rem,3vw,.85rem); top:-8px; left:-4px; }
         @media (max-width:520px) { .slot-subtitle br { display:none; } .menu-overlay { padding:16px; } }
         @media (max-height:520px) and (orientation:landscape) { .slot { height:46px; } #stage-info { top:44px; } }
+        .res-stages { margin:6px 0; text-align:left; background:rgba(0,0,0,.28); border:1px solid #334; border-radius:10px; padding:6px 10px; } .res-stages summary { cursor:pointer; color:var(--neon-blue); font-size:.9rem; user-select:none; } .res-st-list { margin-top:6px; max-height:34vh; overflow-y:auto; } .res-st-list .rst { display:grid; grid-template-columns:3.6em 4.2em 1fr; gap:6px; align-items:baseline; padding:4px 0; border-bottom:1px solid #223; font-size:.88rem; } .res-st-list .rst b { color:var(--neon-gold); } .res-st-list .rst em { font-style:normal; text-align:right; } .res-st-list small { color:#9ab; }
         .res-rows { margin:8px 0; } .res-rows .rrow { display:flex; justify-content:space-between; padding:6px 10px; border-bottom:1px solid #223; text-align:left; } .res-rows b { color:var(--neon-gold); }
         .idiom-slots { bottom:calc(env(safe-area-inset-bottom, 0px) + 10px); gap:4px; width:auto; max-width:100%; }
         .slot { flex:0 0 var(--sw, 80px); width:var(--sw, 80px); max-width:none; min-width:0; box-sizing:border-box; height:calc(var(--sw, 80px) * 0.95); min-height:50px; max-height:84px; padding:0 1px; }
@@ -512,6 +523,11 @@ function matchupText(bt) {   // 圖鑑：某類 Boss 對各機種的相剋
     const sp = SHIPS.filter(S => S.id !== 'star' && S.id !== 'nova'), nm = (S, v) => S.name + (v === 1 ? '' : ' ×' + v);
     const pick = f => sp.filter(S => f(TYPE_MUL[S.id][bt])).map(S => nm(S, TYPE_MUL[S.id][bt])).join('、');
     return '<span style="color:#33ff88">剋制它 ' + pick(v => v > 1) + '</span>　無特殊關係 ' + pick(v => v === 1) + '　<span style="color:#ff6b6b">被它剋 ' + pick(v => v < 1) + '</span>（星藍號、環陣號 ×1）';
+}
+const SHIP_WHY = { star:'均衡型：沒有弱點，也沒有特別突出', nova:'全向火網：不吃相剋，靠抵銷敵彈應付彈幕', wind:'靈活穿梭彈幕；輕彈被鐵甲擋掉', bastion:'厚皮硬吃彈幕；太慢追不上玻璃砲', blaze:'單發重擊打穿鐵甲；射速慢被彈幕壓制', storm:'高射速速殺玻璃砲；單發太輕破不了鐵甲', lance:'穿甲專剋鐵甲；玻璃砲沒有裝甲可穿', assassin:'一擊必殺玻璃砲；彈幕逼你移動、無法蓄力' };
+const shipPic = id => id === 'star' || !id ? 'assets/player.png' : `assets/ship_${id}.png`;
+function matchupList(stage) {   // 全部機種對某關 Boss 的倍率（高到低；同倍率照機庫順序）
+    const bt = BOSS_TYPES[stage]; return SHIPS.map((S, i) => ({ S, v: typeMul(S.id, bt), i })).sort((a, b) => b.v - a.v || a.i - b.i);
 }
 const BOSS_INFO = {
     GLASS:   { name:'玻璃砲', short:'玻', desc:'皮薄，但每發子彈傷害極大', tip:'射速快或一擊必殺的戰機最有效；穿甲、重裝反而吃虧' },
@@ -1642,6 +1658,35 @@ class Game {
         this.upToast(`${S.name}「${STAT_KEYS.find(x => x[0] === k)[1]}」升級成功！Lv.${L[k]}`);
     }
 
+    mxChip(x) {   // 一個機種小標籤（圖＋名＋倍率）；★＝出戰中，半透明＝尚未擁有
+        const { S, v } = x, own = this.fleet[S.id] && this.fleet[S.id].own;
+        return `<span class="mchip ${v > 1 ? 'up' : v < 1 ? 'dn' : ''} ${own ? '' : 'lk'}" title="${S.name}｜${own ? '已擁有' : '尚未擁有'}"><img src="${shipPic(S.id)}" onerror="this.style.display='none'">${S.id === this.shipId ? '★' : ''}${S.name}<em>×${+v.toFixed(2)}</em></span>`;
+    }
+    mxBrief(st) {   // 大廳「開始出擊」磚：全部機種分成「推薦」與「不推薦」兩份名單
+        const L = matchupList(st), good = L.filter(x => x.v >= 1), bad = L.filter(x => x.v < 1);
+        return `<div class="mrow"><span class="ml">推薦</span>${good.map(x => this.mxChip(x)).join('')}</div>
+            <div class="mrow"><span class="ml no">不推薦</span>${bad.length ? bad.map(x => this.mxChip(x)).join('') : '<small>無（本關沒有相剋）</small>'}</div>
+            <button class="sm2" onclick="event.stopPropagation();game.showMatchup(${st})">更多：查看本關屬性相剋 ▸</button>`;
+    }
+    mxStage(d) { const n = Math.max(1, Math.min(this.bestStage, this.startStage + d)); if (n === this.startStage) return; this.startStage = n; this.renderLobby(); this.showMatchup(n); }
+    mxEquip(id) { this.equip(id); this.showMatchup(this.startStage); }
+    showMatchup(st) {   // 彈窗：本關 Boss 的屬性、相剋鏈與全部機種的剋制狀態（圖文）
+        st = Math.max(1, Math.min(this.bestStage, st || this.startStage)); const bt = BOSS_TYPES[st], inf = BOSS_INFO[bt], L = matchupList(st), fin = bt === 'FINAL';
+        const up = L.filter(x => x.v > 1), eq = L.filter(x => x.v === 1), dn = L.filter(x => x.v < 1);
+        const imgs = a => a.map(x => `<img src="${shipPic(x.S.id)}" title="${x.S.name}" onerror="this.style.display='none'">`).join('') || '—';
+        const names = a => a.map(x => x.S.name).join('、') || '—';
+        const chain = fin ? '' : `<div class="mx-chain"><div class="grp"><div>${imgs(up)}</div><span style="color:#33ff88">剋制它</span><span>${names(up)}</span></div><span class="arr">➜</span>
+            <div class="grp bs"><div><img src="assets/boss_${st}.png" onerror="this.style.display='none'"></div><b>${inf.name}</b></div><span class="arr">➜</span>
+            <div class="grp"><div>${imgs(dn)}</div><span style="color:#ff6b6b">被它剋</span><span>${names(dn)}</span></div></div>`;
+        const card = (x, col, tag) => { const S = x.S, own = this.fleet[S.id].own;
+            return `<div class="mx-card ${own ? '' : 'lk'}"><img class="sh" src="${shipPic(S.id)}" onerror="this.style.visibility='hidden'"><div class="tx"><b style="color:${S.c}">${S.name}<i style="background:${col};color:#111">${tag} ×${+x.v.toFixed(2)}</i></b><small>${S.role}｜${S.id === this.shipId ? '出戰中' : own ? '已擁有' : '尚未擁有'}</small><small>${SHIP_WHY[S.id] || ''}</small></div>${own && S.id !== this.shipId ? `<button class="sm2" onclick="game.mxEquip('${S.id}')">出戰</button>` : ''}</div>`; };
+        const sec = (title, col, a, tag) => a.length ? `<div class="mx-sec" style="border-color:${col};color:${col}">${title}（${a.length}）</div>${a.map(x => card(x, col, tag)).join('')}` : '';
+        this.dialog(`<div class="mx"><div class="mx-head"><img src="assets/boss_${st}.png" onerror="this.style.display='none'"><div><h3 style="color:var(--neon-gold)">第 ${st} 關・${bossLabel(st)}</h3><small>屬性：<b style="color:#fff">${inf.name}</b>　${inf.desc}</small><small style="color:#ffea00">建議：${inf.tip}</small></div></div>
+            <div class="mx-nav"><button onclick="game.mxStage(-1)">◀</button><b>第 ${st} 關</b><button onclick="game.mxStage(1)">▶</button></div>${chain}
+            ${fin ? sec('全部機種（無相剋）', '#aab', eq, '普通') : sec('推薦・剋制本關 Boss', '#33ff88', up, '剋制') + sec('可用・無特殊關係', '#aab', eq, '普通') + sec('不推薦・被本關 Boss 剋制', '#ff6b6b', dn, '被剋')}
+            <div style="text-align:center"><button class="btn btn-start" onclick="game.closeDlg()">關閉 [Esc]</button></div></div>`);
+    }
+
     renderLobby() {
         const S = this.ship(), st = this.statsOf(S.id), rec = this.recommend(this.startStage), ok = rec.ship.id === S.id;
         const img = S.id === 'star' ? 'assets/player.png' : `assets/ship_${S.id}.png`;
@@ -1651,12 +1696,13 @@ class Game {
                 <h1 class="lob-title">成語戰機</h1>
                 <div class="dmline">暗物質 <b>${this.darkMatter}</b> DM</div>
                 <div class="tiles">
-                    <div class="tile w2 h2" style="--a:#0aa5ff;--b:#7b2ff7" onclick="game.startNewGame()">
-                        ${im(`assets/boss_${this.startStage}.png`)}
+                    <div class="tile w2 h2 start" style="--a:#0aa5ff;--b:#7b2ff7" onclick="game.startNewGame()">
+                        <img class="bossimg" src="assets/boss_${this.startStage}.png" onerror="this.style.display='none'">
                         <div class="f1"><h4>開始出擊 [Enter]</h4>
                             <div class="stg"><button onclick="event.stopPropagation();game.changeStart(-1)">◀</button><b>第 ${this.startStage} 關</b><button onclick="event.stopPropagation();game.changeStart(1)">▶</button></div>
                             <small>Boss：${bossLabel(this.startStage)}</small><small>${S.name}：${ok ? '很適合本關 Boss' : '建議改用 ' + rec.ship.name}｜對本關傷害 ×${+typeMul(S.id, BOSS_TYPES[this.startStage]).toFixed(2)}</small>
                             ${ok ? '' : `<button class="sm2" onclick="event.stopPropagation();game.equip('${rec.ship.id}')">換成 ${rec.ship.name} [R]</button>`}
+                            ${this.mxBrief(this.startStage)}
                             <small style="opacity:.7">←／→ 切換關卡（最高解鎖第 ${this.bestStage} 關）</small></div>
                     </div>
                     <div class="tile w2" style="--a:#b026ff;--b:#ff3366" onclick="game.openHangar()">
@@ -2876,7 +2922,8 @@ const online = window.online = {
         { const use = this.profile.shipUse = Object.assign({}, this.profile.shipUse), sid = G.shipId; use[sid] = (use[sid] || 0) + 1; this.profile.topShip = this.topShip(this.profile); }
         const score = Math.round((G.runDM || 0) * 10); this.profile.bestScore = Math.max(this.profile.bestScore || 0, score);
         const rep = this.settleStages();   // 不論退出、結束、陣亡或全破，都先把各關擊敗 Boss 的成績核對進紀錄榜
-        const stx = rep.length ? '<span style="display:block;text-align:left;line-height:1.6;margin-top:4px">' + rep.map(r => `第 ${r.st} 關 ${fmtTime(r.ms)}　` + (r.isNew ? '<b style="color:#33ff88">新紀錄！</b>' + (r.old !== undefined ? `（原 ${fmtTime(r.old)}）` : '') : `（個人紀錄 ${fmtTime(r.best)}）`)).join('<br>') + '</span>' : '';
+        const nNew = rep.filter(r => r.isNew).length;
+        const stx = rep.length ? `<details class="res-stages"><summary>各關破關時間（${rep.length} 關${nNew ? `・<b style="color:#33ff88">${nNew} 項新紀錄</b>` : ''}）</summary><div class="res-st-list">` + rep.map(r => `<div class="rst"><span>第 ${r.st} 關</span><b>${fmtTime(r.ms)}</b><em>` + (r.isNew ? '<i style="color:#33ff88;font-style:normal">新紀錄！已更新榜單</i>' + (r.old !== undefined ? `<small>（原 ${fmtTime(r.old)}）</small>` : '') : `<small>個人紀錄 ${fmtTime(r.best)}</small>`) + '</em></div>').join('') + '</div></details>' : '';
         let extra = '';
         if (victory && G.runStart === 1) {
             const ms = Math.round(G.runClock * 1000), best = this.profile.bestClearMs;
@@ -2887,7 +2934,7 @@ const online = window.online = {
         } else if (victory) extra = '<br><small>從第 1 關出發並通關才會計入「全關卡破關時間」排行</small>';
         this.queuePush(); clearTimeout(this._pt); this.pushNow();   // 結算後立刻上傳，不等延遲
         const el = $('res-extra') || G.uiLayer.querySelector('.menu-overlay');
-        if (el) el.insertAdjacentHTML('beforeend', `<p style="color:var(--neon-gold)">歷史最高分 <b>${this.profile.bestScore}</b>${extra}${stx}</p>`);
+        if (el) el.insertAdjacentHTML('beforeend', `<p style="color:var(--neon-gold)">歷史最高分 <b>${this.profile.bestScore}</b>${extra}</p>${stx}`);
     },
 
     // ===== 畫面分派 =====
