@@ -363,6 +363,12 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 const APP_VERSION = '20261111-12', APP_AUTHOR = '郭柏宏';
+// ===== 暗物質花費曲線：越高等越貴 =====
+// 後面關卡的暗物質收入是第 1 關的數十倍（每關約 60 → 5000 DM），所以花費不能線性成長，要隨等級指數放大。
+// 戰機各項升級：目前等級 L → L+1 的費用，前期與舊版接近（Lv1 約 160），每升一級再 ×1.12（Lv5 約 750、Lv10 約 2500、Lv15 約 6200）
+const upgradeCost = L => Math.round(80 * (L + 1) * Math.pow(1.12, L - 1) / 10) * 10;
+// 軍械商店「全體升級」：依目前等級查表（成語列 1→6、磁吸字塊 0→5、暗物質回收 0→5）
+const SLOT_COST = [100, 250, 600, 1400, 3200], MAGNET_COST = [200, 500, 1100, 2400, 5000], DMREC_COST = [300, 700, 1500, 3200, 6500];
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
 function updateWorld() {
@@ -384,18 +390,18 @@ const IMG = {};
 const SHIPS = [
     { id:'star', pat:'fan', name:'星藍號', role:'均衡型', c:'#00f2ff', h:0, s:1, r:15, price:0, hp:100, spd:240, dmg:1.3, int:320,
       base:{ dmg:1, rate:0, hp:0, spd:0, pen:0, crit:0, cov:2 }, cap:{ dmg:8, rate:8, hp:8, spd:8, pen:8, crit:8, cov:6 } },
-    { id:'wind', pat:'twin', name:'疾風號', role:'機動靈巧', c:'#00ffcc', h:-20, s:0.9, r:12, price:600, hp:70, spd:300, dmg:0.9, int:290,
+    { id:'wind', pat:'twin', name:'疾風號', role:'機動靈巧', c:'#00ffcc', h:-20, s:0.9, r:12, price:800, hp:70, spd:300, dmg:0.9, int:290,
       base:{ dmg:1, rate:1, hp:0, spd:2, pen:0, crit:0, cov:0 }, cap:{ dmg:5, rate:6, hp:4, spd:14, pen:5, crit:8, cov:4 } },
-    { id:'bastion', pat:'wide', name:'堡壘號', role:'重裝厚皮', c:'#b026ff', h:100, s:1.2, r:18, price:800, hp:170, spd:190, dmg:1.0, int:380,
+    { id:'bastion', pat:'wide', name:'堡壘號', role:'重裝厚皮', c:'#b026ff', h:100, s:1.2, r:18, price:1500, hp:170, spd:190, dmg:1.0, int:380,
       base:{ dmg:1, rate:0, hp:3, spd:0, pen:0, crit:0, cov:1 }, cap:{ dmg:6, rate:5, hp:16, spd:4, pen:4, crit:8, cov:6 } },
-    { id:'blaze', pat:'big', name:'烈焰號', role:'高輸出', c:'#ff3366', h:170, s:1.05, r:15, price:1000, hp:85, spd:220, dmg:2.0, int:420,
+    { id:'blaze', pat:'big', name:'烈焰號', role:'高輸出', c:'#ff3366', h:170, s:1.05, r:15, price:2500, hp:85, spd:220, dmg:2.0, int:420,
       base:{ dmg:3, rate:0, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:16, rate:4, hp:5, spd:5, pen:8, crit:8, cov:8 } },
-    { id:'storm', pat:'focus', name:'連射號', role:'射速快', c:'#ffea00', h:-120, s:1, r:15, price:1000, hp:90, spd:240, dmg:0.8, int:230,
+    { id:'storm', pat:'focus', name:'連射號', role:'射速快', c:'#ffea00', h:-120, s:1, r:15, price:2500, hp:90, spd:240, dmg:0.8, int:230,
       base:{ dmg:1, rate:3, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:5, rate:16, hp:6, spd:7, pen:5, crit:8, cov:4 } },
-    { id:'lance', pat:'lane', name:'穿甲號', role:'穿甲型', c:'#ff8a00', h:205, s:1.05, r:15, price:1200, hp:95, spd:230, dmg:1.6, int:340, pierce:true,
+    { id:'lance', pat:'lane', name:'穿甲號', role:'穿甲型', c:'#ff8a00', h:205, s:1.05, r:15, price:4000, hp:95, spd:230, dmg:1.6, int:340, pierce:true,
       base:{ dmg:2, rate:0, hp:0, spd:0, pen:3, crit:0, cov:0 }, cap:{ dmg:10, rate:6, hp:6, spd:6, pen:16, crit:8, cov:6 } },
-    { id:'assassin', pat:'snipe', name:'暗殺號', role:'狙擊刺客', c:'#ff5ec4', h:0, s:0.95, r:13, price:1500, hp:75, spd:270, dmg:1.1, int:300, critMax:0.85,
-      base:{ dmg:1, rate:0, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:7, rate:8, hp:5, spd:9, pen:8, crit:16, cov:4 } }    ,{ id:'nova', pat:'ring', name:'環陣號', role:'全向火網', c:'#9dff6a', h:90, s:1, r:15, price:2200, hp:80, spd:235, dmg:0.7, int:340,
+    { id:'assassin', pat:'snipe', name:'暗殺號', role:'狙擊刺客', c:'#ff5ec4', h:0, s:0.95, r:13, price:6000, hp:75, spd:270, dmg:1.1, int:300, critMax:0.85,
+      base:{ dmg:1, rate:0, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:7, rate:8, hp:5, spd:9, pen:8, crit:16, cov:4 } }    ,{ id:'nova', pat:'ring', name:'環陣號', role:'全向火網', c:'#9dff6a', h:90, s:1, r:15, price:9000, hp:80, spd:235, dmg:0.7, int:340,
       base:{ dmg:1, rate:0, hp:0, spd:0, pen:0, crit:0, cov:0 }, cap:{ dmg:6, rate:8, hp:6, spd:8, pen:5, crit:8, cov:16 } }
 ];
 const SKINS = SHIPS;
@@ -1526,7 +1532,7 @@ class Game {
     hSel(i) { this.hIdx = i; this.keepScroll(() => this.renderHangar()); }
     hEquip() { const S = SHIPS[this.hIdx]; if (this.fleet[S.id].own) { this.shipId = S.id; this.applyUpgrades(); this.save(); this.keepScroll(() => this.renderHangar()); } }
     upgrade(id, k) {
-        const S = this.ship(id), L = this.fleet[id], cost = (L[k] + 1) * 80;
+        const S = this.ship(id), L = this.fleet[id], cost = upgradeCost(L[k]);
         if (!L.own || L[k] >= S.cap[k] || this.darkMatter < cost) return;
         this.darkMatter -= cost; L[k]++; this.applyUpgrades(); sfx.playUpgradeOk(); this.save(); this.keepScroll(() => this.renderHangar());
         this.upToast(`${S.name}「${STAT_KEYS.find(x => x[0] === k)[1]}」升級成功！Lv.${L[k]}`);
@@ -1565,7 +1571,7 @@ class Game {
             const F = this.fleet[S.id], st = this.statsOf(S.id), own = F.own;
             const val = { dmg: Math.round(st.dmg * SHOW), rate: (1000 / st.iv).toFixed(1) + '/秒', hp: Math.round(st.hp * SHOW), spd: Math.round(st.spd), pen: st.pen, crit: Math.round(st.crit * 100) + '%', cov: covLabel(S, F.cov) };
             const rows = KS.map(([k, n], j) => {
-                const lv = F[k], max = S.cap[k], cost = (lv + 1) * 80, full = lv >= max;
+                const lv = F[k], max = S.cap[k], cost = upgradeCost(lv), full = lv >= max;
                 return `<div class="st"><span>${n}</span><div class="bar" style="background:linear-gradient(90deg,#2a2f4a ${max / 16 * 100}%,#0b0b14 0);"><i style="width:${lv / 16 * 100}%;"></i></div><b>${val[k]}</b>${own ? `<button ${full || this.darkMatter < cost ? 'disabled' : ''} onclick="event.stopPropagation();game.upgrade('${S.id}','${k}')">[${j + 1}] ${full ? 'MAX' : cost}</button>` : ''}</div>`;
             }).join('');
             const img = S.id === 'star' ? 'assets/player.png' : `assets/ship_${S.id}.png`;
@@ -1593,9 +1599,9 @@ class Game {
                 sub: `${o ? '已擁有（到「戰機管理」升級／出戰）' : X.price + ' DM'}・上限 火${c.dmg} 速${c.rate} 甲${c.hp} 動${c.spd} 穿${c.pen} 爆${c.crit} 覆${c.cov}`,
                 run: () => { this.darkMatter -= X.price; this.fleet[X.id].own = true; } });
         });
-        [['成語列', '同時收集的成語數', this.maxSlots, 6, this.maxSlots * 50, () => { this.maxSlots++; this.fillEmptySlots(); }, 'slots'],
-         ['磁吸字塊', '字塊自動吸附範圍', this.magnetLvl, 5, (this.magnetLvl + 1) * 200, () => this.magnetLvl++, 'magnet'],
-         ['暗物質回收', '暗物質獲得 +20%', this.dmLvl, 5, (this.dmLvl + 1) * 250, () => this.dmLvl++, 'dm']].forEach(([n, d, lv, max, cost, f, ic]) => {
+        [['成語列', '同時收集的成語數', this.maxSlots, 6, SLOT_COST[this.maxSlots - 1] || 0, () => { this.maxSlots++; this.fillEmptySlots(); }, 'slots'],
+         ['磁吸字塊', '字塊自動吸附範圍', this.magnetLvl, 5, MAGNET_COST[this.magnetLvl] || 0, () => this.magnetLvl++, 'magnet'],
+         ['暗物質回收', '暗物質獲得 +20%', this.dmLvl, 5, DMREC_COST[this.dmLvl] || 0, () => this.dmLvl++, 'dm']].forEach(([n, d, lv, max, cost, f, ic]) => {
             rows.push({ t: `${n} Lv.${lv}/${max}`, svg: SHOP_ICONS[ic], dis: lv >= max || this.darkMatter < cost, sub: lv >= max ? '已滿級' : `${d}・${cost} DM`, run: () => { this.darkMatter -= cost; f(); } });
         });
         return rows;
