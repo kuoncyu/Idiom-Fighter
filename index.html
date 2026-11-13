@@ -362,7 +362,7 @@ const sfx = new RetroAudio();
 document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !e.repeat && (e.key.length === 1 || e.key === 'Backspace')) { try { sfx.playType(); } catch (_) {} } }, true);
 
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
-const APP_VERSION = '20261111-12', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261112', APP_AUTHOR = '郭柏宏';
 // ===== 暗物質花費曲線：越高等越貴 =====
 // 後面關卡的暗物質收入是第 1 關的數十倍（每關約 60 → 5000 DM），所以花費不能線性成長，要隨等級指數放大。
 // 戰機各項升級：目前等級 L → L+1 的費用，前期與舊版接近（Lv1 約 160），每升一級再 ×1.12（Lv5 約 750、Lv10 約 2500、Lv15 約 6200）
