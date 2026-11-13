@@ -152,7 +152,7 @@
         .ip-bar i { display:block; height:100%; background:var(--neon-gold); animation: ipCount 5s linear forwards; }
         @keyframes ipCount { from { width:0; } to { width:100%; } }
         .cards { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; width:100%; margin:10px 0; }
-        .card { width:230px; background:rgba(10,12,30,.92); border:2px solid #334; border-radius:12px; padding:10px; text-align:left; cursor:pointer; }
+        .card { width:262px; background:rgba(10,12,30,.92); border:2px solid #334; border-radius:12px; padding:10px; text-align:left; cursor:pointer; }
         .card.sel { border-color:var(--neon-blue); box-shadow:0 0 14px var(--neon-blue); }
         .card h3 { margin:4px 0; color:#fff; font-size:1.05rem; }
         .card.eq h3::after { content:' ✔出戰中'; color:var(--neon-gold); font-size:.8rem; }
@@ -161,6 +161,8 @@
         .card .st { display:flex; align-items:center; gap:6px; margin:5px 0; font-size:.8rem; }
         .card .st span { width:34px; } .card .st b { width:46px; text-align:right; color:var(--neon-gold); font-size:.78rem; }
         .card .bar { flex:1; height:8px; border-radius:4px; } .card .bar i { display:block; height:100%; border-radius:4px; background:var(--neon-blue); }
+        .card .st em.lv { font-style:normal; width:38px; text-align:center; font-size:.72rem; color:#9fe8ff; white-space:nowrap; }
+        .card .st em.lv.max { color:var(--neon-gold); }
         .card .st button { font-size:.7rem; padding:2px 5px; background:rgba(0,242,255,.15); border:1px solid var(--neon-blue); color:#fff; border-radius:4px; cursor:pointer; }
         .card .st button:disabled { opacity:.35; cursor:default; }
         .hbtn { pointer-events:auto; background:rgba(0,242,255,.12); border:1px solid var(--neon-blue); color:var(--neon-blue); border-radius:8px; padding:4px 10px; margin-right:6px; cursor:pointer; font-size:.9rem; font-family:inherit; }
@@ -364,7 +366,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261113a 是當天第一版、20261113b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261113c', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261113e', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -478,22 +480,22 @@ function bossMods(stage, type) {
     return { f, hp: L(M[0]), dmg: L(M[1]), rate: L(M[2]), shield: ({ TANK: 0.2, FINAL: 0.25 }[type] || 0) * (0.25 + 0.75 * f) };
 }
 // ===== 機種 × Boss 屬性相剋（一物剋一物）=====
-// 只對 Boss 生效的傷害倍率。每種 Boss（玻璃砲／鐵甲／彈幕）都是：2 台適合（加成）、2 台普通 ×1.0、2 台被剋 ×0.7。
+// 只對 Boss 生效的傷害倍率。每種 Boss（玻璃砲／鐵甲／彈幕）都是：2 台剋制（×2）、2 台普通（×1）、2 台被剋（×0.5）。
 // 星藍號（均衡）與環陣號（靠抵銷敵彈）對所有 Boss 都是 ×1.0；終焉 Boss 數值全面偏高、沒有相剋，所有機種都是 ×1.0。
 // 相剋鏈：① 穿甲號→鐵甲→連射號→玻璃砲→穿甲號　② 烈焰號→鐵甲→疾風號→彈幕→烈焰號　③ 堡壘號→彈幕→暗殺號→玻璃砲→堡壘號
 // 加成倍率依機種本身的輸出（單發傷害×射速×彈數）反向調整：輸出越低加成越高（堡壘、疾風 ×1.5），輸出越高加成越低（連射 ×1.25）；
-// 穿甲號打鐵甲另有「無視裝甲＋2～3 倍」的專屬機制，所以表內只給 ×1.15。
+// 穿甲號打鐵甲另有「無視裝甲＋2～3 倍」的專屬機制，所以表內只給剋制的 ×2。
 // 環陣號抵銷敵彈所需的子彈數（依敵彈傷害分 5 級）：傷害 1（一般彈）→1 發、1.3～1.5（強化 Boss 彈）→2 發、2（坦克／轟炸）→3 發、3 → 4 發、4 以上（狙擊彈）→5 發
 function cancelNeed(d) { return d < 1.2 ? 1 : d < 1.8 ? 2 : d < 2.6 ? 3 : d < 3.6 ? 4 : 5; }
 const TYPE_MUL = {
     star:     { GLASS: 1.0,  TANK: 1.0,  BARRAGE: 1.0 },   // 均衡：沒有弱點、也沒有特別突出
     nova:     { GLASS: 1.0,  TANK: 1.0,  BARRAGE: 1.0 },   // 全向火網：不吃相剋，靠抵銷敵彈
-    wind:     { GLASS: 1.0,  TANK: 0.7,  BARRAGE: 1.5 },   // 靈活穿梭彈幕；輕彈被鐵甲擋掉
-    bastion:  { GLASS: 0.7,  TANK: 1.0,  BARRAGE: 1.5 },   // 厚皮硬吃彈幕；太慢追不上玻璃砲
-    blaze:    { GLASS: 1.0,  TANK: 1.4,  BARRAGE: 0.7 },   // 單發重擊打穿鐵甲；射速慢被彈幕壓制
-    storm:    { GLASS: 1.25, TANK: 0.7,  BARRAGE: 1.0 },   // 高射速速殺玻璃砲；單發太輕破不了鐵甲
-    lance:    { GLASS: 0.7,  TANK: 1.15, BARRAGE: 1.0 },   // 穿甲專剋鐵甲（另有穿甲機制）；玻璃砲沒有裝甲可穿
-    assassin: { GLASS: 1.3,  TANK: 1.0,  BARRAGE: 0.7 }    // 一擊必殺玻璃砲；彈幕逼你移動、無法蓄力
+    wind:     { GLASS: 1.0,  TANK: 0.5,  BARRAGE: 2.0 },   // 靈活穿梭彈幕；輕彈被鐵甲擋掉
+    bastion:  { GLASS: 0.5,  TANK: 1.0,  BARRAGE: 2.0 },   // 厚皮硬吃彈幕；太慢追不上玻璃砲
+    blaze:    { GLASS: 1.0,  TANK: 2.0,  BARRAGE: 0.5 },   // 單發重擊打穿鐵甲；射速慢被彈幕壓制
+    storm:    { GLASS: 2.0,  TANK: 0.5,  BARRAGE: 1.0 },   // 高射速速殺玻璃砲；單發太輕破不了鐵甲
+    lance:    { GLASS: 0.5,  TANK: 2.0,  BARRAGE: 1.0 },   // 穿甲專剋鐵甲（另有穿甲機制）；玻璃砲沒有裝甲可穿
+    assassin: { GLASS: 2.0,  TANK: 1.0,  BARRAGE: 0.5 }    // 一擊必殺玻璃砲；彈幕逼你移動、無法蓄力
 };
 function typeMul(sid, bt) {   // 機種對 Boss 類型的傷害倍率；終焉沒有相剋，一律 1.0
     const m = TYPE_MUL[sid]; return m && bt !== 'FINAL' ? (m[bt] || 1) : 1;
@@ -503,13 +505,13 @@ function shipMatchText(sid) {   // 圖鑑：某機種適合／被剋的 Boss
     const up = [], dn = [];
     ['GLASS', 'TANK', 'BARRAGE'].forEach(k => { const t = BOSS_INFO[k].name + ' ×' + m[k]; if (m[k] > 1) up.push(t); else if (m[k] < 1) dn.push(t); });
     if (!up.length && !dn.length) return sid === 'nova' ? '不吃相剋：對任何 Boss 都是 ×1.0，靠抵銷敵彈的特殊功能應付彈幕。' : '均衡型：對任何 Boss 都是 ×1.0，沒有弱點，也沒有特別突出。';
-    return '<span style="color:#33ff88">適合 ' + up.join('、') + '</span>　<span style="color:#ff6b6b">被剋 ' + dn.join('、') + '</span>（其餘 Boss ×1.0；終焉無相剋）';
+    return '<span style="color:#33ff88">剋制 ' + up.join('、') + '</span>　<span style="color:#ff6b6b">被剋 ' + dn.join('、') + '</span>（其餘 Boss 無特殊關係 ×1；終焉無相剋）';
 }
 function matchupText(bt) {   // 圖鑑：某類 Boss 對各機種的相剋
     if (bt === 'FINAL') return '各項數值都很高，沒有屬性相剋：所有機種傷害都是 ×1.0。';
     const sp = SHIPS.filter(S => S.id !== 'star' && S.id !== 'nova'), nm = (S, v) => S.name + (v === 1 ? '' : ' ×' + v);
     const pick = f => sp.filter(S => f(TYPE_MUL[S.id][bt])).map(S => nm(S, TYPE_MUL[S.id][bt])).join('、');
-    return '<span style="color:#33ff88">適合 ' + pick(v => v > 1) + '</span>　普通 ' + pick(v => v === 1) + '　<span style="color:#ff6b6b">被剋 ' + pick(v => v < 1) + '</span>（星藍號、環陣號 ×1.0）';
+    return '<span style="color:#33ff88">剋制它 ' + pick(v => v > 1) + '</span>　無特殊關係 ' + pick(v => v === 1) + '　<span style="color:#ff6b6b">被它剋 ' + pick(v => v < 1) + '</span>（星藍號、環陣號 ×1）';
 }
 const BOSS_INFO = {
     GLASS:   { name:'玻璃砲', short:'玻', desc:'皮薄，但每發子彈傷害極大', tip:'射速快或一擊必殺的戰機最有效；穿甲、重裝反而吃虧' },
@@ -1669,7 +1671,7 @@ class Game {
             const val = { dmg: Math.round(st.dmg * SHOW), rate: (1000 / st.iv).toFixed(1) + '/秒', hp: Math.round(st.hp * SHOW), spd: Math.round(st.spd), pen: st.pen, crit: Math.round(st.crit * 100) + '%', cov: covLabel(S, F.cov) };
             const rows = KS.map(([k, n], j) => {
                 const lv = F[k], max = S.cap[k], cost = upgradeCost(lv), full = lv >= max;
-                return `<div class="st"><span>${n}</span><div class="bar" style="background:linear-gradient(90deg,#2a2f4a ${max / 16 * 100}%,#0b0b14 0);"><i style="width:${lv / 16 * 100}%;"></i></div><b>${val[k]}</b>${own ? `<button ${full || this.darkMatter < cost ? 'disabled' : ''} onclick="event.stopPropagation();game.upgrade('${S.id}','${k}')">[${j + 1}] ${full ? 'MAX' : cost}</button>` : ''}</div>`;
+                return `<div class="st"><span>${n}</span><div class="bar" style="background:linear-gradient(90deg,#2a2f4a ${max / 16 * 100}%,#0b0b14 0);"><i style="width:${lv / 16 * 100}%;"></i></div><em class="lv ${full ? 'max' : ''}" title="目前等級／等級上限">${lv}/${max}</em><b>${val[k]}</b>${own ? `<button ${full || this.darkMatter < cost ? 'disabled' : ''} onclick="event.stopPropagation();game.upgrade('${S.id}','${k}')">${full ? 'MAX' : cost}</button>` : ''}</div>`;
             }).join('');
             const img = S.id === 'star' ? 'assets/player.png' : `assets/ship_${S.id}.png`;
             return `<div class="card ${i === this.hIdx ? 'sel' : ''} ${S.id === this.shipId ? 'eq' : ''} ${own ? '' : 'locked'}" onclick="game.hSel(${i})">
