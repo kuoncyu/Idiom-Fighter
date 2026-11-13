@@ -1663,9 +1663,10 @@ class Game {
         return `<span class="mchip ${v > 1 ? 'up' : v < 1 ? 'dn' : ''} ${own ? '' : 'lk'}" title="${S.name}｜${own ? '已擁有' : '尚未擁有'}"><img src="${shipPic(S.id)}" onerror="this.style.display='none'">${S.id === this.shipId ? '★' : ''}${S.name}<em>×${+v.toFixed(2)}</em></span>`;
     }
     mxBrief(st) {   // 大廳「開始出擊」磚：全部機種分成「推薦」與「不推薦」兩份名單
-        const L = matchupList(st), good = L.filter(x => x.v >= 1), bad = L.filter(x => x.v < 1);
-        return `<div class="mrow"><span class="ml">推薦</span>${good.map(x => this.mxChip(x)).join('')}</div>
-            <div class="mrow"><span class="ml no">不推薦</span>${bad.length ? bad.map(x => this.mxChip(x)).join('') : '<small>無（本關沒有相剋）</small>'}</div>
+        const L = matchupList(st), good = L.filter(x => x.v > 1), bad = L.filter(x => x.v < 1);
+        if (!good.length && !bad.length) return `<small>本關沒有屬性相剋（所有機種 ×1）</small><button class="sm2" onclick="event.stopPropagation();game.showMatchup(${st})">更多：查看本關屬性 ▸</button>`;
+        return `<div class="mrow"><span class="ml">推薦</span>${good.length ? good.map(x => this.mxChip(x)).join('') : '<small>無</small>'}</div>
+            <div class="mrow"><span class="ml no">不推薦</span>${bad.length ? bad.map(x => this.mxChip(x)).join('') : '<small>無</small>'}</div>
             <button class="sm2" onclick="event.stopPropagation();game.showMatchup(${st})">更多：查看本關屬性相剋 ▸</button>`;
     }
     mxStage(d) { const n = Math.max(1, Math.min(this.bestStage, this.startStage + d)); if (n === this.startStage) return; this.startStage = n; this.renderLobby(); this.showMatchup(n); }
@@ -1683,7 +1684,7 @@ class Game {
         const sec = (title, col, a, tag) => a.length ? `<div class="mx-sec" style="border-color:${col};color:${col}">${title}（${a.length}）</div>${a.map(x => card(x, col, tag)).join('')}` : '';
         this.dialog(`<div class="mx"><div class="mx-head"><img src="assets/boss_${st}.png" onerror="this.style.display='none'"><div><h3 style="color:var(--neon-gold)">第 ${st} 關・${bossLabel(st)}</h3><small>屬性：<b style="color:#fff">${inf.name}</b>　${inf.desc}</small><small style="color:#ffea00">建議：${inf.tip}</small></div></div>
             <div class="mx-nav"><button onclick="game.mxStage(-1)">◀</button><b>第 ${st} 關</b><button onclick="game.mxStage(1)">▶</button></div>${chain}
-            ${fin ? sec('全部機種（無相剋）', '#aab', eq, '普通') : sec('推薦・剋制本關 Boss', '#33ff88', up, '剋制') + sec('可用・無特殊關係', '#aab', eq, '普通') + sec('不推薦・被本關 Boss 剋制', '#ff6b6b', dn, '被剋')}
+            ${fin ? sec('全部機種（本關無相剋）', '#aab', eq, '普通') : sec('推薦・剋制本關 Boss', '#33ff88', up, '剋制') + sec('可用・無特殊關係', '#aab', eq, '普通') + sec('不推薦・被本關 Boss 剋制', '#ff6b6b', dn, '被剋')}
             <div style="text-align:center"><button class="btn btn-start" onclick="game.closeDlg()">關閉 [Esc]</button></div></div>`);
     }
 
