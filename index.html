@@ -362,13 +362,19 @@ const sfx = new RetroAudio();
 document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !e.repeat && (e.key.length === 1 || e.key === 'Backspace')) { try { sfx.playType(); } catch (_) {} } }, true);
 
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
-const APP_VERSION = '20261112', APP_AUTHOR = '郭柏宏';
+// ★ 版本號格式：日期＋英文字母，如 20261113a 是當天第一版、20261113b 是第二版（較新）。
+// ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
+const APP_VERSION = '20261113c', APP_AUTHOR = '郭柏宏';
+const VER_RE = /^\d{8}[a-z]$/;
+const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
 // 後面關卡的暗物質收入是第 1 關的數十倍（每關約 60 → 5000 DM），所以花費不能線性成長，要隨等級指數放大。
-// 戰機各項升級：目前等級 L → L+1 的費用，前期與舊版接近（Lv1 約 160），每升一級再 ×1.12（Lv5 約 750、Lv10 約 2500、Lv15 約 6200）
-const upgradeCost = L => Math.round(80 * (L + 1) * Math.pow(1.12, L - 1) / 10) * 10;
+// 戰機各項升級：目前等級 L → L+1 的費用，Lv1 約 160（前期和舊版接近），之後每升一級再 ×1.22（Lv5 約 1,000、Lv10 約 5,000、Lv15 約 20,000）
+const upgradeCost = L => Math.round(80 * (L + 1) * Math.pow(1.22, L - 1) / 10) * 10;
 // 軍械商店「全體升級」：依目前等級查表（成語列 1→6、磁吸字塊 0→5、暗物質回收 0→5）
-const SLOT_COST = [100, 250, 600, 1400, 3200], MAGNET_COST = [200, 500, 1100, 2400, 5000], DMREC_COST = [300, 700, 1500, 3200, 6500];
+const SLOT_COST = [150, 500, 1500, 4500, 12000], MAGNET_COST = [300, 900, 2800, 8000, 20000], DMREC_COST = [500, 1500, 4500, 12000, 30000];
+// 磁吸字塊：各等級的吸附範圍（離戰機多遠的字塊會被吸過來；字塊掉落時彼此約隔 34）。Lv1 只吸身邊約 1 格，Lv5 = 全螢幕
+const MAGNET_RANGE = [0, 90, 190, 340, 560, Infinity];
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
 function updateWorld() {
@@ -390,18 +396,18 @@ const IMG = {};
 const SHIPS = [
     { id:'star', pat:'fan', name:'星藍號', role:'均衡型', c:'#00f2ff', h:0, s:1, r:15, price:0, hp:100, spd:240, dmg:1.3, int:320,
       base:{ dmg:1, rate:0, hp:0, spd:0, pen:0, crit:0, cov:2 }, cap:{ dmg:8, rate:8, hp:8, spd:8, pen:8, crit:8, cov:6 } },
-    { id:'wind', pat:'twin', name:'疾風號', role:'機動靈巧', c:'#00ffcc', h:-20, s:0.9, r:12, price:800, hp:70, spd:300, dmg:0.9, int:290,
+    { id:'wind', pat:'twin', name:'疾風號', role:'機動靈巧', c:'#00ffcc', h:-20, s:0.9, r:12, price:1000, hp:70, spd:300, dmg:0.9, int:290,
       base:{ dmg:1, rate:1, hp:0, spd:2, pen:0, crit:0, cov:0 }, cap:{ dmg:5, rate:6, hp:4, spd:14, pen:5, crit:8, cov:4 } },
-    { id:'bastion', pat:'wide', name:'堡壘號', role:'重裝厚皮', c:'#b026ff', h:100, s:1.2, r:18, price:1500, hp:170, spd:190, dmg:1.0, int:380,
+    { id:'bastion', pat:'wide', name:'堡壘號', role:'重裝厚皮', c:'#b026ff', h:100, s:1.2, r:18, price:2500, hp:170, spd:190, dmg:1.0, int:380,
       base:{ dmg:1, rate:0, hp:3, spd:0, pen:0, crit:0, cov:1 }, cap:{ dmg:6, rate:5, hp:16, spd:4, pen:4, crit:8, cov:6 } },
-    { id:'blaze', pat:'big', name:'烈焰號', role:'高輸出', c:'#ff3366', h:170, s:1.05, r:15, price:2500, hp:85, spd:220, dmg:2.0, int:420,
+    { id:'blaze', pat:'big', name:'烈焰號', role:'高輸出', c:'#ff3366', h:170, s:1.05, r:15, price:5000, hp:85, spd:220, dmg:2.0, int:420,
       base:{ dmg:3, rate:0, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:16, rate:4, hp:5, spd:5, pen:8, crit:8, cov:8 } },
-    { id:'storm', pat:'focus', name:'連射號', role:'射速快', c:'#ffea00', h:-120, s:1, r:15, price:2500, hp:90, spd:240, dmg:0.8, int:230,
+    { id:'storm', pat:'focus', name:'連射號', role:'射速快', c:'#ffea00', h:-120, s:1, r:15, price:5000, hp:90, spd:240, dmg:0.8, int:230,
       base:{ dmg:1, rate:3, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:5, rate:16, hp:6, spd:7, pen:5, crit:8, cov:4 } },
-    { id:'lance', pat:'lane', name:'穿甲號', role:'穿甲型', c:'#ff8a00', h:205, s:1.05, r:15, price:4000, hp:95, spd:230, dmg:1.6, int:340, pierce:true,
+    { id:'lance', pat:'lane', name:'穿甲號', role:'穿甲型', c:'#ff8a00', h:205, s:1.05, r:15, price:9000, hp:95, spd:230, dmg:1.6, int:340, pierce:true,
       base:{ dmg:2, rate:0, hp:0, spd:0, pen:3, crit:0, cov:0 }, cap:{ dmg:10, rate:6, hp:6, spd:6, pen:16, crit:8, cov:6 } },
-    { id:'assassin', pat:'snipe', name:'暗殺號', role:'狙擊刺客', c:'#ff5ec4', h:0, s:0.95, r:13, price:6000, hp:75, spd:270, dmg:1.1, int:300, critMax:0.85,
-      base:{ dmg:1, rate:0, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:7, rate:8, hp:5, spd:9, pen:8, crit:16, cov:4 } }    ,{ id:'nova', pat:'ring', name:'環陣號', role:'全向火網', c:'#9dff6a', h:90, s:1, r:15, price:9000, hp:80, spd:235, dmg:0.7, int:340,
+    { id:'assassin', pat:'snipe', name:'暗殺號', role:'狙擊刺客', c:'#ff5ec4', h:0, s:0.95, r:13, price:15000, hp:75, spd:270, dmg:1.1, int:300, critMax:0.85,
+      base:{ dmg:1, rate:0, hp:0, spd:1, pen:0, crit:0, cov:0 }, cap:{ dmg:7, rate:8, hp:5, spd:9, pen:8, crit:16, cov:4 } }    ,{ id:'nova', pat:'ring', name:'環陣號', role:'全向火網', c:'#9dff6a', h:90, s:1, r:15, price:24000, hp:80, spd:235, dmg:0.7, int:340,
       base:{ dmg:1, rate:0, hp:0, spd:0, pen:0, crit:0, cov:0 }, cap:{ dmg:6, rate:8, hp:6, spd:8, pen:5, crit:8, cov:16 } }
 ];
 const SKINS = SHIPS;
@@ -576,6 +582,62 @@ const music = {
         this.playFile(MUSIC_FILES.lobby, true, () => { if (this.lobbyOn) sfx.startSpaceBGM(); });
     },
     pause(b) { if (!this.cur) return; if (b) this.cur.pause(); else this.cur.play().catch(() => {}); }
+};
+
+// ===== 音樂庫（圖鑑）：自己的播放器，播放時暫停大廳音樂；離開圖鑑時由 setState 停止並恢復大廳音樂 =====
+const trackList = () => [
+    { id: 'lobby', file: MUSIC_FILES.lobby, name: '大廳', sub: '準備出擊・機庫與商店', grp: '大廳與結算', ico: '🏠' },
+    { id: 'end', file: MUSIC_FILES.end, name: '結算', sub: '勝利與失敗的結算畫面', grp: '大廳與結算', ico: '🏁' },
+    ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => ({ id: 'stage' + n, file: MUSIC_FILES[n], name: `第 ${n} 關`, sub: `Boss：${bossLabel(n)}`, grp: '關卡音樂', ico: '🎮', img: `assets/bg/stage${n}.jpg` }))
+];
+const jukebox = {
+    a: null, i: -1, playing: false, mode: 'all', err: {}, tick: null, tok: 0,
+    fmt: s => isFinite(s) ? Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0') : '0:00',
+    stop() { this.tok++; clearInterval(this.tick); if (this.a) { this.a.onended = this.a.onerror = null; try { this.a.pause(); } catch (e) {} } this.a = null; this.i = -1; this.playing = false; },
+    play(i) {
+        const T = trackList(); i = (i + T.length) % T.length; const t = T[i];
+        this.stop(); music.stopFile(); sfx.stopSpaceBGM();        // 暫停大廳音樂與合成背景音
+        this.i = i; this.err[t.id] = 0; const tok = this.tok; this.ui();
+        const urls = music.ok[t.file] ? [music.ok[t.file]] : MUSIC_DIRS.map(d => d + t.file);
+        const go = k => {
+            if (tok !== this.tok) return;
+            if (k >= urls.length) { this.err[t.id] = 1; this.ui(); return; }          // 找不到音檔
+            const a = new Audio(urls[k]); a.volume = music.vol; a.loop = this.mode === 'one'; let done = false;
+            const bad = () => { if (done) return; done = true; a.onerror = null; go(k + 1); };
+            a.onerror = bad; a.onended = () => { if (tok === this.tok) this.step(1, true); };
+            const r = a.play();
+            if (r && r.then) r.then(() => { if (done) return; done = true; if (tok !== this.tok) { a.pause(); return; } music.ok[t.file] = urls[k]; this.a = a; this.playing = true; this.tick = setInterval(() => this.upd(), 250); this.ui(); }).catch(bad);
+        };
+        go(0);
+    },
+    toggle() {
+        if (!this.a) { this.play(this.i >= 0 ? this.i : 0); return; }
+        if (this.a.paused) { this.a.play().catch(() => {}); this.playing = true; } else { this.a.pause(); this.playing = false; }
+        this.ui();
+    },
+    step(d, auto) {
+        const n = trackList().length; if (this.i < 0) { this.play(0); return; }
+        if (d < 0 && this.a && this.a.currentTime > 3) { this.a.currentTime = 0; return; }       // 播放超過 3 秒：上一首＝從頭播放
+        if (this.mode === 'shuffle' && n > 1) { let j; do { j = Math.floor(Math.random() * n); } while (j === this.i); this.play(j); } else this.play(this.i + d);
+    },
+    setMode() { this.mode = { all: 'one', one: 'shuffle', shuffle: 'all' }[this.mode]; if (this.a) this.a.loop = this.mode === 'one'; this.ui(); },
+    seek(e) { const el = e.currentTarget, r = (e.clientX - el.getBoundingClientRect().left) / Math.max(1, el.offsetWidth); if (this.a && isFinite(this.a.duration)) this.a.currentTime = Math.max(0, Math.min(1, r)) * this.a.duration; this.upd(); },
+    upd() {
+        const a = this.a, q = id => document.getElementById(id); if (!a) return; a.volume = music.vol;
+        const f = q('jb-fill'); if (f) f.style.width = (isFinite(a.duration) && a.duration ? a.currentTime / a.duration * 100 : 0) + '%';
+        if (q('jb-cur')) q('jb-cur').textContent = this.fmt(a.currentTime); if (q('jb-dur')) q('jb-dur').textContent = this.fmt(a.duration);
+    },
+    ui() {
+        const q = id => document.getElementById(id); if (!q('jb-title')) return;
+        const T = trackList(), c = this.i >= 0 ? T[this.i] : null, cv = q('jb-cover');
+        q('jb-title').textContent = c ? c.name : '尚未播放'; q('jb-sub').textContent = c ? c.sub : '點選下方曲目開始播放';
+        cv.style.backgroundImage = c && c.img ? `url(${c.img})` : 'none'; cv.textContent = c ? (c.img ? '' : c.ico) : '♪';
+        q('jb-pp').textContent = this.playing ? '⏸' : '▶'; q('jb-eq').classList.toggle('off', !this.playing);
+        q('jb-mode').textContent = { all: '🔁 全部循環', one: '🔂 單曲循環', shuffle: '🔀 隨機播放' }[this.mode];
+        q('jb-msg').textContent = c && this.err[c.id] ? `找不到音檔 ${c.file}（請放在 music/ 或 assets/music/）` : '';
+        document.querySelectorAll('.tk').forEach(el => { el.classList.toggle('on', +el.dataset.i === this.i); el.classList.toggle('bad', !!this.err[el.dataset.id]); });
+        this.upd();
+    }
 };
 
 const CONFIG = {
@@ -901,10 +963,13 @@ class Game {
         this.resize(); window.addEventListener('resize', () => this.resize()); window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250)); if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.resize());
         window.addEventListener('keydown', (e) => {
             if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+            if (this.anyInputResume(false)) { e.preventDefault(); return; }   // 暫停中：按任意鍵回到遊戲
             this.keys[e.code] = true;
             if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
             if (!e.repeat) this.handleKey(e);
         });
+        ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click'].forEach(ev => window.addEventListener(ev, () => this.anyInputResume(true), { capture: true, passive: true }));   // 暫停中：手機觸控、電腦滑鼠點一下畫面就回到遊戲
+        document.addEventListener('visibilitychange', () => { if (document.hidden && this.gameState === 'PLAYING' && !this.paused) { this.paused = true; music.pause(true); } });   // 手機切到背景（不一定會觸發 blur）也先暫停，回來點一下就繼續
         window.addEventListener('blur', () => { this.keys = {}; if (this.gameState === 'PLAYING') { this.paused = true; music.pause(true); } });
         window.addEventListener('keyup', (e) => this.keys[e.code] = false);
 
@@ -947,6 +1012,7 @@ class Game {
     resize() { updateWorld(); this.canvas.width = Math.round(WORLD.rw * WORLD.dpr); this.canvas.height = Math.round(WORLD.rh * WORLD.dpr); this.canvas.style.width = WORLD.rw + 'px'; this.canvas.style.height = WORLD.rh + 'px'; if (this.player && this.player.pos) { this.player.pos.x = Math.min(this.player.pos.x, WORLD.w - 20); this.player.pos.y = Math.min(this.player.pos.y, WORLD.h - 20); } }
 
     setState(state) {
+        jukebox.stop();   // 音樂庫只在圖鑑裡播放；換畫面就停止，並由下面的 music.toLobby() 恢復大廳音樂
         if (state !== 'GAMEOVER') this.leftRun = false;
         this.gameState = state; this.paused = false; this.endCast(); if (state !== 'PLAYING') this.save();
         { const iu = document.getElementById('idiom-ui'); if (iu) iu.style.zIndex = (state === 'GAMEOVER' || state === 'VICTORY') ? '5' : ''; }   // 結算彈窗在上，成語能量槽在後
@@ -1199,13 +1265,19 @@ class Game {
     // ===== 離線資料包（Service Worker + Cache API）=====
     offlineInfo() { try { const i = JSON.parse(localStorage.getItem('idiomOfflineInfo') || 'null'); return i ? `版本 ${i.v || '舊版'}・已下載 ${i.n} 個檔案` : '下載後可完全離線遊玩'; } catch (e) { return ''; } }
     packInfo() { try { return JSON.parse(localStorage.getItem('idiomOfflineInfo') || 'null'); } catch (e) { return null; } }
-    offlineList() {
-        const L = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'sw.js'];
-        Object.values(ASSET_FILES).forEach(u => L.push(u));
-        for (let i = 1; i <= 9; i++) L.push(`assets/bg/stage${i}.jpg`);
-        Object.values(MUSIC_FILES).forEach(f => MUSIC_DIRS.forEach(d => L.push(d + f)));
-        ['app', 'auth', 'firestore', 'analytics'].forEach(n => L.push(`https://www.gstatic.com/firebasejs/10.12.2/firebase-${n}-compat.js`));
-        return [...new Set(L)];
+    // ===== 版本清單 version.json（由 release.js 產生）：{ version, files: { 路徑: [雜湊值, 位元組數] } } =====
+    async fetchManifest() {
+        const r = await fetch('version.json?_=' + Date.now(), { cache: 'reload' });
+        if (!r.ok) throw new Error('讀不到版本清單 version.json（請確認已經上傳）');
+        const j = await r.json();
+        if (!j || !VER_RE.test(j.version) || !j.files || typeof j.files !== 'object') throw new Error('版本清單格式錯誤');
+        return j;
+    }
+    offlineWant(man) {   // 要存進離線資料包的所有檔案 { 網址: [雜湊值, 大小] }
+        const W = { ...man.files };
+        if (W['index.html']) W['./'] = W['index.html'];   // 「./」和 index.html 是同一份
+        ['app', 'auth', 'firestore', 'analytics'].forEach(n => { W[`https://www.gstatic.com/firebasejs/10.12.2/firebase-${n}-compat.js`] = ['-', 0]; });   // 固定版本的外部檔案：有存就不用再抓
+        return W;
     }
     offlineDialog() {
         const ok = 'caches' in window && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol);
@@ -1216,55 +1288,68 @@ class Game {
             <button class="btn btn-start" id="off-go" ${ok ? '' : 'disabled'} onclick="game.downloadOffline()">下載／更新離線資料包</button>
             <button class="btn" ${ok ? '' : 'disabled'} onclick="game.deleteOffline()">刪除離線資料</button><button class="btn" onclick="game.closeDlg()">關閉 [Esc]</button>`);
     }
-    async downloadOffline(onlyMissing) {
+    async downloadOffline() {
         if (this._offBusy) return; this._offBusy = true;
         const btn = document.getElementById('off-go'), bar = document.getElementById('off-bar');
         if (btn) btn.disabled = true; if (bar) bar.style.display = 'block';
-        const CN = 'idiom-offline-' + APP_VERSION;
+        const say = t => { const i = document.getElementById('off-info'); if (i) i.textContent = t; };
+        const CN = 'idiom-offline', abs = u => new URL(u, location.href).href;
         try {
             if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
-            const cache = await caches.open(CN), old = this.packInfo(), had404 = new Set((old && old.v === APP_VERSION && old.miss) || []);
-            let list = this.offlineList();
-            if (onlyMissing) { const keys = new Set((await cache.keys()).map(r => r.url)); list = list.filter(u => !had404.has(u) && !keys.has(new URL(u, location.href).href)); }
-            let done = 0, ok = 0; const miss = new Set(had404);
+            say('檢查版本中…');
+            const man = await this.fetchManifest();
+            if (man.version !== APP_VERSION) throw new Error(verNewer(man.version, APP_VERSION) ? `伺服器已有更新的版本 ${man.version}，請重新整理頁面` : `伺服器上的檔案還沒同步到版本 ${APP_VERSION}（目前是 ${man.version}），請稍後重試`);
+            const want = this.offlineWant(man);                                  // { 網址: [雜湊值, 大小] }
+            const cache = await caches.open(CN), old = this.packInfo() || {}, oldFiles = old.files || {};
+            const have = new Set((await cache.keys()).map(r => r.url));
+            const prevMiss = new Set(old.v === APP_VERSION ? (old.miss || []) : []);   // 同版本已經確認伺服器上沒有的檔案，不再重試
+            const files = {}, miss = new Set(prevMiss), fail = new Set(), urls = Object.keys(want);
+            // 比對：雜湊值一樣、而且快取裡還在 → 沿用舊檔；雜湊值不同（有變動）、新增、或快取裡不見了 → 下載
+            const todo = [];
+            for (const u of urls) { if (have.has(abs(u)) && oldFiles[u] === want[u][0]) files[u] = want[u][0]; else if (!prevMiss.has(u)) todo.push(u); }
+            const bytes = todo.reduce((s, u) => s + (want[u][1] || 0), 0);
+            say(todo.length ? `${old.v ? `${old.v} → ${APP_VERSION}：` : ''}${todo.length} 個檔案需要下載（約 ${(bytes / 1048576).toFixed(1)} MB）…` : '所有檔案都已是最新版本');
+            let done = 0;
             const get = async url => {
                 try {
                     const cross = new URL(url, location.href).origin !== location.origin;
                     const r = await fetch(url, cross ? { mode: 'no-cors' } : { cache: 'reload' });
-                    if (r.ok || r.type === 'opaque') { await cache.put(url, r); ok++; } else if (r.status === 404) miss.add(url);
-                } catch (e) {}
-                done++; const f = document.getElementById('off-fill'), i = document.getElementById('off-info');
-                if (f) f.style.width = (done / Math.max(1, list.length) * 100) + '%'; if (i) i.textContent = `下載中… ${done}/${list.length}`;
+                    if (r.ok || r.type === 'opaque') { await cache.put(url, r); files[url] = want[url][0]; }
+                    else if (r.status === 404) miss.add(url); else fail.add(url);
+                } catch (e) { fail.add(url); }
+                done++; const f = document.getElementById('off-fill'); if (f) f.style.width = (done / Math.max(1, todo.length) * 100) + '%';
+                if (todo.length) say(`更新中… ${done}/${todo.length}`);
             };
-            for (let i = 0; i < list.length; i += 4) await Promise.all(list.slice(i, i + 4).map(get));
-            const all = this.offlineList(), have = new Set((await cache.keys()).map(r => r.url)), n = all.filter(u => have.has(new URL(u, location.href).href)).length;
-            const total = all.length - [...miss].filter(u => all.includes(u)).length;
-            this._offResult = { ok: n, total: Math.max(1, total) };
-            if (n / Math.max(1, total) >= 0.9) {
-                localStorage.setItem('idiomOfflineInfo', JSON.stringify({ v: APP_VERSION, n, miss: [...miss], ts: Date.now() }));
-                for (const k of await caches.keys()) if (k.startsWith('idiom-offline-') && k !== CN) await caches.delete(k);   // 新版本下載完成 → 覆蓋掉舊檔案
-            }
-            const i2 = document.getElementById('off-info'); if (i2) i2.textContent = n ? `完成！版本 ${APP_VERSION}，已儲存 ${n} 個檔案，現在可以離線遊玩了` : '沒有下載到任何檔案，請確認網路';
-        } catch (e) { this._offResult = { ok: 0, total: 1 }; const i2 = document.getElementById('off-info'); if (i2) i2.textContent = '下載失敗：' + (e.message || e); }
+            for (let i = 0; i < todo.length; i += 4) await Promise.all(todo.slice(i, i + 4).map(get));
+            const keep = new Set(urls.map(abs));
+            for (const r of await cache.keys()) if (!keep.has(r.url)) await cache.delete(r);          // 新版已經不存在的檔案 → 從快取移除
+            for (const u of miss) if (!prevMiss.has(u)) await cache.delete(abs(u));                      // 伺服器上已刪除的檔案 → 不留舊的
+            const okN = Object.keys(files).length, expected = urls.filter(u => !miss.has(u)).length, pass = okN / Math.max(1, expected) >= 0.9;
+            this._offResult = { ok: okN, total: Math.max(1, expected) };
+            // 下載到的檔案雜湊一律記下來（即使這次沒下載完，下次也只會補剩下的）；版本號要等到下載完整才更新
+            localStorage.setItem('idiomOfflineInfo', JSON.stringify({ v: pass ? APP_VERSION : (old.v || null), n: okN, files, miss: [...miss], fail: [...fail], ts: Date.now() }));
+            if (pass) for (const k of await caches.keys()) if (k.startsWith('idiom-offline-')) await caches.delete(k);   // 清掉舊制（每版一個）的離線資料包
+            say(okN ? `完成！版本 ${APP_VERSION}，這次更新了 ${todo.length - fail.size - [...miss].filter(u => todo.includes(u)).length} 個檔案（共 ${okN} 個），現在可以離線遊玩了` : '沒有下載到任何檔案，請確認網路');
+        } catch (e) { this._offResult = { ok: 0, total: 1 }; say('下載失敗：' + (e.message || e)); }
         this._offBusy = false; const b2 = document.getElementById('off-go'); if (b2) b2.disabled = false;
     }
     // ===== 連網自動檢查：版本號不同 → 下載新資料包並覆蓋舊檔；版本相同 → 只補缺少的檔案 =====
     offlineSupported() { return 'caches' in window && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol); }
     needFirstDownload() { try { const i = this.packInfo(); return this.offlineSupported() && navigator.onLine && (!i || i.v !== APP_VERSION); } catch (e) { return false; } }
-    async quietCheck() {   // 版本相同時，背景補齊缺少的檔案
+    async quietCheck() {   // 版本相同時，背景補齊失敗或被瀏覽器清掉的檔案
         try {
             if (!this.offlineSupported() || !navigator.onLine || this._offBusy) return; const i = this.packInfo(); if (!i || i.v !== APP_VERSION) return;
-            const cache = await caches.open('idiom-offline-' + APP_VERSION), keys = new Set((await cache.keys()).map(r => r.url)), miss = new Set(i.miss || []);
-            if (this.offlineList().some(u => !miss.has(u) && !keys.has(new URL(u, location.href).href))) await this.downloadOffline(true);
+            const cache = await caches.open('idiom-offline');
+            if ((i.fail || []).length || (await cache.keys()).length < Object.keys(i.files || {}).length) await this.downloadOffline();
         } catch (e) {}
     }
     forceDownload(done) {
-        const old = this.packInfo(), isUpdate = !!old;
+        const old = this.packInfo(), isUpdate = !!(old && old.v);
         this.uiLayer.innerHTML = `<div class="menu-overlay" style="width:min(92vw,460px)"><h2 class="shop-title">${isUpdate ? '發現新版本・更新資料包' : '首次啟動・下載資源包'}</h2>
-            <p style="text-align:left;font-size:.95rem;line-height:1.7">${isUpdate ? `目前版本 ${esc(old.v || '舊版')} → 最新版本 ${APP_VERSION}。會自動下載並覆蓋舊檔案。` : '第一次進入遊戲需要先下載圖片與音樂資源包（約 26 MB），會花比較久的時間；之後進入遊戲就能快速讀取，也能離線遊玩。'}請保持網路連線。</p>
+            <p style="text-align:left;font-size:.95rem;line-height:1.7">${isUpdate ? `目前版本 ${esc(old.v || '舊版')} → 最新版本 ${APP_VERSION}。必須更新完成才能進入遊戲，會自動下載並覆蓋舊檔案。` : '第一次進入遊戲需要先下載圖片與音樂資源包（約 26 MB），會花比較久的時間；之後進入遊戲就能快速讀取，也能離線遊玩。'}請保持網路連線。</p>
             <p id="off-info" class="muted">準備下載…</p>
             <div class="ip-bar" id="off-bar" style="display:block"><i id="off-fill" style="animation:none;width:0%"></i></div>
-            <button class="btn btn-start" id="off-go" style="display:none">重新下載</button>${isUpdate ? '<button class="btn" id="off-skip" style="display:none">先用舊版進入</button>' : ''}</div>`;
+            <button class="btn btn-start" id="off-go" style="display:none">重新下載</button>${isUpdate ? '<button class="btn" id="off-skip" style="display:none">網路中斷，先離線進入</button>' : ''}</div>`;
         const run = async () => {
             const b = document.getElementById('off-go'); if (b) b.style.display = 'none';
             if (navigator.serviceWorker) { try { const r = await navigator.serviceWorker.register('sw.js'); r.update && r.update(); } catch (e) {} }
@@ -1273,7 +1358,7 @@ class Game {
             if (r.ok / r.total >= 0.9) { setTimeout(done, 600); return; }
             const i = document.getElementById('off-info'); if (i) i.textContent = `下載不完整（${r.ok}/${r.total}），請確認網路後重試`;
             const b2 = document.getElementById('off-go'); if (b2) { b2.style.display = 'block'; b2.disabled = false; b2.onclick = run; }
-            const sk = document.getElementById('off-skip'); if (sk) { sk.style.display = 'block'; sk.onclick = done; }
+            const sk = document.getElementById('off-skip'); if (sk && !navigator.onLine) { sk.style.display = 'block'; sk.onclick = done; }   // 強制更新：只有斷網時才能略過
         };
         run();
     }
@@ -1286,7 +1371,7 @@ class Game {
         location.reload();
     }
     async deleteOffline() {
-        try { for (const k of await caches.keys()) if (k.startsWith('idiom-offline-')) await caches.delete(k); localStorage.removeItem('idiomOfflineInfo'); const i = document.getElementById('off-info'); if (i) i.textContent = '已刪除離線資料'; } catch (e) {}
+        try { for (const k of await caches.keys()) if (k.startsWith('idiom-offline')) await caches.delete(k); localStorage.removeItem('idiomOfflineInfo'); const i = document.getElementById('off-info'); if (i) i.textContent = '已刪除離線資料'; } catch (e) {}
     }
     resetProgress() {
         this.darkMatter = 0; this.maxSlots = 1; this.magnetLvl = 0; this.dmLvl = 0; this.bestStage = 1; this.startStage = 1; this.shipId = 'star';
@@ -1329,7 +1414,19 @@ class Game {
         }
         b.vel.x = Math.cos(a) * sp; b.vel.y = Math.sin(a) * sp;
     }
+    anyInputResume(fromPointer) {   // 暫停中（視窗失焦、掛機提示）按任意鍵或點一下畫面就回到遊戲；成功回傳 true
+        if (this.gameState !== 'PLAYING') return false;
+        const now = performance.now();
+        if (this.dlgOpen) {   // 只有「掛機」提示框可以隨便按就關閉；其他對話框仍須按按鈕，避免誤觸
+            if (!this.idleDlg || now - (this._idleDlgAt || 0) < 400) return false;
+            this.closeDlg(); if (fromPointer) this._swallowUntil = now + 300; return true;
+        }
+        if (!this.paused || (window.online && online.pk && online.pk.over)) return false;   // 注意：施放成語中暫停也要能繼續，否則施放計時停住會永遠卡死
+        this.paused = false; music.pause(false); if (fromPointer) this._swallowUntil = now + 300;   // 這一下點擊只用來恢復，不要同時施放成語
+        return true;
+    }
     dialog(html, onConfirm) {
+        this.idleDlg = false;
         let d = document.getElementById('dlg');
         if (!d) { d = document.createElement('div'); d.id = 'dlg'; d.className = 'dlg'; document.getElementById('game-container').appendChild(d); }
         d.innerHTML = `<div class="box">${html}</div>`; d.style.display = 'flex'; this.dlgOpen = true; this.dlgConfirm = onConfirm || null;
@@ -1337,7 +1434,7 @@ class Game {
     }
     closeDlg() {
         const d = document.getElementById('dlg'); if (d) d.style.display = 'none';
-        this.dlgOpen = false; this.dlgConfirm = null;
+        this.dlgOpen = false; this.dlgConfirm = null; this.idleDlg = false;
         if (this.dlgResume && this.gameState === 'PLAYING') { this.paused = false; music.pause(false); }
         this.dlgResume = false;
     }
@@ -1600,7 +1697,7 @@ class Game {
                 run: () => { this.darkMatter -= X.price; this.fleet[X.id].own = true; } });
         });
         [['成語列', '同時收集的成語數', this.maxSlots, 6, SLOT_COST[this.maxSlots - 1] || 0, () => { this.maxSlots++; this.fillEmptySlots(); }, 'slots'],
-         ['磁吸字塊', '字塊自動吸附範圍', this.magnetLvl, 5, MAGNET_COST[this.magnetLvl] || 0, () => this.magnetLvl++, 'magnet'],
+         ['磁吸字塊', '字塊自動吸附範圍（Lv1 只吸身邊約 1 格，Lv5 吸全螢幕）', this.magnetLvl, 5, MAGNET_COST[this.magnetLvl] || 0, () => this.magnetLvl++, 'magnet'],
          ['暗物質回收', '暗物質獲得 +20%', this.dmLvl, 5, DMREC_COST[this.dmLvl] || 0, () => this.dmLvl++, 'dm']].forEach(([n, d, lv, max, cost, f, ic]) => {
             rows.push({ t: `${n} Lv.${lv}/${max}`, svg: SHOP_ICONS[ic], dis: lv >= max || this.darkMatter < cost, sub: lv >= max ? '已滿級' : `${d}・${cost} DM`, run: () => { this.darkMatter -= cost; f(); } });
         });
@@ -1707,7 +1804,7 @@ class Game {
 
     useIdiom(index) {
         const idiom = this.slots[index];
-        if (!idiom || idiom.type !== 'READY' || this.paused || this.casting) return;
+        if (!idiom || idiom.type !== 'READY' || this.paused || this.casting || performance.now() < (this._swallowUntil || 0)) return;
         const r = this.pickIdiom();
         this.slots[index] = { type: 'COLLECTING', word: r.word, chars: [], effect: r.effect, effectDesc: r.desc };
         this.renderIdiomSlots();
@@ -1829,7 +1926,7 @@ class Game {
         const toward = (tx, sp) => { const d = tx - e.pos.x; e.pos.x += cl(d, -sp * dt, sp * dt); };
         switch (e.mv) {
             case 'sway':   // 偵察機：緩慢下降並大幅左右擺盪
-                e.pos.y += e.speed * 0.5 * dt; e.pos.x = cl(e.bx + Math.sin(t * 1.6 + e.ph) * 110, e.radius, W - e.radius); if (e.pos.y > H + 40) e.gone = true; break;
+                e.pos.y += e.speed * 0.5 * dt; e.pos.x = cl(e.bx + Math.sin(t * 1.6 + e.ph) * 110, e.radius, W - e.radius); if (e.pos.y > H + 40) e.pos.y = -40; break;   // 飛出下方 → 從上方重新飛入（不會消失，必須擊殺）
             case 'hunt':   // 戰鬥機：下降到定位後，橫向追著玩家
                 if (e.pos.y < e.hy) e.pos.y += e.speed * 2 * dt; else e.pos.y = e.hy + Math.sin(t * 2) * 10;
                 toward(cl(this.player.pos.x + e.off, e.radius, W - e.radius), e.speed * 3); break;
@@ -1837,13 +1934,17 @@ class Game {
                 if (e.pos.y < e.hy) e.pos.y += e.speed * 1.5 * dt;
                 e.pos.x = cl(e.pos.x + Math.sin(t * 0.5 + e.ph) * 22 * dt, e.radius, W - e.radius); break;
             case 'dive':   // 俯衝機：V 字編隊朝玩家直線衝刺
-                e.pos.x += e.vel.x * dt; e.pos.y += e.vel.y * dt; if (e.pos.y > H + 60 || e.pos.x < -60 || e.pos.x > W + 60) e.gone = true; break;
+                e.pos.x += e.vel.x * dt; e.pos.y += e.vel.y * dt;
+                if (e.pos.y > H + 60 || e.pos.x < -60 || e.pos.x > W + 60) {   // 衝出畫面 → 從上方隨機位置重新瞄準玩家俯衝（不會消失，必須擊殺）
+                    const nx = 40 + Math.random() * (W - 80), a = Math.atan2(this.player.pos.y + 50, this.player.pos.x - nx), sp = e.speed || 200;
+                    e.pos.x = nx; e.pos.y = -50; e.vel = new Vec2(Math.cos(a) * sp, Math.sin(a) * sp);
+                } break;
             case 'formation': {   // 蜂群：整隊一起移動（橫列／V 字／旋轉圓環）
                 const f = e.form, n = f.n, c = f.i - (n - 1) / 2, cy = -40 + e.speed * t, cx = e.bx + Math.sin(t * 1.1 + e.ph) * 110;
                 let ox, oy;
                 if (f.kind === 'line') { ox = c * 60; oy = 0; } else if (f.kind === 'v') { ox = c * 60; oy = Math.abs(c) * 36; }
                 else { const a = t * 1.6 + f.i * Math.PI * 2 / n; ox = Math.cos(a) * 84; oy = Math.sin(a) * 84; }
-                e.cx = cx; e.cy = cy; e.pos.x = cl(cx + ox, e.radius, W - e.radius); e.pos.y = cy + oy; if (cy > H + 90) e.gone = true; break;
+                e.cx = cx; e.cy = cy; e.pos.x = cl(cx + ox, e.radius, W - e.radius); e.pos.y = cy + oy; if (cy > H + 90) e.tm = 0; break;   // 整隊飛出下方 → 重置，從上方重新飛入（不會消失，必須擊殺）
             }
             case 'mirror':   // 狙擊機：定位後與玩家「鏡像」移動
                 if (e.pos.y < e.hy) e.pos.y += e.speed * 2.2 * dt; if (!(e.charge > 0)) toward(cl(W - this.player.pos.x, e.radius, W - e.radius), e.speed * 3.5); break;
@@ -1904,7 +2005,7 @@ class Game {
             const g = Math.min(this.darkMatter, Math.round(this.idleGain || 0)); this.darkMatter -= g; this.runDM = Math.max(0, (this.runDM || 0) - g);
             if (typeof online !== 'undefined' && online.stat && g) online.stat('totalDM', -g);
             this.idleT = 0; this.idleGain = 0; this.idleAnchor = null; this.updateHUD(); this.save();
-            this.dialog(`<h3 style="color:var(--neon-red)">偵測到長時間未操作</h3><p style="line-height:1.7">已扣回這 60 秒獲得的暗物質（-${g} DM）。<br><b>如不遊玩，請關閉遊戲，延長手機壽命。</b></p><button class="btn btn-start" onclick="game.closeDlg()">我知道了，繼續遊玩</button>`);
+            this.dialog(`<h3 style="color:var(--neon-red)">偵測到長時間未操作</h3><p style="line-height:1.7">已扣回這 60 秒獲得的暗物質（-${g} DM）。<br><b>如不遊玩，請關閉遊戲，延長手機壽命。</b></p><button class="btn btn-start" onclick="game.closeDlg()">我知道了，繼續遊玩</button><p class="muted" style="margin:8px 0 0">按任意鍵或點一下畫面也可繼續</p>`); this.idleDlg = true; this._idleDlgAt = performance.now();
         }
     }
     update(dt) {
@@ -1932,7 +2033,7 @@ class Game {
             const shootBullet = (offset, angle, rs, dm) => {
                 const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + offset, this.player.pos.y - 25);
                 b.vel = new Vec2(Math.sin(angle)*800, -Math.cos(angle)*800);
-                b.isPlayer = true; b.damage = dmg * (dm || 1); b.pen = this.st.pen; b.crit = this.st.crit; b.turn = 0; b.target = null; styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; b.pierce = !!SKINS[this.skin].pierce; b.sid = this.shipId; b.homing = this.missileTimer > 0 || (b.pierce && !this.pkMode);
+                b.isPlayer = true; b.damage = dmg * (dm || 1); b.pen = this.st.pen; b.crit = this.st.crit; b.turn = 0; b.target = null; styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; b.pierce = !!SKINS[this.skin].pierce; b.sid = this.shipId; b.homing = this.missileTimer > 0 || (b.pierce && !this.pkMode && ((this._lanceN = (this._lanceN || 0) + 1) % 2 === 0));   // 穿甲號：每兩發有一發會自動追蹤（追蹤導彈道具期間則全部追蹤）
             };
             const shots = patternShots(SKINS[this.skin], this.covLv);   // 依戰機的火力覆蓋等級決定彈道
             shots.forEach(sh => shootBullet(sh.o, sh.a, sh.rs, sh.dm));
@@ -2062,7 +2163,7 @@ class Game {
             }
             c.pos.y += 120 * dt; 
             const cd = Math.hypot(c.pos.x - this.player.pos.x, c.pos.y - this.player.pos.y);
-            if (this.magnetLvl > 0 && cd > 1 && cd < 100 + this.magnetLvl * 40) { c.pos.x += (this.player.pos.x - c.pos.x) / cd * 300 * dt; c.pos.y += (this.player.pos.y - c.pos.y) / cd * 300 * dt; }
+            if (this.magnetLvl > 0 && cd > 1 && cd < MAGNET_RANGE[Math.min(5, this.magnetLvl)]) { const sp = (240 + this.magnetLvl * 60) * dt; c.pos.x += (this.player.pos.x - c.pos.x) / cd * sp; c.pos.y += (this.player.pos.y - c.pos.y) / cd * sp; }
             if (cd < 40 + this.magnetLvl * 10) {
                 this.collectChar(c.char); this.charItems.splice(i, 1);
             }
@@ -2465,7 +2566,7 @@ class Game {
                 const W = WORLD.w, H = WORLD.h;
                 ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, W, H);
                 ctx.fillStyle = '#00f2ff'; ctx.textAlign = 'center'; ctx.font = "bold 48px "+KAI_FONT; ctx.fillText('暫停中', W / 2, H / 2);
-                ctx.font = "20px "+KAI_FONT; ctx.fillText('按 P / Esc / Enter 繼續', W / 2, H / 2 + 50);
+                ctx.font = "20px "+KAI_FONT; ctx.fillText('按任意鍵或點一下畫面繼續', W / 2, H / 2 + 50);
             }
             ctx.restore();
         }
@@ -2473,19 +2574,54 @@ class Game {
 }
 
 const game = new Game();
-// 開啟時若有網路：檢查線上是不是最新版，不同就立即清快取並重新載入
-(async () => {
-    try {
-        if (!/^https?:$/.test(location.protocol) || !navigator.onLine) return;
-        const r = await fetch('index.html?_=' + Date.now(), { cache: 'reload' }); if (!r.ok) return;
-        const m = /const APP_VERSION = '([^']+)'/.exec(await r.text()); if (!m || m[1] === APP_VERSION) { try { sessionStorage.removeItem('idiomUpd'); } catch (e) {} return; }
-        if (sessionStorage.getItem('idiomUpd') === m[1]) return;   // 同一版只嘗試一次，避免無限重新整理
-        sessionStorage.setItem('idiomUpd', m[1]);
-        if (navigator.serviceWorker) { for (const g of await navigator.serviceWorker.getRegistrations()) await g.update().catch(() => {}); }
-        for (const k of await caches.keys()) if (k.startsWith('idiom-shell-')) await caches.delete(k);
-        location.reload();
-    } catch (e) {}
-})();
+// ===== 強制更新：上線時檢查線上是不是最新版，不是就鎖住畫面並更新 =====
+// 判斷方式：線上 index.html 的 APP_VERSION 與目前執行中的不同 → 清掉舊的網頁快取與 Service Worker，用新網址重新載入。
+// 載入新版後，離線資料包的版本也會對不上，會自動進入「更新資料包」畫面（必須更新完成才能進遊戲）。
+// 舊版、或存過舊離線檔案的裝置也一樣：只要上線，就會被更新到最新版本。
+const FORCE_UPDATE = {
+    busy: false, last: 0,
+    overlay(html) {
+        let o = document.getElementById('upd-ov');
+        if (!o) { o = document.createElement('div'); o.id = 'upd-ov'; o.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(5,5,16,.97);color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;touch-action:none'; document.body.appendChild(o); }
+        o.innerHTML = '<div style="max-width:420px;line-height:1.8">' + html + '</div>';
+    },
+    async latest() {   // 取得線上最新版本號：優先讀 version.json，讀不到才退回解析 index.html
+        try { const r = await fetch('version.json?_=' + Date.now(), { cache: 'reload' }); if (r.ok) { const j = await r.json(); if (j && VER_RE.test(j.version)) return j.version; } } catch (e) {}
+        try { const r = await fetch('index.html?_=' + Date.now(), { cache: 'reload' }); if (r.ok) { const m = /const APP_VERSION = '([^']+)'/.exec(await r.text()); if (m && VER_RE.test(m[1])) return m[1]; } } catch (e) {}
+        return null;
+    },
+    async check(force) {
+        try {
+            if (this.busy || !/^https?:$/.test(location.protocol) || !navigator.onLine) return;
+            const gs = game.gameState; if (!force && (gs === 'PLAYING' || gs === 'TRANSITION')) return;   // 不打斷進行中的出擊，回到大廳後再更新
+            if (!force && Date.now() - this.last < 60000) return; this.last = Date.now();
+            const v = await this.latest(); if (!v) return;
+            if (!verNewer(v, APP_VERSION)) { try { sessionStorage.removeItem('idiomUpd'); } catch (e) {} return; }   // 線上版本不比目前新 → 不用更新
+            await this.run(v);
+        } catch (e) {}
+    },
+    async run(newV) {
+        this.busy = true;
+        let t = {}; try { t = JSON.parse(sessionStorage.getItem('idiomUpd') || '{}'); } catch (e) {}
+        if (t.v !== newV) t = { v: newV, n: 0 };
+        if (t.n >= 3) { this.fail(newV); return; }   // 連續 3 次還是舊版（網路或 CDN 快取問題）→ 顯示失敗畫面，仍不能進遊戲
+        t.n++; try { sessionStorage.setItem('idiomUpd', JSON.stringify(t)); } catch (e) {}
+        this.overlay(`<h2 style="color:#00f2ff;margin:0 0 8px">發現新版本</h2><p>目前版本 ${APP_VERSION} → 最新版本 ${newV}<br>正在強制更新，請稍候…</p>`);
+        try { game.save(); } catch (e) {}
+        try { if (navigator.serviceWorker) for (const g of await navigator.serviceWorker.getRegistrations()) await g.unregister(); } catch (e) {}
+        try { for (const k of await caches.keys()) if (k.startsWith('idiom-shell-')) await caches.delete(k); } catch (e) {}
+        location.replace(location.pathname + '?v=' + encodeURIComponent(newV) + '_' + t.n);   // 換新網址，繞過瀏覽器 HTTP 快取
+    },
+    fail(newV) {
+        this.overlay(`<h2 style="color:#ff6b6b;margin:0 0 8px">更新失敗</h2><p>需要更新到版本 ${newV}，但目前仍載入到舊版。<br>請確認網路後重試；若一直失敗，請清除資料後再更新。</p>
+            <button class="btn btn-start" onclick="FORCE_UPDATE.retry()">重新更新</button><button class="btn" onclick="game.wipeAll()">清除資料並更新</button>`);
+    },
+    retry() { try { sessionStorage.removeItem('idiomUpd'); } catch (e) {} this.busy = false; this.check(true); }
+};
+FORCE_UPDATE.check(true);
+window.addEventListener('online', () => FORCE_UPDATE.check());
+document.addEventListener('visibilitychange', () => { if (!document.hidden) FORCE_UPDATE.check(); });
+setInterval(() => FORCE_UPDATE.check(), 10 * 60 * 1000);
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -2549,6 +2685,44 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .chip{display:inline-block;margin:3px;padding:3px 9px;border-radius:14px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.1);cursor:pointer;color:#fff;font-family:inherit}.chip.on{background:var(--neon-gold);color:#000;border-color:var(--neon-gold)}
 .dots i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#445;margin:0 3px}.dots i.on{background:var(--neon-blue)}
 .dx{display:flex;gap:10px;align-items:center;text-align:left;border:1px solid #334;border-radius:10px;padding:8px;margin:6px 0;background:rgba(0,0,20,.5)}.dx img{width:84px;height:84px;object-fit:contain;flex:none}.dx h3{margin:0 0 4px;font-size:1.05rem}.dx .t{font-size:.8rem;line-height:1.55;color:#cde}.dx .t b{color:var(--neon-blue)}
+.cx{width:min(96vw,780px);box-sizing:border-box;padding:16px 16px 12px;display:flex;flex-direction:column;max-height:90vh;overflow:hidden;background:radial-gradient(ellipse at 50% -15%,color-mix(in srgb,var(--c) 28%,transparent),rgba(5,5,16,.97) 62%);border-color:var(--c);box-shadow:0 0 34px color-mix(in srgb,var(--c) 45%,transparent),inset 0 0 40px rgba(255,255,255,.03);transition:border-color .25s,box-shadow .25s}
+.cx-h{display:flex;align-items:baseline;justify-content:center;gap:10px}.cx-h h2{margin:0 0 6px}.cx-h small{color:#8aa;letter-spacing:.35em;font-size:.7rem}
+.cx-top{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 8px}
+.cx-top button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:9px 4px 7px;border-radius:12px;border:1px solid color-mix(in srgb,var(--c) 45%,#223);background:linear-gradient(160deg,color-mix(in srgb,var(--c) 14%,#0a0a1a),#0a0a1a);color:#cde;cursor:pointer;font-family:inherit;transition:transform .15s,box-shadow .15s}
+.cx-top button:hover{transform:translateY(-2px)}.cx-top button .ic{font-size:1.5rem;line-height:1.2}.cx-top button b{font-size:1.02rem}.cx-top button small{font-size:.66rem;color:#8aa}
+.cx-top button.on{background:linear-gradient(160deg,color-mix(in srgb,var(--c) 42%,#0a0a1a),color-mix(in srgb,var(--c) 14%,#0a0a1a));border-color:var(--c);color:#fff;box-shadow:0 0 16px color-mix(in srgb,var(--c) 60%,transparent),inset 0 0 12px color-mix(in srgb,var(--c) 25%,transparent)}.cx-top button.on small{color:#fff}
+.cx-sub{display:flex;justify-content:center;gap:6px;margin:0 0 8px}.cx-sub button{padding:5px 16px;border-radius:999px;border:1px solid #445;background:rgba(255,255,255,.05);color:#bcd;cursor:pointer;font-family:inherit}.cx-sub button.on{background:var(--c);border-color:var(--c);color:#000;font-weight:bold}
+.cx-body{flex:1;min-height:0;overflow-y:auto;text-align:left;padding:2px 4px 2px 2px;scrollbar-width:thin;scrollbar-color:var(--c) transparent}
+.cx .btn-start{margin-top:8px;padding:9px;font-size:1rem;flex:none}
+.cx-card{display:flex;gap:12px;align-items:flex-start;margin:8px 0;padding:10px;border-radius:12px;border:1px solid #2a3350;border-left:4px solid var(--c);background:linear-gradient(120deg,color-mix(in srgb,var(--c) 10%,#080a1c),rgba(8,10,28,.85))}
+.cx-card .pic{flex:none;width:92px;height:92px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:radial-gradient(circle,color-mix(in srgb,var(--c) 30%,transparent),transparent 70%)}.cx-card .pic img{max-width:84px;max-height:84px;object-fit:contain;filter:drop-shadow(0 0 8px var(--c))}
+.cx-card .inf{flex:1;min-width:0}.cx-card h3{margin:0 0 6px;font-size:1.08rem;color:var(--c);display:flex;flex-wrap:wrap;align-items:center;gap:6px}.cx-card h3 small{color:#9ab;font-size:.76rem;font-weight:normal}
+.cx-card .t{font-size:.8rem;line-height:1.6;color:#d4dcef}.cx-card .t b{color:var(--neon-blue)}
+.tg{display:inline-block;padding:1px 9px;border-radius:999px;font-size:.7rem;font-weight:normal;background:color-mix(in srgb,var(--c,#0ff) 20%,transparent);border:1px solid var(--c,#0ff);color:#fff}.tg.gold{--c:#ffd400;color:#ffd400}
+.sb{display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;margin:2px 0 8px}.sb div{display:flex;align-items:center;gap:5px;font-size:.72rem;color:#9ab}.sb span{width:2.4em;flex:none}.sb i{flex:1;height:6px;border-radius:3px;background:#1a2038;overflow:hidden}.sb u{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 40%,#000),var(--c))}.sb b{width:1.7em;text-align:right;color:#fff;font-weight:normal}
+.cx-card details{margin-top:6px}.cx-card summary{cursor:pointer;font-size:.76rem;color:var(--c)}.cx-card details .t{margin-top:4px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.3)}
+.chips2{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}.chips2 span{padding:1px 9px;border-radius:8px;background:rgba(255,255,255,.07);font-size:.74rem;color:#9ab}.chips2 b{color:#fff;font-weight:normal;margin-left:2px}
+.ef-tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:2px 0 8px}.ef-tabs button{padding:4px 11px;border-radius:999px;border:1px solid color-mix(in srgb,var(--c) 60%,#223);background:rgba(255,255,255,.04);color:#dde;cursor:pointer;font-family:inherit;font-size:.86rem}.ef-tabs button em{font-style:normal;font-size:.68rem;margin-left:4px;opacity:.7}.ef-tabs button.on{background:var(--c);border-color:var(--c);color:#000;font-weight:bold}
+.ef-desc{padding:8px 12px;border-radius:10px;border-left:4px solid var(--c);background:color-mix(in srgb,var(--c) 10%,#080a1c)}.ef-desc h3{margin:0 0 2px;color:var(--c);font-size:1.02rem}.ef-desc p{margin:0;font-size:.85rem;line-height:1.55;color:#d4dcef}
+.idm-det{margin:8px 0;padding:10px 14px;min-height:96px;text-align:center;border-radius:12px;border:1px solid color-mix(in srgb,var(--c) 55%,#223);background:radial-gradient(ellipse at 50% 0,color-mix(in srgb,var(--c) 22%,transparent),rgba(5,5,16,.7) 75%)}
+.idm-det .dw{font-size:2rem;font-weight:bold;letter-spacing:.25em;color:var(--c);margin-bottom:4px;text-shadow:0 0 14px var(--c)!important}.idm-det p{margin:6px 0;text-align:left;font-size:.88rem;line-height:1.6;color:#e4e9f8}.idm-det p b{color:var(--neon-blue);margin-right:10px}
+.dnav{display:flex;align-items:center;justify-content:space-between;margin-top:8px}.dnav button{padding:3px 14px;border-radius:8px;border:1px solid var(--c);background:rgba(255,255,255,.05);color:#fff;cursor:pointer;font-family:inherit}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:6px}.chips .chip{margin:0;padding:6px 4px;border-radius:9px;font-size:.95rem;letter-spacing:.08em;border-color:color-mix(in srgb,var(--c) 55%,#223);background:rgba(255,255,255,.04)}.chips .chip:hover{background:color-mix(in srgb,var(--c) 25%,transparent)}.chips .chip.on{background:var(--c);color:#000;border-color:var(--c);font-weight:bold}
+.jb-top{position:sticky;top:0;z-index:3;padding:4px 0 6px;background:rgba(8,8,24,.97)}
+.jb-now{display:flex;gap:12px;align-items:center;padding:10px;border-radius:12px;border:1px solid #4a2a58;background:linear-gradient(120deg,rgba(255,59,212,.16),rgba(8,10,28,.9))}
+.jb-cover{flex:none;width:84px;height:84px;border-radius:12px;background:#15122a center/cover;border:1px solid #ff3bd4;display:flex;align-items:center;justify-content:center;font-size:2.2rem;box-shadow:0 0 14px rgba(255,59,212,.45)}
+.jb-mid{flex:1;min-width:0}.jb-mid h3{margin:2px 0;color:#fff;font-size:1.15rem}.jb-mid p{margin:0}.jb-msg{color:#ff8a8a;font-size:.78rem;min-height:1em}
+.jb-eq{display:flex;align-items:flex-end;gap:3px;height:20px}.jb-eq i{width:5px;border-radius:2px;background:linear-gradient(#ff3bd4,#00f2ff);animation:jbEq .8s ease-in-out infinite alternate}.jb-eq i:nth-child(2){animation-delay:.15s}.jb-eq i:nth-child(3){animation-delay:.3s}.jb-eq i:nth-child(4){animation-delay:.1s}.jb-eq i:nth-child(5){animation-delay:.25s}.jb-eq.off i{animation:none;height:4px}
+@keyframes jbEq{from{height:4px}to{height:20px}}
+.jb-bar{height:8px;margin:10px 0 2px;border-radius:4px;background:#222a44;cursor:pointer;overflow:hidden}.jb-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff3bd4,#00f2ff)}
+.jb-t{display:flex;justify-content:space-between;font-size:.7rem;color:#8aa}
+.jb-ctl{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:4px}.jb-ctl button{padding:6px 12px;border-radius:10px;border:1px solid #ff3bd4;background:rgba(255,59,212,.1);color:#fff;cursor:pointer;font-family:inherit;font-size:.9rem}.jb-ctl button.big{padding:6px 22px;font-size:1.2rem;background:#ff3bd4;color:#000}
+.jb-vol{display:flex;align-items:center;gap:4px;font-size:.9rem}.jb-vol input{width:84px}
+.jb-g{margin:12px 0 4px;color:#ff9be8;font-size:.86rem;letter-spacing:.15em}
+.tk{display:flex;align-items:center;gap:10px;margin:4px 0;padding:6px 10px;border-radius:10px;border:1px solid #2a3350;background:rgba(8,10,28,.8);cursor:pointer;transition:background .15s,border-color .15s}.tk:hover{background:rgba(255,59,212,.1)}
+.tk .th{flex:none;width:62px;height:40px;border-radius:7px;background:#15122a center/cover;display:flex;align-items:center;justify-content:center;font-size:1.3rem}.tk .tn{flex:1;min-width:0}.tk .tn b{display:block;font-size:.95rem;color:#fff}.tk .tn small{color:#8aa;font-size:.72rem}.tk .pl{color:#ff3bd4;opacity:.4}
+.tk.on{border-color:#ff3bd4;background:rgba(255,59,212,.16);box-shadow:0 0 10px rgba(255,59,212,.35)}.tk.on .pl{opacity:1}.tk.bad .tn small::after{content:'（找不到音檔）';color:#ff8a8a}
+@media (max-width:520px){.cx{padding:12px 10px 10px}.cx-card .pic{width:64px;height:64px}.cx-card .pic img{max-width:58px;max-height:58px}.sb{grid-template-columns:1fr}.cx-top button small{display:none}.jb-cover{width:62px;height:62px}}
 </style>`);
 
 // ---------- Firebase ----------
@@ -2709,7 +2883,7 @@ const online = window.online = {
         const T = (a, b, h, sm, ico, onclick, cls = '', col = '') => `<div class="tile ${cls}" style="--a:${a};--b:${b}${col ? ';color:' + col : ''}" onclick="${onclick}"><h4>${h}</h4><small>${sm}</small><span class="ico">${ico}</span></div>`;
         return T('#f7971e', '#ffd200', '排行榜', '線上排名', '★', "game.setState('RANK')", '', '#222')
             + T('#11998e', '#38ef7d', '好友', `聊天／邀請${this.reqIn.length ? '（' + this.reqIn.length + ' 筆邀請）' : ''}`, '友', "game.setState('FRIENDS')", '', '#022')
-            + T('#614385', '#516395', '圖鑑', '成語招式・戰鬥數據', '鑑', "game.setState('DB')")
+            + T('#614385', '#516395', '圖鑑', '成語・戰鬥資料・音樂庫', '鑑', "game.setState('DB')")
             + T('#cb2d3e', '#ef473a', '好友 PK', '與好友對決', '⚔', "game.setState('PK')")
             + T('#1d2b64', '#3a6073', '個人戰績', '分數・暗物質・常用戰機', '績', "game.setState('STATS')", 'w2')
             + T('#134e5e', '#71b280', '新手教學', '圖文說明', '?', "game.setState('TUTORIAL')", 'w2');
@@ -3143,33 +3317,48 @@ const online = window.online = {
         this._adUnsub = ref.orderBy('ts', 'desc').limit(100).onSnapshot(s => { const b = $('ad-msgs'); if (!b) return; b.innerHTML = s.docs.map(d => msgHtml(d.data(), false)).reverse().join('') || '<p class="muted">沒有訊息</p>'; b.scrollTop = b.scrollHeight; }, e => { const b = $('ad-msgs'); if (b) b.textContent = errMsg(e); });
     },
 
-    // ===== 成語資料庫 =====
+    // ===== 圖鑑：成語資料／戰鬥資料／音樂庫 =====
     renderDB(eff, word) { this.renderDex('idiom', eff, word); },
     renderDex(tab, a, b) {
         tab = tab || 'idiom';
-        const top = tab === 'idiom' ? 'idiom' : 'data';   // 兩大類：成語招式／戰鬥數據
-        const TOP = [['idiom', '成語招式', 'idiom'], ['data', '戰鬥數據', 'ship']], SUB = [['ship', '我方戰機'], ['enemy', '敵方戰機'], ['boss', 'Boss']];
-        const body = { idiom: () => this.dexIdiom(a, b), ship: () => this.dexShips(), enemy: () => this.dexEnemies(), boss: () => this.dexBosses() }[tab]();
-        const sub = top === 'data' ? `<div class="tabs sub">${SUB.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderDex('${t[0]}')">${t[1]}</button>`).join('')}</div>` : '';
-        ui(`<div class="menu-overlay" style="width:min(95vw,700px)"><h2 class="shop-title">圖鑑</h2><div class="tabs top">${TOP.map(t => `<button class="${t[0] === top ? 'on' : ''}" onclick="online.renderDex('${t[2]}')">${t[1]}</button>`).join('')}</div>${sub}${body}${BACK}</div>`);
+        const top = tab === 'idiom' ? 'idiom' : tab === 'music' ? 'music' : 'data';   // 三大分類
+        const TOP = [['idiom', '成語資料', '📖', `${CONFIG.IDIOMS.length} 個成語・9 種招式`, 'idiom', '#ffd400'],
+            ['data', '戰鬥資料', '🛸', `${SHIPS.length} 戰機・8 敵機・9 Boss`, 'ship', '#00f2ff'],
+            ['music', '音樂庫', '🎵', `${trackList().length} 首曲目`, 'music', '#ff3bd4']];
+        const SUB = [['ship', '我方戰機', '🚀'], ['enemy', '敵方戰機', '👾'], ['boss', 'Boss', '👹']];
+        const body = { idiom: () => this.dexIdiom(a, b), ship: () => this.dexShips(), enemy: () => this.dexEnemies(), boss: () => this.dexBosses(), music: () => this.dexMusic() }[tab]();
+        const sub = top === 'data' ? `<div class="cx-sub">${SUB.map(s => `<button class="${s[0] === tab ? 'on' : ''}" onclick="online.renderDex('${s[0]}')">${s[2]} ${s[1]}</button>`).join('')}</div>` : '';
+        ui(`<div class="menu-overlay cx" style="--c:${TOP.find(x => x[0] === top)[5]}"><div class="cx-h"><h2 class="shop-title">圖鑑</h2><small>CODEX</small></div>
+            <div class="cx-top">${TOP.map(x => `<button class="${x[0] === top ? 'on' : ''}" style="--c:${x[5]}" onclick="online.renderDex('${x[4]}')"><span class="ic">${x[2]}</span><b>${x[1]}</b><small>${x[3]}</small></button>`).join('')}</div>
+            ${sub}<div class="cx-body">${body}</div>${BACK}</div>`);
+        if (tab === 'music') jukebox.ui();
     },
     dexIdiom(eff, word) {
         const DOC = { BOMB_BOOST: ['全螢幕爆破', '清空畫面敵彈與小型敵機並有爆炸動畫；對 Boss 傷害最高為其滿血的 1/4。'], INVINCIBLE: ['無敵', '10 秒內不會受到傷害。'],
             SHIELD: ['護盾', '獲得 50 點護盾（可累積），會一直存在直到把傷害抵掉。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
             MISSILE: ['追蹤導彈', '10 秒內主炮子彈會自動追蹤：先打血量少的敵機，沒有敵機才打字卡。'], LASER_BEAM: ['貫穿雷射', '3 秒的直線雷射，持續貫穿傷害。'],
             HEAL: ['治療', '立刻回復 3000 點血量。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。'] };
-        eff = eff || 'BOMB_BOOST'; const list = CONFIG.IDIOMS.filter(i => i.effect === eff), info = word && IDIOM_INFO[word];
-        return `<div class="tabs">${Object.keys(DOC).map(k => `<button class="${k === eff ? 'on' : ''}" onclick="online.renderDex('idiom','${k}')">${DOC[k][0]}</button>`).join('')}</div>
-            <p style="color:var(--neon-gold)"><b>${DOC[eff][0]}</b>　${DOC[eff][1]}</p>
-            <div>${list.map(i => `<button class="chip ${i.word === word ? 'on' : ''}" onclick="online.renderDex('idiom','${eff}','${i.word}')">${i.word}</button>`).join('')}</div>
-            <div style="text-align:left;min-height:90px;margin-top:8px;padding:10px;border:1px solid #334;border-radius:10px">${info ? `<h3 style="margin:0 0 6px;color:var(--neon-gold)">${word}</h3><p><b style="color:var(--neon-blue)">解釋</b>　${info[0]}</p><p><b style="color:var(--neon-blue)">造句</b>　${info[1]}</p>` : '<span class="muted">點選成語查看解釋與造句（共 ' + list.length + ' 個，全部成語 ' + CONFIG.IDIOMS.length + ' 個）</span>'}</div>`;
+        const COL = { BOMB_BOOST: '#ff5a36', INVINCIBLE: '#ffd400', SHIELD: '#4aa3ff', PIERCE: '#c0c8d8', MISSILE: '#ff8c1a', LASER_BEAM: '#ff3bd4', HEAL: '#35e08a', SLOW_TIME: '#8f7bff', ALLY: '#00e5ff' };
+        eff = eff || 'BOMB_BOOST'; const list = CONFIG.IDIOMS.filter(i => i.effect === eff), info = word && IDIOM_INFO[word], c = COL[eff] || '#fff', n = list.length, k = list.findIndex(i => i.word === word);
+        const go = d => `online.renderDex('idiom','${eff}','${list[(k + d + n) % n].word}')`;
+        return `<div class="ef-tabs">${Object.keys(DOC).map(e => `<button class="${e === eff ? 'on' : ''}" style="--c:${COL[e]}" onclick="online.renderDex('idiom','${e}')">${DOC[e][0]}<em>${CONFIG.IDIOMS.filter(i => i.effect === e).length}</em></button>`).join('')}</div>
+            <div class="ef-desc" style="--c:${c}"><h3>${DOC[eff][0]}</h3><p>${DOC[eff][1]}</p></div>
+            <div class="idm-det" style="--c:${c}">${info ? `<div class="dw">${word}</div><span class="tg" style="--c:${c}">${DOC[eff][0]}</span>
+                <p><b>解釋</b>${info[0]}</p><p><b>造句</b>${info[1]}</p>
+                <div class="dnav"><button onclick="${go(-1)}">‹ 上一個</button><span class="muted">${k + 1} / ${n}</span><button onclick="${go(1)}">下一個 ›</button></div>`
+                : `<div class="muted" style="padding:18px 0">點選下方成語，查看解釋與造句<br>（此招式 ${n} 個，全部成語 ${CONFIG.IDIOMS.length} 個）</div>`}</div>
+            <div class="chips" style="--c:${c}">${list.map(i => `<button class="chip ${i.word === word ? 'on' : ''}" onclick="online.renderDex('idiom','${eff}','${i.word}')">${i.word}</button>`).join('')}</div>`;
     },
     dexShips() {
         const TRAIT = { star: '均衡型：各項能力上限接近，適合新手。', wind: '機動靈巧：體型小、移動速度上限最高，但火力與裝甲上限低。適合對付彈幕型 Boss。', bastion: '重裝厚皮：血量與裝甲上限最高，移動較慢。最適合對付彈幕型 Boss。',
-            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。PK 對戰中狙擊改為高速子彈（傷害降低，對手看得到預警線，有機會躲開）。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：子彈自帶追蹤（優先追鐵甲類目標），無視敵人的裝甲（防禦視為 0），打到鐵甲類（坦克、護衛機、鐵甲型 Boss）去掉防禦後再造成 2～3 倍傷害，對有護盾的目標同樣是 2～3 倍（不重複疊加）。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。升滿後 16 發子彈平均散佈在圓周各方向同時放射，不怕被包夾；子彈碰到敵方子彈時會抵銷：敵彈威力越高需要越多發（一般彈 1 發、強化彈 2 發、重砲彈 3 發、狙擊彈 5 發），能幫自己清出安全空間；代價是單發威力低於其他戰機。對 Boss 沒有相剋（×1.0），靠抵銷敵彈應付彈幕與成群的小怪。' };
-        return '<div class="lst">' + SHIPS.map(S => { const own = G.fleet && G.fleet[S.id] && G.fleet[S.id].own, c = S.cap;
-            return `<div class="dx"><img src="${S.id === 'star' ? 'assets/player.png' : 'assets/ship_' + S.id + '.png'}" onerror="this.style.visibility='hidden'"><div><h3 style="color:${S.c}">${S.name} <small style="color:#aaa">${S.role}</small></h3>
-                <div class="t"><b>初始</b> 血量 ${S.hp * SHOW}・移速 ${S.spd}・傷害 ${Math.round(S.dmg * SHOW)}・基礎爆擊率 20%（上限 ${Math.round((S.critMax || 0.5) * 100)}%）・${S.pat === 'snipe' ? '狙擊鎖定 3 秒（射速滿級 1 秒）' : '射速 ' + (1000 / S.int).toFixed(1) + '/秒'}<br><b>等級上限</b> 火力 ${c.dmg}・射速 ${c.rate}・裝甲 ${c.hp}・機動 ${c.spd}・穿甲 ${c.pen}・爆擊 ${c.crit}・火力覆蓋 ${c.cov}<br><b>火力覆蓋・${COV_INFO[S.pat][0]}</b>（初始 ${covLabel(S, S.base.cov)} → 滿級 ${covLabel(S, c.cov)}）：${COV_INFO[S.pat][1]}<br>${TRAIT[S.id]}<br><b>屬性相剋</b> ${shipMatchText(S.id)}<br>${own ? '<b style="color:var(--neon-gold)">已擁有</b>' : '軍械商店 ' + S.price + ' DM'}</div></div></div>`; }).join('') + '</div>';
+            blaze: '高輸出：單發傷害上限最高，但射速較慢。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。PK 對戰中狙擊改為高速子彈（傷害降低，對手看得到預警線，有機會躲開）。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：一半的子彈會自動追蹤（優先追鐵甲類目標），另一半直線射出，無視敵人的裝甲（防禦視為 0），打到鐵甲類（坦克、護衛機、鐵甲型 Boss）去掉防禦後再造成 2～3 倍傷害，對有護盾的目標同樣是 2～3 倍（不重複疊加）。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。升滿後 16 發子彈平均散佈在圓周各方向同時放射，不怕被包夾；子彈碰到敵方子彈時會抵銷：敵彈威力越高需要越多發（一般彈 1 發、強化彈 2 發、重砲彈 3 發、狙擊彈 5 發），能幫自己清出安全空間；代價是單發威力低於其他戰機。對 Boss 沒有相剋（×1.0），靠抵銷敵彈應付彈幕與成群的小怪。' };
+        const STAT = [['火力', 'dmg'], ['射速', 'rate'], ['裝甲', 'hp'], ['機動', 'spd'], ['穿甲', 'pen'], ['爆擊', 'crit'], ['覆蓋', 'cov']];
+        return SHIPS.map(S => { const own = G.fleet && G.fleet[S.id] && G.fleet[S.id].own, c = S.cap, parts = TRAIT[S.id].split('。').filter(Boolean), first = parts.shift() + '。', rest = parts.join('。') + (parts.length ? '。' : '');
+            return `<div class="cx-card" style="--c:${S.c}"><div class="pic"><img src="${S.id === 'star' ? 'assets/player.png' : 'assets/ship_' + S.id + '.png'}" onerror="this.style.visibility='hidden'"></div>
+                <div class="inf"><h3>${S.name}<small>${S.role}</small>${own ? '<span class="tg gold">已擁有</span>' : `<span class="tg">軍械商店 ${S.price} DM</span>`}</h3>
+                <div class="sb">${STAT.map(s => `<div><span>${s[0]}</span><i><u style="width:${Math.min(100, c[s[1]] / 16 * 100)}%"></u></i><b>${c[s[1]]}</b></div>`).join('')}</div>
+                <div class="t">${first}<br><b>初始</b> 血量 ${S.hp * SHOW}・移速 ${S.spd}・傷害 ${Math.round(S.dmg * SHOW)}・${S.pat === 'snipe' ? '狙擊鎖定 3 秒（射速滿級 1 秒）' : '射速 ' + (1000 / S.int).toFixed(1) + '/秒'}・爆擊率 20%（上限 ${Math.round((S.critMax || 0.5) * 100)}%）<br><b>屬性相剋</b> ${shipMatchText(S.id)}</div>
+                <details><summary>詳細說明</summary><div class="t">${rest ? rest + '<br>' : ''}<b>火力覆蓋・${COV_INFO[S.pat][0]}</b>（初始 ${covLabel(S, S.base.cov)} → 滿級 ${covLabel(S, c.cov)}）：${COV_INFO[S.pat][1]}</div></details></div></div>`; }).join('');
     },
     dexEnemies() {
         const E = [['SCOUT', '偵察機', '第 1 關起', '緩慢下降並大幅左右擺盪', '單發慢彈（頻率最低之一）', '血量低，新手關主力', 1.5],
@@ -3180,16 +3369,29 @@ const online = window.online = {
             ['BOMBER', '轟炸機', '第 4 關起', '橫掃整個畫面，到邊緣就往下一排', '三向彈、五向彈、慢速大炸彈輪替', '射擊頻率高、體型大', 6],
             ['TANK', '坦克', '第 5 關起', '沉重地直線推進並駐守，只有輕微橫移', '重砲五向齊射（頻率低、彈大）', '帶 40% 護盾，血量最高', 10],
             ['GUARD', '護衛機', '第 5 關起', '成對繞圈巡邏', '兩次雙發瞄準彈（雙擊）', '帶 60% 護盾', 5]];
-        return '<div class="lst">' + E.map(e => `<div class="dx"><img src="assets/enemy_${e[0].toLowerCase()}.png" onerror="this.style.visibility='hidden'"><div><h3>${e[1]} <small style="color:#aaa">${e[2]}</small></h3>
-            <div class="t"><b>移動</b> ${e[3]}<br><b>攻擊</b> ${e[4]}<br><b>特色</b> ${e[5]}・第 1 關基準血量 ${e[6] * SHOW}・裝甲等級 ${ARMOR_LV[e[0]]}（隨關卡成長，穿甲等級可抵銷）</div></div></div>`).join('') + '</div>';
+        return E.map(e => `<div class="cx-card" style="--c:#ff6b6b"><div class="pic"><img src="assets/enemy_${e[0].toLowerCase()}.png" onerror="this.style.visibility='hidden'"></div>
+            <div class="inf"><h3>${e[1]}<small>${e[2]}</small></h3>
+            <div class="chips2"><span>基準血量 <b>${e[6] * SHOW}</b></span><span>裝甲等級 <b>${ARMOR_LV[e[0]]}</b></span></div>
+            <div class="t"><b>移動</b> ${e[3]}<br><b>攻擊</b> ${e[4]}<br><b>特色</b> ${e[5]}<br><span class="muted">裝甲等級隨關卡成長，穿甲等級可抵銷</span></div></div></div>`).join('');
     },
     dexBosses() {
         const MV = { hover: '懸停漂移', sweep: '左右橫掃', orbit: '橢圓環繞', dash: '隨機衝刺', chase: '追蹤玩家', zigzag: '快速折返' }, SH = { aim: '瞄準單發', aim3: '三連瞄準', burst: '扇形彈', ring: '環形彈', spiral: '螺旋彈', rain: '雨狀彈', wall: '彈牆（留缺口）' };
-        
-        return '<div class="lst">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(st => { const ty = BOSS_TYPES[st], inf = BOSS_INFO[ty], cfg = BOSS_CFG[st], hp = Math.round((st === 9 ? 5000 : 150 + (st - 1) * 350) * bossMods(st, ty).hp), bm = bossMods(st, ty);
-            return `<div class="dx"><img src="assets/boss_${st}.png" onerror="this.style.visibility='hidden'"><div><h3>第 ${st} 關　${bossLabel(st)}</h3>
-                <div class="t">${inf.desc}<br><b>移動</b> ${MV[cfg.mv]}　<b>攻擊</b> ${cfg.sh.map(x => SH[x]).join('、')}<br><b>血量</b> 約 ${hp * SHOW}　<b>裝甲等級</b> ${(BOSS_ARMOR[ty] || 0) + Math.floor(st / 2)}　<b>能力加成</b> ${Math.round(bm.f * 100)}%　<b>建議</b> ${inf.tip}<br><b>屬性相剋</b> ${matchupText(ty)}</div></div></div>`; }).join('') + '</div>';
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9].map(st => { const ty = BOSS_TYPES[st], inf = BOSS_INFO[ty], cfg = BOSS_CFG[st], bm = bossMods(st, ty), hp = Math.round((st === 9 ? 5000 : 150 + (st - 1) * 350) * bm.hp);
+            return `<div class="cx-card boss" style="--c:${st === 9 ? '#ff3366' : '#ffaa00'}"><div class="pic"><img src="assets/boss_${st}.png" onerror="this.style.visibility='hidden'"></div>
+                <div class="inf"><h3>第 ${st} 關<small>${bossLabel(st)}</small>${st === 9 ? '<span class="tg gold">最終 Boss</span>' : ''}</h3>
+                <div class="chips2"><span>血量 <b>${hp * SHOW}</b></span><span>裝甲等級 <b>${(BOSS_ARMOR[ty] || 0) + Math.floor(st / 2)}</b></span><span>能力加成 <b>${Math.round(bm.f * 100)}%</b></span></div>
+                <div class="t">${inf.desc}<br><b>移動</b> ${MV[cfg.mv]}　<b>攻擊</b> ${cfg.sh.map(x => SH[x]).join('、')}<br><b>建議</b> ${inf.tip}<br><b>屬性相剋</b> ${matchupText(ty)}</div></div></div>`; }).join('');
     },
+    dexMusic() {
+        const T = trackList(), grp = [...new Set(T.map(x => x.grp))];
+        return `<div class="jb-top"><div class="jb-now"><div class="jb-cover" id="jb-cover">♪</div><div class="jb-mid"><div class="jb-eq off" id="jb-eq"><i></i><i></i><i></i><i></i><i></i></div><h3 id="jb-title">尚未播放</h3><p id="jb-sub" class="muted">點選下方曲目開始播放</p><p id="jb-msg" class="jb-msg"></p></div></div>
+            <div class="jb-bar" id="jb-bar" onclick="jukebox.seek(event)"><i id="jb-fill"></i></div><div class="jb-t"><span id="jb-cur">0:00</span><span id="jb-dur">0:00</span></div>
+            <div class="jb-ctl"><button onclick="jukebox.step(-1)" title="上一首">⏮</button><button class="big" id="jb-pp" onclick="jukebox.toggle()" title="播放／暫停">▶</button><button onclick="jukebox.step(1)" title="下一首">⏭</button><button id="jb-mode" onclick="jukebox.setMode()"></button>
+            <label class="jb-vol">🔊<input type="range" min="0" max="100" value="${Math.round(G.volMusic * 100)}" oninput="game.setVol('music', this.value)"></label></div></div>
+            ${grp.map(g => `<h4 class="jb-g">${g}</h4>` + T.map((x, i) => x.grp !== g ? '' : `<div class="tk" data-i="${i}" data-id="${x.id}" onclick="jukebox.play(${i})"><div class="th" style="background-image:${x.img ? `url(${x.img})` : 'none'}">${x.img ? '' : x.ico}</div><div class="tn"><b>${x.name}</b><small>${x.sub}</small></div><span class="pl">▶</span></div>`).join('')).join('')}
+            <p class="muted" style="margin:10px 0 0">進入音樂庫後大廳音樂會暫停，離開圖鑑回到大廳會自動恢復。</p>`;
+    },
+
 
     // ===== 新手教學 =====
     tut: 0,
@@ -3201,7 +3403,7 @@ const online = window.online = {
             ['打字卡、撿字元', `${im('assets/idiom_block.png', 'max-height:90px')}<span style="font-size:2rem">➜</span><span style="font-size:2.4rem;color:var(--neon-blue)">破</span>`, '射擊天上掉下來的字卡，會掉出一個字，飛過去撿起來。字卡只是機關，碰到不會受傷。'],
             ['湊成語、發動招式', `${slotMock}<span style="font-size:1.6rem">➜</span><span><kbd>1</kbd>~<kbd>6</kbd> 或 <kbd>Space</kbd></span>`, '字元集滿四字就會發光，按對應數字鍵（手機直接點）發動。每個招式都有 10 個以上的相關成語。'],
             ['時間凍結與成語演示', `<div style="border:2px solid var(--neon-gold);border-radius:10px;padding:10px 16px;text-align:center"><div style="font-size:1.8rem;color:var(--neon-gold);letter-spacing:.2em">破釜沉舟</div><div class="muted">解釋或造句 5 秒</div></div>`, '發動後全場凍結 5 秒（敵機、子彈、背景都不會動），畫面會逐字浮現該成語的解釋或造句，結束後才發動招式。'],
-            ['九種招式', `<div style="text-align:left;line-height:1.7;font-size:.9rem">爆破・無敵・護盾<br>穿甲彈・追蹤導彈・貫穿雷射<br>治療・時緩・呼叫友軍</div>`, '到大廳的「圖鑑」可以查成語、我方與敵方戰機、Boss，點成語還能看解釋與造句。'],
+            ['九種招式', `<div style="text-align:left;line-height:1.7;font-size:.9rem">爆破・無敵・護盾<br>穿甲彈・追蹤導彈・貫穿雷射<br>治療・時緩・呼叫友軍</div>`, '到大廳的「圖鑑」可以查成語、我方與敵方戰機、Boss，點成語還能看解釋與造句，音樂庫可以重聽所有關卡音樂。'],
             ['血條與護盾', `${im('assets/player.png', 'max-height:80px')}<div style="width:90px"><div style="height:8px;background:#33ff88"></div><div style="height:6px;margin-top:3px;background:#4dd2ff;width:60%"></div></div>`, '血條在戰機後方，護盾在血條下方；受到傷害時護盾先抵掉。敵機的血條在它上方。'],
             ['敵機與 Boss', `${im('assets/enemy_scout.png', 'max-height:70px')}${im('assets/enemy_bomber.png', 'max-height:70px')}${im('assets/boss_1.png', 'max-height:110px')}`, `小關有多種敵機（俯衝、蜂群、狙擊、轟炸、護衛…）。Boss 各有名字與類型：${bossLabel(1)}皮薄但傷害高、${bossLabel(2)}血厚、${bossLabel(3)}彈幕密集。`],
             ['暗物質、軍械商店與戰機', `${im('assets/ship_wind.png', 'max-height:80px')}${im('assets/ship_bastion.png', 'max-height:80px')}${im('assets/ship_blaze.png', 'max-height:80px')}`, '打敗敵人得到暗物質，可到「軍械商店」買戰機，到「戰機管理」升級；每種戰機能力上限不同。出戰前大廳會推薦適合的戰機。'],

@@ -1,0 +1,166 @@
+{
+ "version": "20261113c",
+ "built": "2026-11-13T06:49:24.770Z",
+ "files": {
+  "assets/bg/stage1.jpg": [
+   "4715408cde33603d",
+   146678
+  ],
+  "assets/bg/stage2.jpg": [
+   "74c89dc9017716b0",
+   231885
+  ],
+  "assets/bg/stage3.jpg": [
+   "d6a2a7a3826e37a0",
+   202993
+  ],
+  "assets/bg/stage4.jpg": [
+   "daab587ea643ab25",
+   268008
+  ],
+  "assets/bg/stage5.jpg": [
+   "51e7d50a2788987f",
+   224143
+  ],
+  "assets/bg/stage6.jpg": [
+   "8f709afe163b5a6d",
+   192545
+  ],
+  "assets/bg/stage7.jpg": [
+   "2fc6d07602af213c",
+   267333
+  ],
+  "assets/bg/stage8.jpg": [
+   "99cd1548d3b133b0",
+   218100
+  ],
+  "assets/bg/stage9.jpg": [
+   "fdc7a6d57c4e4ddd",
+   206981
+  ],
+  "assets/boss.png": [
+   "d669f0db8aed5fb3",
+   238750
+  ],
+  "assets/boss_1.png": [
+   "dfa11d285fb9f686",
+   192672
+  ],
+  "assets/boss_2.png": [
+   "500275499ab0e22a",
+   221801
+  ],
+  "assets/boss_3.png": [
+   "83d01d027e2debc7",
+   248171
+  ],
+  "assets/boss_4.png": [
+   "5fee54ba6bac94de",
+   93205
+  ],
+  "assets/boss_5.png": [
+   "781230e72573e562",
+   283588
+  ],
+  "assets/boss_6.png": [
+   "6d43f2f16df09d28",
+   287452
+  ],
+  "assets/boss_7.png": [
+   "32c3ee48db442a81",
+   170652
+  ],
+  "assets/boss_8.png": [
+   "c65d992aa86c13d3",
+   150345
+  ],
+  "assets/boss_9.png": [
+   "d669f0db8aed5fb3",
+   238750
+  ],
+  "assets/enemy_bomber.png": [
+   "87509b9ce61de476",
+   71086
+  ],
+  "assets/enemy_dart.png": [
+   "764bcf47465e5202",
+   80511
+  ],
+  "assets/enemy_fighter.png": [
+   "ae76068070774ebe",
+   92320
+  ],
+  "assets/enemy_guard.png": [
+   "22ec48ff31651512",
+   174165
+  ],
+  "assets/enemy_scout.png": [
+   "1a7120593bbc1f15",
+   93033
+  ],
+  "assets/enemy_sniper.png": [
+   "a7987db272e46c8c",
+   59684
+  ],
+  "assets/enemy_swarm.png": [
+   "8dfac7dda34a2162",
+   68799
+  ],
+  "assets/enemy_tank.png": [
+   "1c65211507d4528a",
+   139419
+  ],
+  "assets/idiom_block.png": [
+   "6b5355f3463a225c",
+   105964
+  ],
+  "assets/player.png": [
+   "958e5fa2a10d874a",
+   116857
+  ],
+  "assets/ship_assassin.png": [
+   "d82c6650fbed96c3",
+   361137
+  ],
+  "assets/ship_bastion.png": [
+   "c7ac4e8ea812c135",
+   153702
+  ],
+  "assets/ship_blaze.png": [
+   "472d4fc1b31e3d68",
+   79098
+  ],
+  "assets/ship_lance.png": [
+   "9d81f52447627371",
+   70078
+  ],
+  "assets/ship_nova.png": [
+   "dad5f52fc4454b78",
+   267043
+  ],
+  "assets/ship_storm.png": [
+   "318ae6d41eb0b6a9",
+   85627
+  ],
+  "assets/ship_wind.png": [
+   "946d274d8a127dff",
+   87117
+  ],
+  "icon-192.png": [
+   "cd4e6e6a2dfc7950",
+   21334
+  ],
+  "icon-512.png": [
+   "92fb8111956b8d26",
+   95281
+  ],
+  "index.html": [
+   "c77c9f87828b5ae1",
+   346054
+  ],
+  "manifest.webmanifest": [
+   "280969abd1bb736a",
+   532
+  ]
+ }
+}

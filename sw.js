@@ -1,11 +1,12 @@
 // 成語戰機：離線支援（Service Worker）
 // - 網頁本身：有網路時用最新版並更新快取，沒網路時改用快取
 // - 圖片 / 音樂 / Firebase SDK：只要存進「離線資料包」就從快取直接讀取
-const VERSION = '20261112-2';
+// ★ 發佈新版時：這裡的 VERSION 要和 index.html 的 APP_VERSION 一起改成同一個新值
+const VERSION = '20261113c';
 const SHELL = 'idiom-shell-' + VERSION;
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(SHELL).then(c => c.addAll(['./', 'index.html', 'manifest.webmanifest'])).catch(() => {}).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(SHELL).then(c => c.addAll(['./', 'index.html', 'manifest.webmanifest'].map(u => new Request(u, { cache: 'reload' })))).catch(() => {}).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('idiom-shell-') && k !== SHELL).map(k => caches.delete(k)))).then(() => self.clients.claim())));   // 新版本：清掉舊的網頁快取
 
@@ -35,7 +36,7 @@ self.addEventListener('fetch', e => {
   if (req.cache === 'reload' || req.cache === 'no-store') return;   // 下載資料包時強制走網路，才能覆蓋舊檔案
 
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(r => { const cp = r.clone(); caches.open(SHELL).then(c => c.put(req, cp)); return r; }).catch(() => cachedPage(req)));
+    e.respondWith(fetch(req, { cache: 'no-cache' }).then(r => { const cp = r.clone(); caches.open(SHELL).then(c => c.put(req, cp)); return r; }).catch(() => cachedPage(req)));
     return;
   }
   e.respondWith((async () => {
