@@ -366,7 +366,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261113a 是當天第一版、20261113b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261113e', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261113f', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -2576,7 +2576,7 @@ class Game {
 }
 
 const game = new Game();
-// ===== 強制更新：上線時檢查線上是不是最新版，不是就鎖住畫面並更新 =====
+// ===== 版本更新：上線時檢查線上是不是最新版，不是就跳出「發現新版本」視窗，玩家按下「下載更新」後才清快取並重新載入 =====
 // 判斷方式：線上 index.html 的 APP_VERSION 與目前執行中的不同 → 清掉舊的網頁快取與 Service Worker，用新網址重新載入。
 // 載入新版後，離線資料包的版本也會對不上，會自動進入「更新資料包」畫面（必須更新完成才能進遊戲）。
 // 舊版、或存過舊離線檔案的裝置也一樣：只要上線，就會被更新到最新版本。
@@ -2599,8 +2599,13 @@ const FORCE_UPDATE = {
             if (!force && Date.now() - this.last < 60000) return; this.last = Date.now();
             const v = await this.latest(); if (!v) return;
             if (!verNewer(v, APP_VERSION)) { try { sessionStorage.removeItem('idiomUpd'); } catch (e) {} return; }   // 線上版本不比目前新 → 不用更新
-            await this.run(v);
+            this.prompt(v);   // 不再自動更新：跳出視窗，等玩家按下「下載更新」
         } catch (e) {}
+    },
+    prompt(newV) {
+        if (this.prompting || this.busy) return; this.prompting = true; this.pendingV = newV;
+        this.overlay(`<h2 style="color:#00f2ff;margin:0 0 8px">發現新版本</h2><p>目前版本 ${APP_VERSION} → 最新版本 ${newV}<br>請先更新後再開始遊戲。</p>
+            <button class="btn btn-start" onclick="FORCE_UPDATE.run('${newV}')">下載更新 [Enter]</button>`);
     },
     async run(newV) {
         this.busy = true;
@@ -2608,7 +2613,7 @@ const FORCE_UPDATE = {
         if (t.v !== newV) t = { v: newV, n: 0 };
         if (t.n >= 3) { this.fail(newV); return; }   // 連續 3 次還是舊版（網路或 CDN 快取問題）→ 顯示失敗畫面，仍不能進遊戲
         t.n++; try { sessionStorage.setItem('idiomUpd', JSON.stringify(t)); } catch (e) {}
-        this.overlay(`<h2 style="color:#00f2ff;margin:0 0 8px">發現新版本</h2><p>目前版本 ${APP_VERSION} → 最新版本 ${newV}<br>正在強制更新，請稍候…</p>`);
+        this.overlay(`<h2 style="color:#00f2ff;margin:0 0 8px">發現新版本</h2><p>目前版本 ${APP_VERSION} → 最新版本 ${newV}<br>正在下載更新，請稍候…</p>`);
         try { game.save(); } catch (e) {}
         try { if (navigator.serviceWorker) for (const g of await navigator.serviceWorker.getRegistrations()) await g.unregister(); } catch (e) {}
         try { for (const k of await caches.keys()) if (k.startsWith('idiom-shell-')) await caches.delete(k); } catch (e) {}
@@ -2618,8 +2623,14 @@ const FORCE_UPDATE = {
         this.overlay(`<h2 style="color:#ff6b6b;margin:0 0 8px">更新失敗</h2><p>需要更新到版本 ${newV}，但目前仍載入到舊版。<br>請確認網路後重試；若一直失敗，請清除資料後再更新。</p>
             <button class="btn btn-start" onclick="FORCE_UPDATE.retry()">重新更新</button><button class="btn" onclick="game.wipeAll()">清除資料並更新</button>`);
     },
-    retry() { try { sessionStorage.removeItem('idiomUpd'); } catch (e) {} this.busy = false; this.check(true); }
+    retry() { try { sessionStorage.removeItem('idiomUpd'); } catch (e) {} this.busy = false; this.prompting = false; this.check(true); }
 };
+// 更新視窗出現時，擋住鍵盤操作（避免背後的大廳被 Enter／數字鍵誤觸）；Enter 等同按下「下載更新」
+window.addEventListener('keydown', e => {
+    if (!document.getElementById('upd-ov')) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if ((e.key === 'Enter' || e.key === ' ') && FORCE_UPDATE.prompting && !FORCE_UPDATE.busy) FORCE_UPDATE.run(FORCE_UPDATE.pendingV);
+}, true);
 FORCE_UPDATE.check(true);
 window.addEventListener('online', () => FORCE_UPDATE.check());
 document.addEventListener('visibilitychange', () => { if (!document.hidden) FORCE_UPDATE.check(); });
