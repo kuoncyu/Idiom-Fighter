@@ -2,7 +2,7 @@
 // - 網頁本身：有網路時用最新版並更新快取，沒網路時改用快取
 // - 圖片 / 音樂 / Firebase SDK：只要存進「離線資料包」就從快取直接讀取
 // ★ 發佈新版時：這裡的 VERSION 要和 index.html 的 APP_VERSION 一起改成同一個新值
-const VERSION = '20261113f';
+const VERSION = '20261113g';
 const SHELL = 'idiom-shell-' + VERSION;
 
 self.addEventListener('install', e => {

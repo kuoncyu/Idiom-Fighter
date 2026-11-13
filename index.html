@@ -230,7 +230,7 @@
     <canvas id="gameCanvas"></canvas>
     <div id="ui-layer"></div>
     <div id="hud" style="display:none;">
-        <div class="hud-item hud-btns"><button class="hbtn" onclick="game.goHome()" title="回首頁 [H]">⌂ 首頁</button><button class="hbtn" onclick="game.openSettings()" title="設定 [O]">⚙ 設定</button><button class="hbtn" onclick="game.toggleFullscreen()" title="全螢幕">⛶</button></div>
+        <div class="hud-item hud-btns"><button class="hbtn" onclick="game.goHome()" title="回首頁 [H]">⌂ 首頁</button><button class="hbtn" onclick="game.openSettings()" title="設定 [O]">⚙ 設定</button><button class="hbtn" onclick="game.toggleFullscreen()" title="全螢幕">⛶</button><button class="hbtn" id="pause-btn" onclick="game.togglePause();this.blur()" title="暫停 [P]">❚❚</button></div>
         <div class="hud-item hud-dm">暗物質: <span id="dm-val">0</span></div>
         <div class="hud-item">LVL: <span id="lvl-val">1-1</span></div>
     </div>
@@ -366,7 +366,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261113a 是當天第一版、20261113b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261113f', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261113g', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -1424,8 +1424,13 @@ class Game {
             this.closeDlg(); if (fromPointer) this._swallowUntil = now + 300; return true;
         }
         if (!this.paused || (window.online && online.pk && online.pk.over)) return false;   // 注意：施放成語中暫停也要能繼續，否則施放計時停住會永遠卡死
-        this.paused = false; music.pause(false); if (fromPointer) this._swallowUntil = now + 300;   // 這一下點擊只用來恢復，不要同時施放成語
+        this.paused = false; music.pause(false); this._resumedAt = now; if (fromPointer) this._swallowUntil = now + 300;   // 這一下點擊只用來恢復，不要同時施放成語
         return true;
+    }
+    togglePause() {   // 畫面上方的暫停鍵（手機／平板用）。暫停中點任何地方（含這個鍵）都會先由 anyInputResume 恢復，所以這裡只負責「暫停」
+        if (this.gameState !== 'PLAYING' || this.paused || this.casting || this.dlgOpen || this.pkMode) return;
+        if (performance.now() - (this._resumedAt || 0) < 600) return;   // 剛剛這一下點擊已經用來恢復遊戲，不要又立刻暫停
+        this.paused = true; music.pause(true);
     }
     dialog(html, onConfirm) {
         this.idleDlg = false;
