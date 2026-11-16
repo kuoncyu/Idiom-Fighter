@@ -1,6 +1,6 @@
 {
- "version": "20261113g",
- "built": "2026-11-13T07:24:22.287Z",
+ "version": "20261116a",
+ "built": "2026-11-16T05:02:12.195Z",
  "files": {
   "assets/bg/stage1.jpg": [
    "4715408cde33603d",
@@ -114,6 +114,50 @@
    "6b5355f3463a225c",
    105964
   ],
+  "assets/music/end.mp3": [
+   "e6968a2dd259112c",
+   4222287
+  ],
+  "assets/music/lobby.mp3": [
+   "cc39653bece8ecff",
+   4185297
+  ],
+  "assets/music/stage1.mp3": [
+   "68eeb4f24c28c03c",
+   4319464
+  ],
+  "assets/music/stage2.mp3": [
+   "616a85f7a49cba6f",
+   4252382
+  ],
+  "assets/music/stage3.mp3": [
+   "bfb8f73546bcaaa7",
+   4189061
+  ],
+  "assets/music/stage4.mp3": [
+   "dacbd9a44e782fb9",
+   4340780
+  ],
+  "assets/music/stage5.mp3": [
+   "2852793902874b4e",
+   4156460
+  ],
+  "assets/music/stage6.mp3": [
+   "19cd1ff8b578ff49",
+   4389055
+  ],
+  "assets/music/stage7.mp3": [
+   "0b3d67652c3803c2",
+   4249874
+  ],
+  "assets/music/stage8.mp3": [
+   "f04fc588df22f1f0",
+   4363350
+  ],
+  "assets/music/stage9.mp3": [
+   "b9c9c26aa94094a5",
+   4305045
+  ],
   "assets/player.png": [
    "958e5fa2a10d874a",
    116857
@@ -155,8 +199,8 @@
    95281
   ],
   "index.html": [
-   "17787ee600cfdc57",
-   348006
+   "e9332665c4a9764d",
+   487247
   ],
   "manifest.webmanifest": [
    "280969abd1bb736a",
