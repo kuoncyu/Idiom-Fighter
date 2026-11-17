@@ -383,7 +383,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261117b', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261117d', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -1124,7 +1124,7 @@ class Game {
             const proceed = () => { if (this.needFirstDownload()) this.forceDownload(() => { this.afterBoot(); this._booting = false; }); else { this.afterBoot(); setTimeout(() => this.quietCheck(), 3000); } };
             const boot = () => {
                 sfx.init(); this.applyVol(); if (this._booting) return; this._booting = true; FORCE_UPDATE.armed = true;
-                const go = () => { if (FORCE_UPDATE.gate()) { this._booting = false; return; } proceed(); };   // 有新版：跳出「發現新版本」視窗，必須更新才能繼續
+                const go = () => { try { if (FORCE_UPDATE.gate()) { this._booting = false; return; } proceed(); } catch (e) { this._booting = false; console.error(e); try { this.afterBoot(); } catch (e2) {} } };   // 就算更新流程出錯也不會讓「點擊開始」永久失效   // 有新版：跳出「發現新版本」視窗，必須更新才能繼續
                 if (FORCE_UPDATE.blocked()) go(); else Promise.race([FORCE_UPDATE.inflight || 0, new Promise(r => setTimeout(r, 2500))]).then(go);   // 版本檢查還沒回來就最多等 2.5 秒
             };
             document.getElementById('boot-btn').onclick = (e) => { e.stopPropagation(); boot(); };
@@ -1472,7 +1472,7 @@ class Game {
     forceDownload(done) {
         const old = this.packInfo(), isUpdate = !!(old && old.v);
         this.uiLayer.innerHTML = `<div class="menu-overlay" style="width:min(92vw,460px)"><h2 class="shop-title">${isUpdate ? '發現新版本・更新資料包' : '首次啟動・下載資源包'}</h2>
-            <p style="text-align:left;font-size:.95rem;line-height:1.7">${isUpdate ? `目前版本 ${esc(old.v || '舊版')} → 最新版本 ${APP_VERSION}。必須更新完成才能進入遊戲，會自動下載並覆蓋舊檔案。` : '第一次進入遊戲需要先下載圖片與音樂資源包（約 51 MB），會花比較久的時間；之後進入遊戲就能快速讀取，也能離線遊玩。'}請保持網路連線。</p>
+            <p style="text-align:left;font-size:.95rem;line-height:1.7">${isUpdate ? `目前版本 ${String(old.v || '舊版').replace(/[<>&"']/g, '')} → 最新版本 ${APP_VERSION}。必須更新完成才能進入遊戲，會自動下載並覆蓋舊檔案。` : '第一次進入遊戲需要先下載圖片與音樂資源包（約 51 MB），會花比較久的時間；之後進入遊戲就能快速讀取，也能離線遊玩。'}請保持網路連線。</p>
             <p id="off-info" class="muted">準備下載…</p>
             <div class="ip-bar" id="off-bar" style="display:block"><i id="off-fill" style="animation:none;width:0%"></i></div>
             <button class="btn btn-start" id="off-go" style="display:none">重新下載</button>${isUpdate ? '<button class="btn" id="off-skip" style="display:none">網路中斷，先離線進入</button>' : ''}</div>`;
@@ -2862,6 +2862,7 @@ const toast = (msg, ms = 2800) => {
     let t = $('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; $('game-container').appendChild(t); }
     t.textContent = msg; t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = 0; }, ms);
 };
+window.toast = toast; window.esc = esc;   // 第一個 script（Game 類別）也會呼叫 toast／esc，這裡在 IIFE 內，不公開的話更新流程會直接中斷、卡在「點擊開始」
 const shipImg = id => id === 'star' || !id ? 'assets/player.png' : `assets/ship_${id}.png`;
 const BACK = `<button class="btn btn-start" style="margin-top:8px" onclick="game.setState('LOBBY')">返回大廳 [Esc]</button>`;
 const errMsg = e => ({ 'auth/user-not-found': '帳號或密碼錯誤', 'auth/wrong-password': '帳號或密碼錯誤', 'auth/invalid-credential': '帳號或密碼錯誤', 'auth/invalid-login-credentials': '帳號或密碼錯誤',
@@ -5040,15 +5041,7 @@ const lcoop = window.lcoop = {
         this.paint();
     },
     retry() { (this.pl || []).forEach(p => { if (p.kind === 'acct' && p.up === 'fail') this.upload(p); }); },
-    drawSel(ctx) {   // 戰機下方用小字顯示「這位玩家目前選中哪個成語」
-        const g = G; coop.order.forEach((id, k) => {
-            const P = coop.P[id]; if (!P || !P.alive) return; const slot = g.slots[coop.sel[id] || 0]; if (!slot) return;
-            const pos = P.host ? g.player.pos : P.s.player.pos, sk = SKINS[P.host ? g.skin : P.s.skin] || SKINS[0], rdy = slot.type === 'READY';
-            const t = `P${k + 1}▶${slot.word} ${rdy ? '✔' : (slot.chars || []).length + '/' + slot.word.length}`, y = pos.y + (P.host ? 66 : 78) * sk.s;
-            ctx.save(); ctx.font = '12px ' + KAI_FONT; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.fillStyle = LC_COL[k]; ctx.globalAlpha = rdy ? 1 : 0.75;
-            ctx.strokeText(t, pos.x, y); ctx.fillText(t, pos.x, y); ctx.restore();
-        });
-    },
+    drawSel() {},   // 已移除：戰機下方不再顯示小字成語（選擇狀態改由成語槽上方的 P1／P2／P3 標記表示）
     paintSel() {   // 在成語列上，用每位玩家的顏色框出他目前選中的成語
         const c = document.getElementById('idiom-ui'); if (!c || !coop.local || !coop.sel) return;
         [...c.children].forEach((el, i) => {
@@ -5057,7 +5050,7 @@ const lcoop = window.lcoop = {
             el.querySelectorAll('.slot-subtitle').forEach(s => { s.innerHTML = s.innerHTML.replace(/按 \d 發動/, '選中後按使用鍵'); });
             el.querySelectorAll('.lc-tag').forEach(x => x.remove());
             el.style.boxShadow = own.map((k, j) => `0 0 0 ${3 * (j + 1)}px ${LC_COL[k]}`).join(',');
-            if (own.length) el.insertAdjacentHTML('beforeend', `<b class="lc-tag" style="position:absolute;left:2px;bottom:100%;font-size:11px;line-height:1.2;white-space:nowrap;text-shadow:0 0 3px #000">${own.map(k => `<span style="color:${LC_COL[k]}">P${k + 1}</span>`).join(' ')}</b>`);
+            own.forEach(k => { const lx = [24, 50, 76][k] || 50; el.insertAdjacentHTML('beforeend', `<b class="lc-tag" style="position:absolute;left:${lx}%;bottom:calc(100% + 12px);transform:translateX(-50%);font-size:24px;font-weight:900;line-height:1;white-space:nowrap;pointer-events:none;color:${LC_COL[k]};-webkit-text-stroke:1px rgba(0,0,0,.85);text-shadow:0 0 6px #000,0 0 10px ${LC_COL[k]}">P${k + 1}</b>`); });
         });
     },
     paint() { if (coop.local && ['GAMEOVER', 'VICTORY'].includes(G.gameState)) this.renderResult(!!(coop.res && coop.res.win)); },
