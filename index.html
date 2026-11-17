@@ -381,9 +381,9 @@ const sfx = new RetroAudio();
 document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !e.repeat && (e.key.length === 1 || e.key === 'Backspace')) { try { sfx.playType(); } catch (_) {} } }, true);
 
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
-// ★ 版本號格式：日期＋英文字母，如 20261113a 是當天第一版、20261113b 是第二版（較新）。
+// ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261116a', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261117b', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -442,26 +442,29 @@ const STAT_KEYS = [['dmg', '火力'], ['rate', '射速'], ['hp', '裝甲'], ['sp
 // ===== 火力覆蓋：每種戰機有自己的射擊方式，覆蓋等級越高，彈道越多／越寬／越大顆 =====
 // 角度 a：0＝正前方，正負 π/2＝左右側，π＝正後方；o＝發射位置橫向偏移；rs＝子彈大小倍率
 const COV_INFO = {
-    fan: ['扇形散射', '正前方為主，每升 2 級加開一對左右斜向子彈，扇面逐漸變寬（最多 7 發）。'],
-    twin: ['雙管直射', '只朝正前方射擊，升級後增加並排的平行槍管（最多 3 條），彈道窄但集中。所有子彈自帶追蹤，會自動微調方向追向敵機／Boss。'],
-    focus: ['窄角集束', '只朝正前方射擊，升級後加開貼近中線的窄角子彈（最多 5 發），適合集中輸出。'],
-    wide: ['正面＋側面', '正前方之外，升級後依序加開前方斜射、左右側面、側後方子彈（最多 7 發），能打到兩側的敵人。'],
-    big: ['巨型單發', '永遠只有一發巨型子彈（基礎大小是一般子彈的 2 倍、面積 4 倍），每升 1 級再變大 12%；判定範圍＝子彈大小，彈心打中目標正中心傷害最高（×2.0），越往外圈傷害越低（最低 ×0.4）。'],
-    lane: ['穿透平行線', '只朝正前方射擊，升級後增加間隔較寬的平行穿透彈道（最多 4 條），可同時貫穿多排敵人。'],
-    snipe: ['狙擊鎖定', '機身左右各有一門低威力附炮往前射擊（足以打掉字卡方塊）。主火力是狙擊：停留不動讓瞄準星蓄滿即鎖定發射，同時鎖定目標數 1 → 2（2 級）→ 3（4 級），優先順序 Boss → 敵機 → 字卡。'],
-    ring: ['全向火網', '子彈平均分配在圓周各方向，發射方向數＝火力覆蓋等級：1 級以下只射正前方、2 級＝前後、3 級＝三等分、4 級＝上下左右……滿級 16 個方向同時放射；但單發威力低於其他戰機。']
+    fan: ['扇形散射', '正前方為主，每升 2 級加開一對左右斜向子彈，扇面逐漸變寬（最多 7 發）。突破：每層再 +1 發（最多 10 發）。'],
+    twin: ['雙管直射', '只朝正前方射擊，升級後增加並排的平行槍管（最多 3 條），彈道窄但集中。所有子彈自帶追蹤，會自動微調方向追向敵機／Boss。突破：每層再 +1 條槍管（最多 6 條）。'],
+    focus: ['窄角集束', '只朝正前方射擊，升級後加開貼近中線的窄角子彈（最多 5 發），適合集中輸出。突破：每層再 +1 發（最多 8 發）。'],
+    wide: ['正面＋側面', '正前方之外，升級後依序加開前方斜射、左右側面、側後方子彈（最多 7 發），能打到兩側的敵人。突破：每層再 +1 發，依序補正後方、右前斜、左前斜（最多 10 發）。'],
+    big: ['巨型單發', '永遠只有一發巨型子彈（基礎大小是一般子彈的 2 倍、面積 4 倍），每升 1 級再變大 12%；判定範圍＝子彈大小，彈心打中目標正中心傷害最高（×2.0），越往外圈傷害越低（最低 ×0.4）。突破：每層子彈再變大 12%。'],
+    lane: ['穿透平行線', '只朝正前方射擊，升級後增加間隔較寬的平行穿透彈道（最多 4 條），可同時貫穿多排敵人。突破：每層再 +1 條（最多 7 條）。'],
+    snipe: ['狙擊鎖定', '機身左右各有一門低威力附炮往前射擊（足以打掉字卡方塊）。主火力是狙擊：停留不動讓瞄準星蓄滿即鎖定發射，同時鎖定目標數 1 → 2（2 級）→ 3（4 級），優先順序 Boss → 敵機 → 字卡。突破：每層再多鎖定 1 個目標（最多 6 個）。'],
+    ring: ['全向火網', '子彈平均分配在圓周各方向，發射方向數＝火力覆蓋等級：1 級以下只射正前方、2 級＝前後、3 級＝三等分、4 級＝上下左右……滿級 16 個方向同時放射（突破：每層再 +1 個方向，最多 19 個）；但單發威力低於其他戰機。']
 };
 function patternShots(S, lv, solo) {   // solo：沒有狙擊系統可用的場合（僚機、PK），暗殺號改多射一發正面主炮
     lv = Math.max(0, lv || 0); const out = [], add = (a, o = 0, rs = 1, dm = 1) => out.push({ a, o, rs, dm }), both = (a, o = 0) => { add(-a, -o); add(a, o); };
+    // 銀河幣突破：有效等級超出該機種火力覆蓋上限的部分＝突破層數（突破只在滿級後才能買，所以不會誤判），每層讓彈數上限 +1 發
+    const bx = S && S.cap ? Math.max(0, Math.min(XMAX, Math.floor(lv - S.cap.cov))) : 0, lv0 = lv; if (bx) lv = S.cap.cov;
+    const spread = (n, da, dox) => { for (let i = 0; i < n; i++) { const p = i - (n - 1) / 2; add(da * p, dox * p); } };   // 把 n 發左右對稱均分
     switch (S && S.pat) {
-        case 'fan': { add(0); const k = Math.min(3, Math.floor(lv / 2)); for (let i = 1; i <= k; i++) both(0.15 * i, 10 * i + 5); break; }
-        case 'twin': { const n = 1 + Math.floor(lv / 2); for (let i = 0; i < n; i++) add(0, (i - (n - 1) / 2) * 11); break; }
-        case 'focus': { add(0); const k = Math.min(2, Math.floor(lv / 2)); for (let i = 1; i <= k; i++) both(0.05 * i, 6 * i); break; }
-        case 'wide': add(0); if (lv >= 1) both(0.18, 14); if (lv >= 3) both(1.35, 24); if (lv >= 5) both(1.95, 24); break;
-        case 'big': add(0, 0, 1 + 0.12 * lv); break;
-        case 'lane': { const n = 1 + Math.floor(lv / 2); for (let i = 0; i < n; i++) add(0, (i - (n - 1) / 2) * 24); break; }
+        case 'fan': if (bx) { spread(7 + bx, 0.15, 10); break; } { add(0); const k = Math.min(3, Math.floor(lv / 2)); for (let i = 1; i <= k; i++) both(0.15 * i, 10 * i + 5); break; }
+        case 'twin': { const n = 1 + Math.floor(lv / 2) + bx; for (let i = 0; i < n; i++) add(0, (i - (n - 1) / 2) * 11); break; }
+        case 'focus': if (bx) { spread(5 + bx, 0.05, 6); break; } { add(0); const k = Math.min(2, Math.floor(lv / 2)); for (let i = 1; i <= k; i++) both(0.05 * i, 6 * i); break; }
+        case 'wide': add(0); if (lv >= 1) both(0.18, 14); if (lv >= 3) both(1.35, 24); if (lv >= 5) both(1.95, 24); if (bx >= 1) add(Math.PI); if (bx >= 2) add(0.77, 18); if (bx >= 3) add(-0.77, -18); break;   // 突破：依序補上正後方、右前斜、左前斜各 1 發
+        case 'big': add(0, 0, 1 + 0.12 * lv0); break;   // 巨型單發沒有「發數」，突破＝子彈繼續變大（每層 +12%）
+        case 'lane': { const n = 1 + Math.floor(lv / 2) + bx, gap = bx ? 22 : 24; for (let i = 0; i < n; i++) add(0, (i - (n - 1) / 2) * gap); break; }
         case 'snipe': add(0, -20, 0.8, SNIPE_SIDE_DM); add(0, 20, 0.8, SNIPE_SIDE_DM); if (solo) add(0); break;   // 附炮：左右兩側往前，威力很低
-        case 'ring': { const n = Math.max(1, Math.min(16, Math.floor(lv))); for (let i = 0; i < n; i++) add(i / n * Math.PI * 2); break; }   // 環陣號：發射方向數＝火力覆蓋等級（最多 16），平均分佈圓周：2 級＝前後、4 級＝上下左右…
+        case 'ring': { const n = Math.max(1, Math.min(16, Math.floor(lv))) + bx; for (let i = 0; i < n; i++) add(i / n * Math.PI * 2); break; }   // 環陣號：發射方向數＝火力覆蓋等級（最多 16），平均分佈圓周：2 級＝前後、4 級＝上下左右…
         default: add(0);
     }
     return out;
@@ -491,7 +494,12 @@ function segDist(ax, ay, bx, by, px, py) {   // 點到線段的距離（高速�
     const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy; let t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0; t = Math.max(0, Math.min(1, t));
     return Math.hypot(ax + t * dx - px, ay + t * dy - py);
 }
-function snipeN(lv) { lv = lv || 0; return lv >= 4 ? 3 : lv >= 2 ? 2 : 1; }
+function bdist(b, ex, ey) {   // 子彈到目標中心的距離：長子彈（連射號突破）以「頭到尾」整條線段計算
+    if (!(b.len > 0)) return Math.hypot(b.pos.x - ex, b.pos.y - ey);
+    const m = Math.hypot(b.vel.x, b.vel.y) || 1; return segDist(b.pos.x - b.vel.x / m * b.len, b.pos.y - b.vel.y / m * b.len, b.pos.x, b.pos.y, ex, ey);
+}
+const STORM_LEN = 14;   // 連射號：射速每突破 1 層，子彈變長多少（遊戲內單位）
+function snipeN(lv) { lv = lv || 0; const cap = SHIPS.find(s => s.pat === 'snipe').cap.cov; return lv >= cap ? 3 + Math.min(XMAX, Math.floor(lv - cap)) : lv >= 2 ? 2 : 1; }   // 突破：每層 +1 個同時鎖定目標（最多 6）
 function covLabel(S, lv) { if (S.pat === 'snipe') return snipeN(lv) + ' 目標'; const sh = patternShots(S, lv); return S.pat === 'big' ? '大彈×' + (sh[0].rs * BLAZE_SCALE).toFixed(2) : sh.length + ' 發'; }
 const CRIT_BASE = 0.2, SHOW = 100, DEF_PER_LV = 0.12, MIN_DMG_K = 0.15;   // SHOW：畫面上傷害／血量數字的倍率；每級裝甲＝12（顯示值）防禦；穿甲後最低仍有 15% 傷害
 const ARMOR_LV = { SCOUT: 0, DART: 0, SWARM: 0, FIGHTER: 1, SNIPER: 2, BOMBER: 2, TANK: 5, GUARD: 7 }, BOSS_ARMOR = { GLASS: 2, BARRAGE: 4, TANK: 8, FINAL: 10 };
@@ -849,7 +857,7 @@ class ObjectPool {
     get() {
         let obj = this.pool.find(o => !o.active);
         if (!obj) { obj = this.createFn(); this.pool.push(obj); }
-        obj.active = true; obj.homing = false; obj.target = null; obj.pierce = false; obj.pk = false; obj.hits = 0; obj.big = false; return obj;
+        obj.active = true; obj.homing = false; obj.target = null; obj.pierce = false; obj.pk = false; obj.hits = 0; obj.big = false; obj.len = 0; obj.fromBoss = false; return obj;
     }
 }
 
@@ -866,6 +874,10 @@ class Bullet extends Entity {
     constructor() { super(); this.isPlayer = false; this.damage = 1; this.sid = null; this.hits = 0; }
     draw(ctx) {   // 外圈白色虛化光暈（任何背景都看得見）＋ 彩色核心
         const x = this.pos.x, y = this.pos.y, r = this.radius;
+        if (this.len > 0) {   // 連射號射速突破：子彈變長（光束狀），尾巴在飛行方向的反側
+            const m = Math.hypot(this.vel.x, this.vel.y) || 1, tx = x - this.vel.x / m * this.len, ty = y - this.vel.y / m * this.len, line = (w, c, sb) => { ctx.lineWidth = w; ctx.strokeStyle = c; ctx.shadowBlur = sb; ctx.shadowColor = this.color; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke(); };
+            ctx.save(); ctx.lineCap = 'round'; line(r * 2.9, 'rgba(255,255,255,0.3)', 0); line(r * 2, this.color, 3); line(r * 0.76, 'rgba(255,255,255,0.8)', 0); ctx.restore(); return;
+        }
         ctx.save();
         const g = ctx.createRadialGradient(x, y, r * 0.6, x, y, r * 1.45); g.addColorStop(0, 'rgba(255,255,255,0.55)'); g.addColorStop(0.5, 'rgba(255,255,255,0.18)'); g.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 1.45, 0, Math.PI * 2); ctx.fill();
@@ -909,6 +921,7 @@ class Boss extends Entity {
     }
 
     move(dt, W, pp) {   // 「目標點 + 指數平滑」：不瞬移、不抖動，並限制最高速度
+        if (this.noMove) { this.pos.x = W / 2; this.pos.y += (this.targetY - this.pos.y) * Math.min(1, dt * 3); return; }   // 巨艦：只會從上方降到定位，之後不動
         this.tm = (this.tm || 0) + dt * 1000;
         const t = this.tm, m = this.cfg.mv, cx = W / 2, margin = this.size * 0.35;
         let tx = cx, ty = this.targetY, k = 3;
@@ -941,9 +954,10 @@ class Boss extends Entity {
     shoot(spawnBullet, pp) {
         this.angle += 0.15;
         const sp = 90 + this.stage * 18, sh = this.cfg.sh, pat = sh[this.volley++ % sh.length];
-        const toP = Math.atan2(pp.y - this.pos.y, pp.x - this.pos.x), D = Math.PI / 2;
+        const toP = Math.atan2(pp.y - this.pos.y, pp.x - this.pos.x), fa = this.faceA || 0, D = Math.PI / 2 + fa;   // fa：多人闖關「四機同體」的分身朝向（上 0、下 π、左 −π/2、右 π/2）
         const fire = (a, v, col) => { const b = spawnBullet(); b.pos = new Vec2(this.pos.x, this.pos.y); b.vel = new Vec2(Math.cos(a) * v, Math.sin(a) * v); b.color = col; b.isPlayer = false; };
         switch (pat) {
+            case 'curtain': for (let i = 0; i < 12; i++) { if (Math.random() < 0.35) continue; const b = spawnBullet(); b.pos = new Vec2(WORLD.w * (i + 0.5) / 12 + (Math.random() - 0.5) * 14, this.pos.y + (this.hh || 30)); b.vel = new Vec2((Math.random() - 0.5) * 40, sp * (0.8 + Math.random() * 0.5)); b.color = '#ff5577'; b.isPlayer = false; } break;   // 巨艦：整排船身同時放彈幕，隨機留幾道縫
             case 'aim':    fire(toP, sp * 1.4, '#ffcc00'); break;
             case 'aim3':   [-0.25, 0, 0.25].forEach(o => fire(toP + o, sp * 1.2, '#ff9900')); break;
             case 'burst':  for (let i = -2; i <= 2; i++) fire(D + i * 0.28, sp, '#ff6666'); break;
@@ -954,7 +968,7 @@ class Boss extends Entity {
                 const gap = Math.floor(Math.random() * 12);
                 for (let i = 0; i < 12; i++) {
                     if (Math.abs(i - gap) < 1.5) continue;
-                    const b = spawnBullet(); b.pos = new Vec2(WORLD.w * (i + 0.5) / 12, this.pos.y + 30); b.vel = new Vec2(0, sp * 0.9); b.color = '#ff66ff'; b.isPlayer = false;
+                    const b = spawnBullet(); if (!fa) { b.pos = new Vec2(WORLD.w * (i + 0.5) / 12, this.pos.y + 30); b.vel = new Vec2(0, sp * 0.9); } else if (fa === Math.PI) { b.pos = new Vec2(WORLD.w * (i + 0.5) / 12, this.pos.y - 30); b.vel = new Vec2(0, -sp * 0.9); } else { const dr = fa < 0 ? 1 : -1; b.pos = new Vec2(this.pos.x + dr * 30, WORLD.h * (i + 0.5) / 12); b.vel = new Vec2(dr * sp * 0.9, 0); } b.color = '#ff66ff'; b.isPlayer = false;
                 }
                 break;
             }
@@ -1142,12 +1156,12 @@ class Game {
     xOf(id, k) { const F = this.fleet[id]; return (F && F.x && F.x[k]) || 0; }   // 突破等級（PK 用的固定機庫沒有 x，自然是 0）
     lvOf(id, k) { const F = this.fleet[id]; return ((F && F[k]) || 0) + this.xOf(id, k); }   // 有效等級＝基礎等級＋突破等級
     statsOf(id) {
-        const S = this.ship(id), E = k => this.lvOf(id, k);
-        return { dmg: S.dmg * (1 + 0.5 * E('dmg')), iv: Math.max(55, S.int * Math.pow(0.92, E('rate'))), hp: S.hp + 20 * E('hp'), spd: S.spd * (1 + 0.10 * E('spd')), pen: E('pen'), crit: Math.min(0.95, CRIT_BASE + ((S.critMax || 0.5) - CRIT_BASE) * E('crit') / S.cap.crit) };
+        const S = this.ship(id), E = k => this.lvOf(id, k), stormX = S.pat === 'focus' ? this.xOf(id, 'rate') : 0;   // 連射號射速已逼近間隔下限：射速突破不再加快，改成讓子彈變長
+        return { len: stormX * STORM_LEN, dmg: S.dmg * (1 + 0.5 * E('dmg')), iv: Math.max(55, S.int * Math.pow(0.92, E('rate') - stormX)), hp: S.hp + 20 * E('hp'), spd: S.spd * (1 + 0.10 * E('spd')), pen: E('pen'), crit: Math.min(0.95, CRIT_BASE + ((S.critMax || 0.5) - CRIT_BASE) * E('crit') / S.cap.crit) };
     }
     applyUpgrades() {
         const S = this.ship(), st = this.statsOf(S.id);
-        this.st = { dmg: st.dmg, interval: st.iv, pen: st.pen, crit: st.crit }; this.maxHp = st.hp; this.player.speed = st.spd; this.player.radius = S.r;
+        this.st = { dmg: st.dmg, interval: st.iv, pen: st.pen, crit: st.crit, len: st.len || 0 }; this.maxHp = st.hp; this.player.speed = st.spd; this.player.radius = S.r;
         this.weaponLvl = this.lvOf(S.id, 'dmg'); this.covLv = this.lvOf(S.id, 'cov'); this.skin = SHIPS.indexOf(S);
     }
         summonAllies() {   // 呼叫友軍：已擁有（不含目前出戰）的戰機；若沒有其他戰機，派出基礎僚機
@@ -1402,31 +1416,47 @@ class Game {
             const bytes = todo.reduce((s, u) => s + (want[u][1] || 0), 0);
             say(todo.length ? `${old.v ? `${old.v} → ${APP_VERSION}：` : ''}${todo.length} 個檔案需要下載（約 ${(bytes / 1048576).toFixed(1)} MB）…` : '所有檔案都已是最新版本');
             let done = 0;
-            const get = async url => {
-                try {
-                    const cross = new URL(url, location.href).origin !== location.origin;
-                    const r = await fetch(url, cross ? { mode: 'no-cors' } : { cache: 'reload' });
-                    if (r.ok || r.type === 'opaque') {
-                        // 有些主機對不存在的檔案也回 200＋網頁：這種不是真的圖片／音樂，不能存進資料包
-                        if (r.type !== 'opaque' && /text\/html/i.test(r.headers.get('content-type') || '') && !/^(index\.html|\.\/)$/.test(url)) miss.add(url);
-                        else { await cache.put(url, r); files[url] = want[url][0]; }
-                    }
-                    else if (r.status === 404) miss.add(url); else fail.add(url);
-                } catch (e) { fail.add(url); }
+            const why = {}, isMedia = u => /\.(mp3|ogg|wav|m4a)$/i.test(u);
+            const get = async url => {   // 失敗自動重試 3 次；整份讀完再存（避免 206 部分內容、串流中斷）；大檔案給比較長的等待時間
+                const big = isMedia(url);
+                for (let a = 1; a <= 3; a++) {
+                    const ac = new AbortController(), tm = setTimeout(() => ac.abort(), big ? 180000 : 60000);
+                    try {
+                        const cross = new URL(url, location.href).origin !== location.origin;
+                        const r = await fetch(url, cross ? { mode: 'no-cors', signal: ac.signal } : { cache: 'reload', signal: ac.signal });
+                        if (r.ok || r.type === 'opaque') {
+                            // 有些主機對不存在的檔案也回 200＋網頁：這種不是真的圖片／音樂，不能存進資料包
+                            if (r.type !== 'opaque' && /text\/html/i.test(r.headers.get('content-type') || '') && !/^(index\.html|\.\/)$/.test(url)) { miss.add(url); break; }
+                            if (r.type === 'opaque') await cache.put(url, r);
+                            else {
+                                const blob = await r.blob();
+                                if (big && want[url][1] && blob.size !== want[url][1]) throw new Error(`檔案大小不符（收到 ${blob.size}，應為 ${want[url][1]}）`);
+                                await cache.put(url, new Response(blob, { status: 200, headers: { 'Content-Type': r.headers.get('Content-Type') || (big ? 'audio/mpeg' : 'application/octet-stream') } }));
+                            }
+                            files[url] = want[url][0]; fail.delete(url); delete why[url]; break;
+                        } else if (r.status === 404) { miss.add(url); break; }
+                        else why[url] = 'HTTP ' + r.status;
+                    } catch (e) { why[url] = (e && e.name === 'AbortError') ? '等待逾時' : String((e && e.message) || e); }
+                    finally { clearTimeout(tm); }
+                    if (a < 3) await new Promise(r => setTimeout(r, 800 * a)); else fail.add(url);
+                }
                 done++; const f = document.getElementById('off-fill'); if (f) f.style.width = (done / Math.max(1, todo.length) * 100) + '%';
                 if (todo.length) say(`更新中… ${done}/${todo.length}`);
             };
-            for (let i = 0; i < todo.length; i += 4) await Promise.all(todo.slice(i, i + 4).map(get));
+            const small = todo.filter(u => !isMedia(u)), large = todo.filter(isMedia);
+            for (let i = 0; i < small.length; i += 4) await Promise.all(small.slice(i, i + 4).map(get));   // 圖片等小檔案：4 個一組
+            for (let i = 0; i < large.length; i += 2) await Promise.all(large.slice(i, i + 2).map(get));   // 音樂等大檔案：2 個一組，避免同時搶頻寬而逾時
             const keep = new Set(urls.map(abs));
             if (!man.fallback) for (const r of await cache.keys()) if (!keep.has(r.url)) await cache.delete(r);          // 新版已經不存在的檔案 → 從快取移除（沒有 version.json 時不清理，避免誤刪）
             for (const u of miss) if (!prevMiss.has(u)) await cache.delete(abs(u));                      // 伺服器上已刪除的檔案 → 不留舊的
-            const okN = Object.keys(files).length, expected = urls.filter(u => !miss.has(u)).length, pass = okN / Math.max(1, expected) >= 0.9;
-            this._offResult = { ok: okN, total: Math.max(1, expected) };
+            const okN = Object.keys(files).length, expected = urls.filter(u => !miss.has(u)).length;
+            const must = urls.filter(u => !miss.has(u) && !isMedia(u)), mustOk = must.filter(u => files[u]).length, pass = mustOk / Math.max(1, must.length) >= 0.9;   // 音樂是選用：沒下載到也能進遊戲，之後會在背景補
+            const bad = [...fail][0]; this._offResult = { ok: okN, total: Math.max(1, expected), pass, sample: bad ? `${bad}：${why[bad] || '失敗'}` : '', musicFail: [...fail].filter(isMedia).length };
             // 下載到的檔案雜湊一律記下來（即使這次沒下載完，下次也只會補剩下的）；版本號要等到下載完整才更新
             localStorage.setItem('idiomOfflineInfo', JSON.stringify({ v: pass ? APP_VERSION : (old.v || null), n: okN, files, miss: [...miss], fail: [...fail], ts: Date.now() }));
             if (pass) for (const k of await caches.keys()) if (k.startsWith('idiom-offline-')) await caches.delete(k);   // 清掉舊制（每版一個）的離線資料包
             say(okN ? `完成！版本 ${APP_VERSION}，這次更新了 ${todo.length - fail.size - [...miss].filter(u => todo.includes(u)).length} 個檔案（共 ${okN} 個），現在可以離線遊玩了` : '沒有下載到任何檔案，請確認網路');
-        } catch (e) { this._offResult = { ok: 0, total: 1 }; say('下載失敗：' + (e.message || e)); }
+        } catch (e) { this._offResult = { ok: 0, total: 1, err: String((e && e.message) || e) }; say('下載失敗：' + (e.message || e)); }
         this._offBusy = false; const b2 = document.getElementById('off-go'); if (b2) b2.disabled = false;
     }
     // ===== 連網自動檢查：版本號不同 → 下載新資料包並覆蓋舊檔；版本相同 → 只補缺少的檔案 =====
@@ -1451,8 +1481,8 @@ class Game {
             if (navigator.serviceWorker) { try { const r = await navigator.serviceWorker.register('sw.js'); r.update && r.update(); } catch (e) {} }
             await this.downloadOffline();
             const r = this._offResult || { ok: 0, total: 1 };
-            if (r.ok / r.total >= 0.9) { setTimeout(done, 600); return; }
-            const i = document.getElementById('off-info'); if (i) i.textContent = `下載不完整（${r.ok}/${r.total}），請確認網路後重試`;
+            if (r.pass !== undefined ? r.pass : r.ok / r.total >= 0.9) { if (r.musicFail) toast(`有 ${r.musicFail} 首音樂還沒下載完成，之後會在背景自動補下載`, 4500); setTimeout(done, 600); return; }
+            const i = document.getElementById('off-info'); if (i) i.textContent = r.err ? `下載失敗：${r.err}` : `下載不完整（${r.ok}/${r.total}）${r.sample ? '：' + r.sample : ''}，請確認網路後重試`;
             const b2 = document.getElementById('off-go'); if (b2) { b2.style.display = 'block'; b2.disabled = false; b2.onclick = run; }
             const sk = document.getElementById('off-skip'); if (sk && !navigator.onLine) { sk.style.display = 'block'; sk.onclick = done; }   // 強制更新：只有斷網時才能略過
         };
@@ -1662,6 +1692,7 @@ class Game {
         const iron = !!(hit && src && src.pierce && this.isIron(e));   // 穿甲號子彈打到鐵甲類（坦克、護衛機、鐵甲型 Boss）
         if (iron || ((this.pierceTimer > 0 || pf) && e.shield > 0)) { pierce = 2 + Math.random(); n *= pierce; if (hit && e.shield > 0) n += (e.maxHp || 0) * 0.01; }   // 2~3 倍傷害（已先扣掉防禦力；鐵甲＋護盾只乘一次）   // 穿甲彈：對有護盾的目標造成 2~3 倍傷害，另外損失目標總血量 1%
         if (hit && src && src.sid && e === this.boss) { const tm = typeMul(src.sid, e.type); n *= tm; e._adv = tm; }   // 機種對 Boss 的屬性相剋（見 TYPE_MUL）
+        if (hit && this.coopHost && e === this.boss && e.aff && coop.gate(e, n, src)) { if (this.bgClock - (e._zl === undefined ? -9 : e._zl) >= 0.12) { e._zl = this.bgClock; coop.zeroText(e); } return; }   // 多人闖關 Boss 詞綴：這一發被擋下，傷害 0
         const dealt = n;
         if (e.shield > 0) { const a = Math.min(e.shield, n); e.shield -= a; n -= a; }
         e.hp -= n;
@@ -1807,7 +1838,7 @@ class Game {
         const KS = STAT_KEYS;
         const cards = SHIPS.map((S, i) => {
             const F = this.fleet[S.id], st = this.statsOf(S.id), own = F.own;
-            const val = { dmg: Math.round(st.dmg * SHOW), rate: (1000 / st.iv).toFixed(1) + '/秒', hp: Math.round(st.hp * SHOW), spd: Math.round(st.spd), pen: st.pen, crit: Math.round(st.crit * 100) + '%', cov: covLabel(S, F.cov) };
+            const val = { dmg: Math.round(st.dmg * SHOW), rate: (1000 / st.iv).toFixed(1) + '/秒' + (st.len ? '・彈長+' + st.len : ''), hp: Math.round(st.hp * SHOW), spd: Math.round(st.spd), pen: st.pen, crit: Math.round(st.crit * 100) + '%', cov: covLabel(S, this.lvOf(S.id, 'cov')) };
             const rows = KS.map(([k, n], j) => {
                 const lv = F[k], max = S.cap[k], cost = upgradeCost(lv), full = lv >= max, x = this.xOf(S.id, k), xmax = x >= XMAX, xc = xCost(x);
                 const lab = x > 0 ? `${max}+${x}/${max}` : `${lv}/${max}`;   // 目前等級／等級上限；突破後為「上限＋突破級數／上限」
@@ -2165,7 +2196,7 @@ class Game {
             const shootBullet = (offset, angle, rs, dm) => {
                 const b = this.bullets.get(); b.pos = new Vec2(this.player.pos.x + offset, this.player.pos.y - 25);
                 b.vel = new Vec2(Math.sin(angle)*800, -Math.cos(angle)*800);
-                b.isPlayer = true; b.damage = dmg * (dm || 1); b.pen = this.st.pen; b.crit = this.st.crit; b.turn = 0; b.target = null; styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; b.pierce = !!SKINS[this.skin].pierce; b.sid = this.shipId; bigify(b); b.homing = this.missileTimer > 0 || b.sid === 'wind' || (b.pierce && !this.pkMode && ((this._lanceN = (this._lanceN || 0) + 1) % 2 === 0));   // 穿甲號：每兩發有一發會自動追蹤（追蹤導彈道具期間則全部追蹤）
+                b.isPlayer = true; b.damage = dmg * (dm || 1); b.pen = this.st.pen; b.crit = this.st.crit; b.turn = 0; b.target = null; styleBullet(b, b.damage); if (rs && rs !== 1) b.radius *= rs; b.pierce = !!SKINS[this.skin].pierce; b.sid = this.shipId; b.len = this.st.len || 0; bigify(b); b.homing = this.missileTimer > 0 || b.sid === 'wind' || (b.pierce && !this.pkMode && ((this._lanceN = (this._lanceN || 0) + 1) % 2 === 0));   // 穿甲號：每兩發有一發會自動追蹤（追蹤導彈道具期間則全部追蹤）
             };
             const shots = patternShots(SKINS[this.skin], this.covLv);   // 依戰機的火力覆蓋等級決定彈道
             shots.forEach(sh => shootBullet(sh.o, sh.a, sh.rs, sh.dm));
@@ -2268,17 +2299,17 @@ class Game {
                         const g = online.pk.ghost, R = (online.pk.ghostR || 15) + 9 + (b.big ? b.radius : 0);
                         if (segDist(ox, oy, b.pos.x, b.pos.y, g.x, g.y) < R) { b.active = false; this.burst(b.pos.x, b.pos.y, 2); return; }
                     }
-                    if (this.boss) { const d = Math.hypot(b.pos.x - this.boss.pos.x, b.pos.y - this.boss.pos.y), R = bigHitR(b, this.boss.radius);
+                    if (this.boss) { const d = bdist(b, this.boss.pos.x, this.boss.pos.y), R = bigHitR(b, this.boss.radius);
                         if (d < R) { this.dmgEnt(this.boss, b.damage * bigMul(b, d, R), b.pierce, true, b); b.active = false; sfx.playHit(); } }
                     this.enemies.forEach((e, i) => {
-                        const d = Math.hypot(b.pos.x - e.pos.x, b.pos.y - e.pos.y), R = bigHitR(b, e.radius);
+                        const d = bdist(b, e.pos.x, e.pos.y), R = bigHitR(b, e.radius);
                         if (b.active && d < R) {
                             this.dmgEnt(e, b.damage * bigMul(b, d, R), b.pierce, true, b); b.active = false; sfx.playHit();
                             if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); this.runKills = (this.runKills || 0) + 1; this.enemyDrop(e); sfx.playExplosion(); this.enemies.splice(i, 1); }
                         }
                     });
                     this.idiomBlocks.forEach((m, i) => {
-                        const d = Math.hypot(b.pos.x - m.pos.x, b.pos.y - m.pos.y), R = bigHitR(b, m.radius);
+                        const d = bdist(b, m.pos.x, m.pos.y), R = bigHitR(b, m.radius);
                         if (b.active && d < R) {
                             m.hp -= b.damage * bigMul(b, d, R); b.active = false; sfx.playHit();
                             if(m.hp<=0) {
@@ -2598,7 +2629,8 @@ class Game {
             ctx.restore();
 
             }
-            if (this.boss) {
+            if (this.boss && this.coopMode && COOP_AFFIX[this.boss.stage] === 'wide') coop.drawWide(ctx, this.boss);
+            else if (this.boss) {
                 const bimg = IMG['boss_' + this.boss.stage] || IMG.boss;
                 if (bimg) { const R = this.boss.radius * 2; ctx.save(); ctx.shadowBlur = 25; ctx.shadowColor = this.boss.color; ctx.translate(this.boss.pos.x, this.boss.pos.y); fitDraw(ctx, bimg, this.boss.size);
                     ctx.fillStyle = '#fff'; ctx.font = "bold 18px "+KAI_FONT; ctx.textAlign = 'center'; ctx.fillText('BOSS・' + bossLabel(this.boss.stage), 0, this.boss.size * 0.5 + 18); ctx.restore(); }
@@ -2769,15 +2801,14 @@ const FORCE_UPDATE = {
             try { localStorage.setItem('idiomLatestV', v); } catch (e) {}   // 記下最新版本：離線時也能判斷自己是不是舊版
             if (!verNewer(v, APP_VERSION)) { this.pendingV = null; try { sessionStorage.removeItem('idiomUpd'); } catch (e) {} return; }   // 線上版本不比目前新 → 不用更新
             this.pendingV = v;
-            if (game.gameState === 'INIT' && !this.armed) return;   // 還在初始頁面：先不跳視窗，等玩家點擊開始後才跳出強制更新（見 boot）
             if (this.quiet(game.gameState)) return;   // 不打斷進行中的出擊；這局結束後，回大廳或再次出擊時就會被擋下，必須更新
             this.prompt(v);   // 跳出視窗，玩家按下「下載更新」才清快取並重新載入；沒更新就無法繼續遊玩
         } catch (e) {}
     },
     prompt(newV) {
         if (this.prompting || this.busy) return; this.prompting = true; this.pendingV = newV;
-        this.overlay(`<h2 style="color:#00f2ff;margin:0 0 8px">發現新版本</h2><p>目前版本 ${APP_VERSION} → 最新版本 ${newV}<br>必須更新到最新版本才能繼續遊玩。</p>
-            <button class="btn btn-start" onclick="FORCE_UPDATE.run('${newV}')">下載更新 [Enter]</button>`);
+        this.overlay(`<h2 style="color:#00f2ff;margin:0 0 8px">發現新版本</h2><p>目前版本 ${APP_VERSION} → 最新版本 ${newV}<br>必須更新到最新版本才能繼續遊玩。<br>按下「確定」開始下載更新。</p>
+            <button class="btn btn-start" onclick="FORCE_UPDATE.run('${newV}')">確定 [Enter]</button>`);
     },
     async run(newV) {
         this.busy = true;
@@ -2797,7 +2828,7 @@ const FORCE_UPDATE = {
     },
     retry() { try { sessionStorage.removeItem('idiomUpd'); } catch (e) {} this.busy = false; this.prompting = false; this.check(true); }
 };
-// 更新視窗出現時，擋住鍵盤操作（避免背後的大廳被 Enter／數字鍵誤觸）；Enter 等同按下「下載更新」
+// 更新視窗出現時，擋住鍵盤操作（避免背後的大廳被 Enter／數字鍵誤觸）；Enter 等同按下「確定」
 window.addEventListener('keydown', e => {
     if (!document.getElementById('upd-ov')) return;
     e.preventDefault(); e.stopImmediatePropagation();
@@ -2819,7 +2850,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) window.
 (() => {
 'use strict';
 const CFG = { apiKey: "AIzaSyB4MxpM55hfJKIDYdkb6ftGJY4k-QECkBE", authDomain: "idiom-fighter.firebaseapp.com", projectId: "idiom-fighter",
-    databaseURL: "https://idiom-fighter-default-rtdb.firebaseio.com",   // Realtime Database 網址：若建立資料庫時選了其他地區，請改成主控台顯示的網址
+    databaseURL: "https://idiom-fighter-default-rtdb.asia-southeast1.firebasedatabase.app",   // Realtime Database 網址：若建立資料庫時選了其他地區，請改成主控台顯示的網址
     storageBucket: "idiom-fighter.firebasestorage.app", messagingSenderId: "224044128546", appId: "1:224044128546:web:60e8120c693cf5ae292d7b", measurementId: "G-8GX7DZVE9E" };
 const G = game, P = Game.prototype, SAVEKEY = 'idiomShooterSave', MIRROR = 'idiomMirror', MAIL = '@idiom-fighter.app', ADMIN_USER = 'admin';
 const $ = id => document.getElementById(id);
@@ -2836,7 +2867,10 @@ const BACK = `<button class="btn btn-start" style="margin-top:8px" onclick="game
 const errMsg = e => ({ 'auth/user-not-found': '帳號或密碼錯誤', 'auth/wrong-password': '帳號或密碼錯誤', 'auth/invalid-credential': '帳號或密碼錯誤', 'auth/invalid-login-credentials': '帳號或密碼錯誤',
     'auth/email-already-in-use': '這個帳號已經有人使用', 'auth/weak-password': '密碼太短（至少 6 碼）', 'auth/network-request-failed': '網路連線失敗',
     'auth/operation-not-allowed': '尚未在 Firebase 後台開啟「電子郵件／密碼」登入', 'auth/too-many-requests': '嘗試次數過多，請稍後再試',
-    'permission-denied': '沒有權限（請確認 Firestore 規則已發布）' }[e && e.code] || ('發生錯誤：' + ((e && (e.code || e.message)) || e)));
+    'auth/invalid-email': '帳號格式不被接受（請用英文、數字或底線）', 'auth/admin-restricted-operation': 'Firebase 後台已關閉「使用者自行註冊」，請到 Authentication → 設定 → 使用者動作 開啟', 'auth/unauthorized-domain': '這個網址沒有加入 Firebase 的「授權網域」', 'auth/configuration-not-found': 'Firebase 尚未啟用 Authentication（請到後台按「開始使用」）',
+    'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'Firebase API 金鑰無效', 'auth/internal-error': 'Firebase 內部錯誤，請稍後再試', 'auth/quota-exceeded': 'Firebase 今日額度已用完', 'unavailable': '無法連線到資料庫（Firestore），請確認網路', 'failed-precondition': '資料庫尚未建立（請到 Firebase 後台建立 Firestore）',
+    'permission-denied': '沒有權限（請確認最新的 Firestore 規則 firestore.rules 已發布；管理員功能需用管理員帳號 admin 登入）' }[e && e.code]
+    || ((e && e.message === 'timeout') ? '連線逾時，請確認網路後再試一次' : (e && /^auth\/(requests-from-referer|requests-from-ip)/.test(e.code || '')) ? '這個網址被 Firebase API 金鑰的限制擋下（請到 Google Cloud 的金鑰設定加入這個網域）' : ('發生錯誤：' + ((e && (e.code || e.message)) || e))));
 
 // ---------- 樣式 ----------
 document.head.insertAdjacentHTML('beforeend', `<style>
@@ -2920,7 +2954,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 
 // ---------- Firebase ----------
 let auth = null, db = null, fbOk = false;
-try { firebase.initializeApp(CFG); auth = firebase.auth(); db = firebase.firestore(); try { firebase.analytics(); } catch (e) {} fbOk = true; } catch (e) { console.warn('Firebase 無法初始化', e); }
+try { firebase.initializeApp(CFG); auth = firebase.auth(); db = firebase.firestore(); try { db.settings({ experimentalAutoDetectLongPolling: true, merge: true }); } catch (e) {} try { firebase.analytics(); } catch (e) {} fbOk = true; } catch (e) { console.warn('Firebase 無法初始化', e); }
 
 const online = window.online = {
     fbOk, user: null, profile: null, isAdmin: false, friends: [], reqIn: [], invites: [], groups: [], unsubs: [], pk: null, pending: null,
@@ -2956,10 +2990,16 @@ const online = window.online = {
         try {
             if (reg) { this.pending = name || u; await auth.createUserWithEmailAndPassword(u + MAIL, p); }
             else await auth.signInWithEmailAndPassword(u + MAIL, p);
-        } catch (e) { msg(errMsg(e)); const b = $('lg-go'); if (b) b.disabled = false; }
+        } catch (e) {
+            if (reg && e && e.code === 'auth/email-already-in-use') {   // 上次註冊到一半中斷（帳號建了、資料沒建成）：密碼相同就直接登入並補建資料
+                try { await auth.signInWithEmailAndPassword(u + MAIL, p); return; } catch (e2) { /* 密碼不同：這個帳號真的有人用了 */ }
+            }
+            console.error(e); msg(errMsg(e)); const b = $('lg-go'); if (b) b.disabled = false;
+        }
     },
     async onLogin(u) {
         if (this.free) { try { auth.signOut(); } catch (e) {} return; }   // 單機離線模式中：忽略（晚到的）自動登入，免得蓋掉單機的固定配置
+        try { const ds = await Promise.race([db.collection('deleted').doc(u.uid).get(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))]); if (ds.exists) { this.user = u; await this.removeDeleted(u); return; } } catch (e) {}   // 被管理員刪除的帳號：連登入帳號一起刪掉
         try { const bs = await Promise.race([db.collection('banned').doc(u.uid).get(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))]); if (bs.exists) { this.user = u; await this.kick(bs.data()); return; } else { const k = JSON.parse(localStorage.getItem('idiomBanned') || 'null'); if (k && k.uid === u.uid) localStorage.removeItem('idiomBanned'); } } catch (e) {}
         this.offline = false; this.user = u; const username = (u.email || '').split('@')[0], ref = db.collection('users').doc(u.uid);
         let snap;
@@ -2968,7 +3008,8 @@ const online = window.online = {
         if (!snap.exists) {
             const name = this.pending || username;
             this.profile = { username, name, nameLower: name.toLowerCase(), bestScore: 0, totalDM: 0, spentDM: 0, pkWins: 0, pkLosses: 0, tutorialDone: false, createdAt: Date.now() };
-            localStorage.removeItem(SAVEKEY); G.resetProgress(); await ref.set(this.profile);
+            localStorage.removeItem(SAVEKEY); G.resetProgress();
+            await Promise.race([ref.set(this.profile), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))]);
         } else {
             this.profile = snap.data();
             if (this.profile.save) localStorage.setItem(SAVEKEY, JSON.stringify(this.profile.save)); else localStorage.removeItem(SAVEKEY);
@@ -2979,9 +3020,16 @@ const online = window.online = {
           if (m && m.uid === u.uid && m.dirty && m.save && (m.updatedAt || 0) > (this.profile.updatedAt || 0)) {
             Object.assign(this.profile, m.profile); localStorage.setItem(SAVEKEY, JSON.stringify(m.save)); G.resetProgress(); G.load(); G.applyUpgrades(); this.queuePush(); toast('已同步離線期間的進度');
           } }
-        try { this.isAdmin = (await db.collection('admins').doc(u.uid).get()).exists; } catch (e) { this.isAdmin = false; }
+        this.isAdmin = (u.email || '').toLowerCase() === ADMIN_USER + MAIL; if (!this.isAdmin) { try { this.isAdmin = (await db.collection('admins').doc(u.uid).get()).exists; } catch (e) { this.isAdmin = false; } }
         this.startListeners(); this.mountChat();
         if (G.gameState === 'LOGIN') G.setState(this.profile.tutorialDone ? 'LOBBY' : 'TUTORIAL');
+    },
+    async removeDeleted(u) {   // 管理員已刪除這個帳號：把 Firebase 的登入帳號本身也刪除（瀏覽器只能刪「自己」，所以在對方下次登入時執行），名稱就能重新註冊
+        let done = true; try { await u.delete(); } catch (e) { done = false; console.error(e); }
+        try { if (fbOk) await auth.signOut(); } catch (e) {}
+        try { localStorage.removeItem(SAVEKEY); localStorage.removeItem(MIRROR); } catch (e) {}
+        this.onLogout();
+        setTimeout(() => G.dialog(`<h3 style="color:var(--neon-red)">此帳號已被管理員刪除</h3><p style="text-align:left;line-height:1.7">${done ? '帳號與資料都已刪除，這個帳號名稱可以重新註冊。' : '帳號資料已刪除；請再輸入一次帳號密碼登入，即可完成刪除登入帳號。'}</p><button class="btn btn-start" onclick="game.closeDlg()">我知道了</button>`), 400);
     },
     async kick(b) {   // 黑名單：登出並顯示停權原因
         const reason = (b && b.reason) || '（管理員未填寫原因）';
@@ -3105,20 +3153,26 @@ const online = window.online = {
     // ===== 畫面分派 =====
     renderState(st) {
         this.updateChatVis();
-        ({ LOGIN: () => this.renderLogin(false), RANK: () => this.renderRank('bestScore'), FRIENDS: () => this.renderFriends(), PK: () => this.renderPK(), COOP: () => coop.renderRoom(),
+        ({ LOGIN: () => this.renderLogin(false), RANK: () => this.renderRank('bestScore'), FRIENDS: () => this.renderFriends(), PK: () => this.renderPK(), COOP: () => coop.renderRoom(), NET: () => this.renderNet(),
            DB: () => this.renderDB(), DB2: () => this.renderDex('ship'), STATS: () => this.renderStats(), TUTORIAL: () => this.renderTutorial(0), ADMIN: () => this.renderAdmin('users') }[st])();
     },
-    refresh() { const st = G.gameState; if (st === 'FRIENDS') this.renderFriends(); else if (st === 'PK') this.renderPK(); this.updateFriendDot(); this.renderInvites(); },
+    refresh() { const st = G.gameState; if (st === 'FRIENDS') this.renderFriends(); else if (st === 'PK') this.renderPK(); else if (st === 'COOP' && coop.room && coop.room.role === 'host') coop.renderRoom(); this.updateFriendDot(); this.renderInvites(); },
     updateFriendDot() { const d = $('fr-dot'); if (!d) return; const n = this.reqIn.length; d.textContent = n > 99 ? '99+' : n; d.style.display = n ? 'block' : 'none';
         const t = d.parentNode && d.parentNode.querySelector('small'); if (t) t.textContent = '聊天／邀請' + (n ? '（' + n + ' 筆邀請）' : ''); },
+    renderNet() {   // 大廳「連線對戰」：PK 對戰、闖關對戰兩個子功能磚
+        const T = (a, b, h, sm, ico, onclick) => `<div class="tile w2" style="--a:${a};--b:${b}" onclick="${onclick}"><h4>${h}</h4><small>${sm}</small><span class="ico">${ico}</span></div>`;
+        ui(`<div class="menu-overlay" style="width:min(94vw,580px)"><h2 class="shop-title">連線對戰</h2>
+            <p class="muted" style="line-height:1.6;text-align:left">需要登入並連線。<br>・<b>PK 對戰</b>：與好友面對面互射。<br>・<b>闖關對戰</b>：2～3 人遠端協力闖關（同機多人闖關的連線版）。成語集滿後，直接按快捷數字鍵（或點成語列）發動，和單人模式一樣；任何人發動成語時，<b>所有玩家都會暫停 5 秒</b>，等成語顯示完畢才發動。</p>
+            <div class="tiles" style="grid-template-columns:repeat(2,1fr)">${T('#cb2d3e', '#ef473a', 'PK 對戰', '房間密碼・面對面互射', '⚔', "game.setState('PK')")}${T('#00b09b', '#96c93d', '闖關對戰', '2～3 人遠端協力闖關', '盟', "coop.viaNet = true; game.setState('COOP')")}</div>${BACK}</div>`);
+    },
     extraTiles() {
         const T = (a, b, h, sm, ico, onclick, cls = '', col = '', xtra = '') => `<div class="tile ${cls}" style="--a:${a};--b:${b}${col ? ';color:' + col : ''}" onclick="${onclick}"><h4>${h}</h4><small>${sm}</small><span class="ico">${ico}</span>${xtra}</div>`;
         const n = this.reqIn.length, dot = `<i class="tdot" id="fr-dot" style="display:${n ? 'block' : 'none'}">${n > 99 ? '99+' : n}</i>`;   // 有人送好友邀請：好友磚右上角紅點
         return T('#f7971e', '#ffd200', '排行榜', '線上排名', '★', "game.setState('RANK')", '', '#222')
             + T('#11998e', '#38ef7d', '好友', `聊天／邀請${this.reqIn.length ? '（' + this.reqIn.length + ' 筆邀請）' : ''}`, '友', "game.setState('FRIENDS')", '', '#022', dot)
             + T('#614385', '#516395', '圖鑑', '成語・戰鬥資料・音樂庫', '鑑', "game.setState('DB')")
-            + T('#cb2d3e', '#ef473a', '好友 PK', '與好友對決', '⚔', "game.setState('PK')")
-            + T('#00b09b', '#96c93d', '同機多人闖關', '2～3 人同鍵盤・各自登入', '盟', "game.setState('COOP')", '', '#022')
+            + T('#cb2d3e', '#ef473a', '連線對戰', 'PK 對戰・闖關對戰', '⚔', "game.setState('NET')")
+            + T('#00b09b', '#96c93d', '同機多人闖關', '2～3 人同鍵盤・各自登入', '盟', "coop.viaNet = false; game.setState('COOP')", '', '#022')
             + T('#1d2b64', '#3a6073', '個人戰績', '分數・暗物質・常用戰機', '績', "game.setState('STATS')", 'w2')
             + T('#134e5e', '#71b280', '新手教學', '圖文說明', '?', "game.setState('TUTORIAL')", 'w2');
     },
@@ -3237,7 +3291,7 @@ const online = window.online = {
         on(db.collection('friendRequests').where('from', '==', uid).where('status', '==', 'accepted'), s => s.docs.forEach(d => { const x = d.data();
             U.collection('friends').doc(x.to).set({ name: x.toName, ts: Date.now() }).then(() => d.ref.delete()).catch(() => {}); }));
         on(U.collection('invites'), s => { const old = new Set(this.invites.map(i => i.code)); this.invites = s.docs.map(d => d.data());
-            const fresh = this.liveInvites().filter(i => !old.has(i.code)); fresh.forEach(i => toast(`${i.fromName} 邀請你 PK！`, 5000)); this.refresh(); if (fresh.length) this.popInvite(); });
+            const fresh = this.liveInvites().filter(i => !old.has(i.code)); fresh.forEach(i => toast(i.mode === 'coop' ? `${i.fromName} 邀請你一起多人闖關！` : `${i.fromName} 邀請你 PK！`, 5000)); this.refresh(); if (fresh.length) this.popInvite(); });
         on(db.collection('groups').where('members', 'array-contains', uid), s => { this.groups = s.docs.map(d => Object.assign({ id: d.id }, d.data())); this.syncWatch(); this.chatSel(); });
         this.startPresence(); this.syncWatch();
     },
@@ -3247,7 +3301,7 @@ const online = window.online = {
             <div class="row"><input class="inp" id="fr-in" style="flex:1;margin:0" placeholder="輸入對方帳號加好友" value="${esc(keep)}"><button class="sm" onclick="online.addFriend(document.getElementById('fr-in').value)">送出邀請</button></div>
             ${this.liveInvites().length ? `<h4>PK 邀請</h4>` + this.liveInvites().map(i => `<div class="row"><span>${esc(i.fromName)} 邀請你 PK</span><button class="sm" onclick="online.acceptInvite('${esc(i.code)}')">加入</button><button class="sm red" onclick="online.declineInvite('${esc(i.code)}')">拒絕</button></div>`).join('') : ''}
             ${this.reqIn.length ? `<h4>好友邀請</h4>` + this.reqIn.map(r => `<div class="row"><span>${esc(r.fromName)}</span><button class="sm" onclick="online.acceptReq('${r.id}')">接受</button><button class="sm red" onclick="online.declineReq('${r.id}')">拒絕</button></div>`).join('') : ''}
-            <h4>好友列表（${this.friends.length}）</h4><div class="lst">${this.friends.length ? this.friends.map((f, i) => `<div class="row"><b class="fnum">${i + 1}.</b><span class="fname" onclick="online.showPlayer('${f.uid}')" title="點擊查看好友資料">${this.friendTag(f.uid)}${esc(f.name)}</span><button class="sm" onclick="online.openChat('dm','${f.uid}')">聊天${this.unr && this.unr['dm:' + f.uid] ? '（' + (this.unr['dm:' + f.uid] > 99 ? '99+' : this.unr['dm:' + f.uid]) + '）' : ''}</button><button class="sm" onclick="online.invite('${f.uid}')">邀請 PK</button><button class="sm red" onclick="online.removeFriend('${f.uid}')">刪除</button></div>`).join('') : '<p class="muted">還沒有好友，輸入對方帳號試試</p>'}</div>${BACK}</div>`);
+            <h4>好友列表（${this.friends.length}）</h4><div class="lst">${this.friends.length ? this.friends.map((f, i) => `<div class="row"><b class="fnum">${i + 1}.</b><span class="fname" onclick="online.showPlayer('${f.uid}')" title="點擊查看好友資料">${this.friendTag(f.uid)}${esc(f.name)}</span><button class="sm" onclick="online.openChat('dm','${f.uid}')">聊天${this.unr && this.unr['dm:' + f.uid] ? '（' + (this.unr['dm:' + f.uid] > 99 ? '99+' : this.unr['dm:' + f.uid]) + '）' : ''}</button><button class="sm" onclick="online.invite('${f.uid}')">邀請 PK</button><button class="sm" onclick="coop.invite('${f.uid}')">邀請闖關</button><button class="sm red" onclick="online.removeFriend('${f.uid}')">刪除</button></div>`).join('') : '<p class="muted">還沒有好友，輸入對方帳號試試</p>'}</div>${BACK}</div>`);
         const inp = $('fr-in'); if (inp) inp.onkeydown = e => { if (e.key === 'Enter') this.addFriend(inp.value); };
     },
     async addFriend(name) {
@@ -3281,7 +3335,8 @@ const online = window.online = {
     acceptInvite(code) {   // 聊天室／好友頁點「加入」：直接進到對方的房間
         const i = this.invites.find(x => x.code === code);
         if (['PLAYING', 'TRANSITION'].includes(G.gameState)) return toast('戰鬥中無法加入，請先結束出擊');
-        if (this.pk) return toast('你已經在房間裡，請先離開目前的房間');
+        if (this.pk || coop.room) return toast('你已經在房間裡，請先離開目前的房間');
+        if (i && i.mode === 'coop') { this.dropInvite(code); G.closeDlg(); coop.viaNet = true; coop.join(code, i.fromUid); return; }   // 多人闖關邀請：直接加入對方的闖關房間
         this.dropInvite(code); G.closeDlg(); G.setState('PK'); this.joinRoom(code, i && i.fromUid);
     },
     declineInvite(code) {   // 拒絕：移除邀請，並在對方的房間標記「已拒絕邀請」
@@ -3296,12 +3351,13 @@ const online = window.online = {
     renderInvites() {   // 聊天室上方的 PK 邀請通知（所有分頁都看得到）
         const box = $('ch-inv'); if (!box) return; const L = this.liveInvites();
         box.style.display = L.length ? 'block' : 'none';
-        box.innerHTML = L.map(i => `<div class="iv"><span>⚔ <b>${esc(i.fromName)}</b> 邀請你 PK</span><button class="sm" onclick="online.acceptInvite('${esc(i.code)}')">加入</button><button class="sm red" onclick="online.declineInvite('${esc(i.code)}')">拒絕</button></div>`).join('');
+        box.innerHTML = L.map(i => `<div class="iv"><span>${i.mode === 'coop' ? '🚀' : '⚔'} <b>${esc(i.fromName)}</b> ${i.mode === 'coop' ? '邀請你多人闖關' : '邀請你 PK'}</span><button class="sm" onclick="online.acceptInvite('${esc(i.code)}')">加入</button><button class="sm red" onclick="online.declineInvite('${esc(i.code)}')">拒絕</button></div>`).join('');
         this.paintBadge();
     },
     async invite(uid, name) {   // 不必是好友，任何玩家都能邀請
         try {
             if (uid === this.user.uid) return;
+            if (coop.room) return toast('你正在多人闖關房間裡，請先離開再邀請 PK');
             if (!this.pk && ['PLAYING', 'TRANSITION'].includes(G.gameState)) return toast('戰鬥中無法建立房間，請先結束出擊');
             G.closeDlg();
             if (!this.pk) { G.setState('PK'); await this.createRoom(); }
@@ -3531,20 +3587,26 @@ const online = window.online = {
         try { if (m) m.textContent = '載入中…'; await this.adLoad(uid); if (m) m.textContent = ''; const u = (this._adUsers || []).find(x => x.uid === uid), q = $('ad-q'); if (q && u) q.value = u.username; } catch (e) { if (m) m.textContent = errMsg(e); }
     },
     async adDelete() {   // 刪除帳號：清除玩家資料、好友、邀請與上線狀態
-        const T = this._adT, adb = this.adminDb || db, m = $('ad-umsg'); if (!T) return;
+        const T = this._adT, adb = this.adminDb || db, m = $('ad-umsg'); if (!T) return; if (!this.adminDb && !this.isAdmin) { toast('只有管理員可以執行這個操作'); return; }
         const nm = T.d.username || T.d.name || T.uid;
-        if (!confirm(`確定要刪除帳號「${nm}」嗎？\n\n玩家資料、存檔、暗物質、戰機、好友與紀錄都會永久刪除，無法復原。`)) return;
+        if (!confirm(`確定要刪除帳號「${nm}」嗎？\n\n玩家資料、存檔、暗物質、戰機、好友與紀錄都會永久刪除，登入帳號也會在對方下次登入時刪除，無法復原。`)) return;
         const typed = prompt(`請再輸入要刪除的帳號「${nm}」以確認：`); if (typed === null) return;
         if (typed.trim().toLowerCase() !== String(nm).toLowerCase()) { if (m) m.textContent = '輸入的帳號不符，已取消刪除'; return; }
         try {
             if (m) m.textContent = '刪除中…';
+            await adb.collection('deleted').doc(T.uid).set({ username: T.d.username || '', name: T.d.name || '', at: Date.now() });   // 先留下「已刪除」標記：擋住這個帳號再寫入資料，並讓對方下次登入時連登入帳號一起刪除
             const U = adb.collection('users').doc(T.uid);
-            for (const sub of ['friends', 'invites']) { const s = await U.collection(sub).get(); await Promise.all(s.docs.map(d => d.ref.delete())); }
+            for (const sub of ['friends', 'invites']) {
+                const s = await U.collection(sub).get();
+                if (sub === 'friends') await Promise.all(s.docs.map(d => adb.collection('users').doc(d.id).collection('friends').doc(T.uid).delete().catch(() => {})));   // 別人好友清單裡的這個帳號也一起移除
+                await Promise.all(s.docs.map(d => d.ref.delete()));
+            }
+            for (const k of ['from', 'to']) { try { const r = await adb.collection('friendRequests').where(k, '==', T.uid).get(); await Promise.all(r.docs.map(d => d.ref.delete().catch(() => {}))); } catch (e) {} }   // 相關的好友邀請
             try { await adb.collection('presence').doc(T.uid).delete(); } catch (e) {}
             await U.delete();
             this._adUsers = (this._adUsers || []).filter(u => u.uid !== T.uid); this._adT = null;
             const b = $('ad-user'); if (b) b.innerHTML = ''; const q = $('ad-q'); if (q) q.value = '';
-            this.adList(); if (m) m.textContent = `已刪除帳號「${nm}」`;
+            this.adList(); if (m) m.textContent = `已刪除帳號「${nm}」：玩家資料已清除；該玩家下次開啟遊戲或登入時，登入帳號本身也會自動刪除、名稱即可重新註冊（想立刻釋出名稱，可到 Firebase → Authentication 手動刪除）`;
         } catch (e) { if (m) m.textContent = errMsg(e); }
     },
     async adFind() {
@@ -3577,7 +3639,7 @@ const online = window.online = {
             <button class="sm red" onclick="online.adReset()">重置此帳號（回到全新狀態）</button> <button class="sm red" onclick="online.adDelete()">刪除此帳號</button>`;
     },
     async adWrite(extra, okMsg) {
-        const T = this._adT, adb = this.adminDb || db, m = $('ad-umsg'); if (!T) return;
+        const T = this._adT, adb = this.adminDb || db, m = $('ad-umsg'); if (!T) return; if (!this.adminDb && !this.isAdmin) { toast('只有管理員可以執行這個操作'); return; }
         try {
             const now = Date.now(), upd = Object.assign({ adminAt: now, updatedAt: now }, extra);
             await adb.collection('users').doc(T.uid).set(upd, { merge: true }); if (m) m.textContent = okMsg || '已更新'; return true;
@@ -3600,12 +3662,12 @@ const online = window.online = {
         if (await this.adWrite(z, '帳號已重置')) { await this.adLoad(T.uid); }
     },
     async adBan() {
-        const T = this._adT, adb = this.adminDb || db, reason = (($('ad-reason') || {}).value || '').trim(); if (!T) return;
+        const T = this._adT, adb = this.adminDb || db, reason = (($('ad-reason') || {}).value || '').trim(); if (!T) return; if (!this.adminDb && !this.isAdmin) { toast('只有管理員可以執行這個操作'); return; }
         if (!reason && !confirm('沒有填寫停權原因，仍要停權嗎？')) return;
         try { await adb.collection('banned').doc(T.uid).set({ uid: T.uid, username: T.d.username || '', name: T.d.name || '', reason, at: Date.now() }); T.ban = { reason }; this.adCard(); $('ad-umsg').textContent = '已加入黑名單'; } catch (e) { $('ad-umsg').textContent = errMsg(e); }
     },
     async adUnban() {
-        const T = this._adT, adb = this.adminDb || db; if (!T) return;
+        const T = this._adT, adb = this.adminDb || db; if (!T) return; if (!this.adminDb && !this.isAdmin) { toast('只有管理員可以執行這個操作'); return; }
         try { await adb.collection('banned').doc(T.uid).delete(); T.ban = null; this.adCard(); $('ad-umsg').textContent = '已解除停權'; } catch (e) { $('ad-umsg').textContent = errMsg(e); }
     },
     adOpen(tab, id) { this.adView((this.adminDb || db).collection(tab === 'group' ? 'groups' : 'dms').doc(id).collection('messages'), id); },
@@ -3620,10 +3682,10 @@ const online = window.online = {
         tab = tab || 'idiom';
         const top = tab === 'idiom' ? 'idiom' : tab === 'music' ? 'music' : 'data';   // 三大分類
         const TOP = [['idiom', '成語資料', '📖', `${CONFIG.IDIOMS.length} 個成語・9 種招式`, 'idiom', '#ffd400'],
-            ['data', '戰鬥資料', '🛸', `${SHIPS.length} 戰機・8 敵機・9 Boss`, 'ship', '#00f2ff'],
+            ['data', '戰鬥資料', '🛸', `${SHIPS.length} 戰機・8 敵機・9+9 Boss`, 'ship', '#00f2ff'],
             ['music', '音樂庫', '🎵', `${trackList().length} 首曲目`, 'music', '#ff3bd4']];
-        const SUB = [['ship', '我方戰機', '🚀'], ['enemy', '敵方戰機', '👾'], ['boss', 'Boss', '👹']];
-        const body = { idiom: () => this.dexIdiom(a, b), ship: () => this.dexShips(), enemy: () => this.dexEnemies(), boss: () => this.dexBosses(), music: () => this.dexMusic() }[tab]();
+        const SUB = [['ship', '我方戰機', '🚀'], ['enemy', '敵方戰機', '👾'], ['boss', 'Boss', '👹'], ['cboss', 'Boss（多人闖關）', '🛰']];
+        const body = { idiom: () => this.dexIdiom(a, b), ship: () => this.dexShips(), enemy: () => this.dexEnemies(), boss: () => this.dexBosses(), cboss: () => this.dexCoopBosses(), music: () => this.dexMusic() }[tab]();
         const sub = top === 'data' ? `<div class="cx-sub">${SUB.map(s => `<button class="${s[0] === tab ? 'on' : ''}" onclick="online.renderDex('${s[0]}')">${s[2]} ${s[1]}</button>`).join('')}</div>` : '';
         ui(`<div class="menu-overlay cx" style="--c:${TOP.find(x => x[0] === top)[5]}"><div class="cx-h"><h2 class="shop-title">圖鑑</h2><small>CODEX</small></div>
             <div class="cx-top">${TOP.map(x => `<button class="${x[0] === top ? 'on' : ''}" style="--c:${x[5]}" onclick="online.renderDex('${x[4]}')"><span class="ic">${x[2]}</span><b>${x[1]}</b><small>${x[3]}</small></button>`).join('')}</div>
@@ -3678,6 +3740,24 @@ const online = window.online = {
                 <div class="inf"><h3>第 ${st} 關<small>${bossLabel(st)}</small>${st === 9 ? '<span class="tg gold">最終 Boss</span>' : ''}</h3>
                 <div class="chips2"><span>血量 <b>${hp * SHOW}</b></span><span>裝甲等級 <b>${(BOSS_ARMOR[ty] || 0) + Math.floor(st / 2)}</b></span><span>能力加成 <b>${Math.round(bm.f * 100)}%</b></span></div>
                 <div class="t">${inf.desc}<br><b>移動</b> ${MV[cfg.mv]}　<b>攻擊</b> ${cfg.sh.map(x => SH[x]).join('、')}<br><b>建議</b> ${inf.tip}<br><b>屬性相剋</b> ${matchupText(ty)}</div></div></div>`; }).join('');
+    },
+    dexCoopBosses() {   // 圖鑑：多人闖關 Boss（難度第 10～18 關；血量、攻擊 ×5，各有專屬詞綴）
+        const MV = { hover: '懸停漂移', sweep: '左右橫掃', orbit: '橢圓環繞', dash: '隨機衝刺', chase: '追蹤玩家', zigzag: '快速折返' }, SH = { aim: '瞄準單發', aim3: '三連瞄準', burst: '扇形彈', ring: '環形彈', spiral: '螺旋彈', rain: '雨狀彈', wall: '彈牆（留缺口）', curtain: '密集彈幕' };
+        const AF = { combo: ['連擊護盾', '🛡'], heavy: ['重擊護甲', '🪨'], aegis: ['破甲彈', '🔱'], quad: ['四機同體', '✚'], wide: ['巨艦', '🚢'], final: ['終焉', '☠'] };
+        const REC = { combo: ['storm'], heavy: ['assassin', 'blaze', 'lance'], aegis: ['bastion'], quad: ['nova'], wide: ['wind'], final: ['bastion', 'storm', 'assassin', 'wind'] };
+        const WHY = { combo: '護盾在時傷害為 0，要全隊在 1 秒內湊足命中數才破盾 → 射速最快的連射號破盾最快，其他隊友趁破盾空檔輸出。', heavy: '單發傷害低於門檻一律 0 → 靠單發重擊的狙擊號、烈焰號、穿甲號輸出，輕彈戰機改負責撿字卡與吸引火力。', aegis: 'Boss 子彈對一般戰機傷害 ×3，堡壘號只吃 1 點 → 隊友躲在堡壘號後面輸出，堡壘號負責擋。', quad: '上下左右四台共用一條血條，會被包夾 → 全向火網的環陣號最能同時照顧四個方向。', wide: '船體與螢幕同寬、無法移動、彈幕極密，擊中我方還會回血 → 靈活的疾風號負責穿梭閃躲，其他人集中火力速戰速決。', final: '每 ' + FINAL_FORM_T + ' 秒輪流切換連擊護盾／重擊護甲／破甲彈／吸能的簡化版 → 需要全隊依形態分工、隨時換人主攻。' };
+        const hpOf = (st, N) => { const ty = BOSS_TYPES[st], M = bossMods(9, ty); return Math.round(5000 * M.hp * COOP_HP * (1 + 0.08 * (st - 1)) * (0.75 + 0.25 * N)) * SHOW; };
+        const fmt = n => n.toLocaleString('en-US');
+        const intro = `<div class="cx-card" style="--c:#00e5ff"><div class="pic"><span style="font-size:2.6rem">🛰</span></div><div class="inf"><h3>多人闖關 Boss<small>2～3 人協力・難度第 10～18 關</small></h3><div class="t">用的是單機同一批 9 隻 Boss，但<b>難度從「比第 9 關更難」起跳</b>：血量與攻擊都是 <b>${COOP_HP} 倍</b>，血量再隨關卡與人數增加（3 人比 2 人更厚）。每隻 Boss 另有<b>專屬詞綴</b>，必須靠隊友分工、選對戰機才打得動。</div></div></div>`;
+        return intro + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(st => { const ty = BOSS_TYPES[st], inf = BOSS_INFO[ty], cfg = BOSS_CFG[st], M = bossMods(9, ty), af = COOP_AFFIX[st], A = AF[af] || ['—', ''], col = AFFIX_COL[af] || '#ffaa00';
+            const atk = Math.round(M.dmg * COOP_ATK * (af === 'wide' ? WIDE_DMG : 1) * 10) / 10, rate = Math.round(M.rate * (af === 'quad' ? 0.5 : 1) * 100) / 100;
+            const shs = af === 'wide' ? ['curtain', 'aim3'] : cfg.sh, mv = af === 'wide' ? '無法移動（寬度＝螢幕）' : MV[cfg.mv];
+            const pic = af === 'quad' ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:84px">${[0, 90, -90, 180].map(r => `<img src="assets/boss_${st}.png" style="width:40px;height:40px;object-fit:contain;transform:rotate(${r}deg)" onerror="this.style.visibility='hidden'">`).join('')}</div>` : `<img src="assets/boss_${st}.png" onerror="this.style.visibility='hidden'">`;
+            const forms = af === 'final' ? `<br><b>形態輪替</b> ${FINAL_FORMS.map(k => FORM_TXT[k]).join('；')}` : '';
+            return `<div class="cx-card boss" style="--c:${col}"><div class="pic">${pic}</div>
+                <div class="inf"><h3>闖關 ${st + 9}<small>${bossLabel(st)}</small><span class="tg gold" style="background:${col};color:#111">${A[1]} ${A[0]}</span></h3>
+                <div class="chips2"><span>血量 2 人 <b>${fmt(hpOf(st, 2))}</b></span><span>3 人 <b>${fmt(hpOf(st, 3))}</b></span><span>攻擊 <b>×${atk}</b></span><span>射速 <b>×${rate}</b></span></div>
+                <div class="t"><b>專屬詞綴</b> <span style="color:${col}">${(af === 'final' ? '終焉（輪流切換）' : AFFIX_TXT[af](st))}</span>${forms}<br><b>移動</b> ${mv}　<b>攻擊</b> ${shs.map(x => SH[x]).join('、')}<br><b>對策</b> ${WHY[af]}<br><b>推薦戰機</b> ${REC[af].map(id => { const S = SHIPS.find(x => x.id === id); return `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:8px"><img src="${shipPic(id)}" style="width:22px;height:22px;object-fit:contain" onerror="this.style.display='none'">${S.name}</span>`; }).join('')}</div></div></div>`; }).join('');
     },
     dexMusic() {
         const T = trackList(), grp = [...new Set(T.map(x => x.grp))];
@@ -3766,7 +3846,7 @@ const online = window.online = {
         code = (code || '').trim(); if (!/^\d{4}$/.test(code)) return toast('請輸入 4 位數房間密碼'); if (this.pk) return;
         try {
             const ref = this.roomRef(code), s = await ref.get();
-            if (!s.exists || s.data().state !== 'lobby' || s.data().mode === 'coop') return toast('找不到這個房間，或已經開始（多人闖關房間請從「多人闖關」加入）');
+            if (!s.exists || s.data().state !== 'lobby' || s.data().mode === 'coop') return toast('找不到這個房間，或已經開始（闖關對戰房間請從「連線對戰 → 闖關對戰」加入）');
             const r = s.data(); if (r.guest && r.guest !== this.user.uid) return toast('房間已滿');
             if (r.host === this.user.uid) return toast('你是這個房間的主控端');
             if (hostUid && r.host !== hostUid) return toast('這個邀請已失效');
@@ -4015,7 +4095,7 @@ function msgHtml(m, me) { if (m.sys) return `<div class="msg sys s${m.sys}">${es
 
 // ---------- 掛接到遊戲 ----------
 const wrap = (name, fn) => { const o = P[name]; P[name] = function (...a) { return fn.call(this, o, ...a); }; };
-const NEW = new Set(['LOGIN', 'RANK', 'FRIENDS', 'PK', 'COOP', 'DB', 'DB2', 'TUTORIAL', 'ADMIN', 'STATS']);
+const NEW = new Set(['LOGIN', 'RANK', 'FRIENDS', 'PK', 'COOP', 'NET', 'DB', 'DB2', 'TUTORIAL', 'ADMIN', 'STATS']);
 wrap('setState', function (o, state) {
     if (this.pkMode && (state === 'GAMEOVER' || state === 'VICTORY')) { online.pkSelfDead(); return; }
     if (NEW.has(state) && !['LOGIN', 'TUTORIAL', 'DB', 'DB2', 'STATS', 'COOP'].includes(state) && !online.user && !(state === 'ADMIN' && online.adminDb)) { toast('這個功能需要網路並登入'); return; }
@@ -4040,7 +4120,7 @@ wrap('startCast', function (o, idiom, remote) {
 wrap('finishCast', function (o) { const c = this.casting; if (c && c.remote) { this.endCast(); online.pkApply(c.idiom); } else o.call(this); online.pkNext(); });
 wrap('leave', function (o) { if (this.pkMode) { this.closeDlg(); online.pkSelfDead(); return; } o.call(this); });
 const ADMIN_CODE = '06090721';
-wrap('aboutDialog', function (o) { o.call(this); this.aboutOpen = true; online._code = ''; });
+wrap('aboutDialog', function (o) { o.call(this); this.aboutOpen = true; online._code = ''; });   // 關於視窗不顯示任何輸入欄：直接按鍵盤輸入管理員密碼即可進入管理員介面
 wrap('closeDlg', function (o) { this.aboutOpen = false; o.call(this); });
 wrap('openSettings', function (o) {
     o.call(this); const box = document.querySelector('#dlg .box'); if (!box) return;
@@ -4074,6 +4154,32 @@ wrap('handleKey', function (o, e) {
 //  客戶端：不模擬戰場，只把主控端的畫面「映射」出來；自己的機體在本機移動，位置回報給主控端，成語由主控端裁決
 // ===================================================================
 const COOP_FIELDS = ['hp', 'maxHp', 'shield', 'st', 'skin', 'shipId', 'covLv', 'weaponLvl', 'invincibleTimer', 'laserTimer', 'pierceTimer', 'missileTimer', 'missileCd', 'allies', 'allyTimer', 'snipe', 'magnetLvl', '_lanceN', 'player'];
+// ===== 多人闖關專屬：Boss 詞綴（單機關卡沒有；同機多人與連線闖關都適用）=====
+// combo 連擊護盾：Boss 帶一面計數護盾，護盾在時對 Boss 傷害 0；COMBO_WIN 秒內全隊累計命中（同一人同一輪齊射算 1 次）達標才破盾，破盾後 COMBO_CD 秒重生 → 連射號
+// wide  巨艦：船體寬度等於螢幕寬、不能移動、彈幕極密；每擊中我方一次回復 WIDE_HEAL 最大血量 → 疾風號靠閃躲
+// heavy 重擊護甲：單發傷害低於門檻（顯示值＝門檻×100）一律 0 → 狙擊號、烈焰號、穿甲號
+// aegis 破甲彈：Boss 子彈對非堡壘號傷害 ×AEGIS_MUL；堡壘號一律只受 1 點 → 隊友躲在堡壘號後面輸出
+// quad  四機同體：Boss 分成上下左右四台，共用同一條血條 → 環陣號全向火網
+const COOP_AFFIX = { 1: 'combo', 2: 'heavy', 3: 'quad', 4: 'aegis', 5: 'heavy', 6: 'combo', 7: 'aegis', 8: 'wide', 9: 'final' };   // 想換關卡就改這張表（final＝終焉：輪流切換各種詞綴的閹割版）
+window.COOP_AFFIX = COOP_AFFIX;   // Game.draw（第一個 script）也要讀這張表；這裡在 IIFE 裡，不公開的話 Boss 一出現畫面迴圈就會因 ReferenceError 中斷而卡死
+const COMBO_WIN = 1.0, COMBO_DEDUP = 0.08, COMBO_NEED = { 1: 5, 6: 8 }, COMBO_CD = 5, HEAVY_MIN = { 2: 6, 5: 10 }, AEGIS_MUL = 3, WIDE_HEAL = 0.05, WIDE_DMG = 0.6;   // COMBO_CD：護盾破裂後幾秒重生；WIDE_HEAL：巨艦每擊中我方一次回復的最大血量比例
+// 終焉（第 9 關）：每 FINAL_FORM_T 秒換一種形態，各詞綴的閹割版，沒有「四機同體」
+const FINAL_FORMS = ['combo', 'heavy', 'aegis', 'leech'], FINAL_FORM_T = 18, FINAL_NEED = 4, FINAL_CD = 8, FINAL_HEAVY = 5, FINAL_AEGIS = 1.5, FINAL_HEAL = 0.01;
+const FORM_TXT = {
+    combo: `連擊護盾（簡）：${COMBO_WIN} 秒連擊 ≥ ${FINAL_NEED} 破盾，${FINAL_CD} 秒後重生`,
+    heavy: `重擊護甲（簡）：單發傷害 < ${FINAL_HEAVY * SHOW} 一律為 0`,
+    aegis: `破甲彈（簡）：傷害 ×${FINAL_AEGIS}，堡壘號完全免傷`,
+    leech: `吸能（簡）：擊中我方回復 ${FINAL_HEAL * 100}% 血量`
+}, FORM_NAME = { combo: '連擊護盾', heavy: '重擊護甲', aegis: '破甲彈', leech: '吸能' };
+const isFinal = b => COOP_AFFIX[b.stage] === 'final', affOf = b => isFinal(b) ? FINAL_FORMS[b.fm | 0] : COOP_AFFIX[b.stage];
+const AFFIX_FACE = { B: Math.PI, L: -Math.PI / 2, R: Math.PI / 2 };
+const AFFIX_TXT = {
+    combo: st => `連擊護盾：${COMBO_WIN} 秒連擊 ≥ ${COMBO_NEED[st]} 破盾，${COMBO_CD} 秒後重生`,
+    heavy: st => `重擊護甲：單發傷害 < ${HEAVY_MIN[st] * SHOW} 一律為 0`,
+    aegis: () => `破甲彈：傷害 ×${AEGIS_MUL}，唯獨堡壘號只吃 1 點`,
+    quad: () => '四機同體：上下左右共用一條血條',
+    wide: () => `巨艦：彈幕極密、無法移動，擊中我方回血 ${WIDE_HEAL * 100}%`
+}, AFFIX_COL = { combo: '#ffea00', heavy: '#ff9a2e', aegis: '#b026ff', quad: '#9dff6a', wide: '#ff5577', leech: '#ff5577' };
 const COOP_TYPES = ['SCOUT', 'FIGHTER', 'TANK', 'DART', 'SWARM', 'SNIPER', 'BOMBER', 'GUARD'];
 const COOP_COL = { SCOUT: '#00ffcc', FIGHTER: '#ffaa00', TANK: '#ff3366', DART: '#ff77ff', SWARM: '#aaff44', SNIPER: '#66ccff', BOMBER: '#ffcc66', GUARD: '#66ffaa' };
 const COOP_W = { tank: 0.45, dmg: 0.35, chr: 0.20 };   // 貢獻權重：承受傷害（最難）> 輸出傷害 > 蒐集字卡（最易）
@@ -4087,7 +4193,7 @@ const coop = {
     shipName(id) { const S = SHIPS.find(x => x.id === id); return S ? S.name : '—'; },
     pack(sid) {   // 把這位玩家的機體數值打包，主控端用它來模擬隊員（含銀河幣突破等級）
         const st = G.statsOf(sid), S = G.ship(sid);
-        return { sid, dmg: st.dmg, iv: st.iv, pen: st.pen, crit: st.crit, hp: st.hp, spd: st.spd, cov: G.lvOf(sid, 'cov'), wl: G.lvOf(sid, 'dmg'), r: S.r, mg: G.magnetLvl, sl: G.maxSlots };
+        return { sid, len: st.len || 0, dmg: st.dmg, iv: st.iv, pen: st.pen, crit: st.crit, hp: st.hp, spd: st.spd, cov: G.lvOf(sid, 'cov'), wl: G.lvOf(sid, 'dmg'), r: S.r, mg: G.magnetLvl, sl: G.maxSlots };
     },
     memberDoc(sid, ready) { return { name: online.profile.name, sid, ready: !!ready, at: Date.now(), st: this.pack(sid) }; },
 
@@ -4108,7 +4214,7 @@ const coop = {
             toast('建立房間失敗，請再試一次');
         } catch (e) { toast(errMsg(e)); }
     },
-    async join(code) {
+    async join(code, hostUid) {
         code = (code || '').trim(); if (!/^\d{4}$/.test(code)) return toast('請輸入 4 位數房間密碼'); if (this.room) return;
         try {
             const ref = online.roomRef(code), me = this.me();
@@ -4116,7 +4222,10 @@ const coop = {
                 const s = await tx.get(ref); if (!s.exists || s.data().mode !== 'coop' || s.data().state !== 'lobby') throw new Error('找不到這個多人闖關房間，或已經開始');
                 const mem = s.data().members || {}, n = Object.values(mem).filter(Boolean).length;
                 if (!mem[me] && n >= 3) throw new Error('房間已滿（最多 3 人）');
-                tx.update(ref, { ['members.' + me]: this.memberDoc(G.shipId, false) });
+                if (hostUid && s.data().host !== hostUid) throw new Error('這個邀請已失效');
+                const patch = { ['members.' + me]: this.memberDoc(G.shipId, false) };
+                if ((s.data().invited || {})[me]) patch['invited.' + me + '.st'] = 'joined';   // 房主那邊顯示「已加入」
+                tx.update(ref, patch);
             });
             this.enter(code, 'guest');
         } catch (e) { toast(e && e.message && !/^(Missing|FirebaseError)/.test(e.message) ? e.message : errMsg(e)); }
@@ -4155,9 +4264,34 @@ const coop = {
         const M = this.members(); if (M.length < 2) return toast('多人闖關至少 2 人才能出擊（禁止單人）'); if (!M.every(m => m.ready)) return toast('還有隊員沒有準備');
         online.roomRef(this.room.code).update({ state: 'playing', startAt: Date.now(), order: M.map(m => m.id), result: firebase.firestore.FieldValue.delete() }).catch(e => toast(errMsg(e)));
     },
+    async invite(uid, name) {   // 邀請好友加入多人闖關房間（沒有房間就先建立一個）
+        try {
+            if (!online.user || uid === online.user.uid) return;
+            if (online.pk) return toast('你正在 PK 房間裡，請先離開再邀請闖關');
+            if (!this.room && ['PLAYING', 'TRANSITION'].includes(G.gameState)) return toast('戰鬥中無法建立房間，請先結束出擊');
+            if (this.room && this.room.role !== 'host') return toast('只有房主可以邀請好友');
+            if (this.local) return;
+            if (!this.room) { G.closeDlg(); this.viaNet = true; await this.create(); }
+            const r = this.room; if (!r || r.role !== 'host') return;
+            const M = this.members(); if (M.length >= 3 && !M.some(m => m.id === uid)) return toast('房間已滿（最多 3 人）');
+            const f = online.friends.find(x => x.uid === uid); name = name || (f && f.name) || '';
+            await db.collection('users').doc(uid).collection('invites').doc(r.code).set({ code: r.code, mode: 'coop', fromUid: online.user.uid, fromName: online.profile.name, ts: Date.now() });
+            await online.roomRef(r.code).update({ ['invited.' + uid]: { name, st: 'pending', ts: Date.now() } });
+            toast('已送出闖關邀請');
+        } catch (e) { toast(errMsg(e)); }
+    },
+    inviteHtml(d, M) {   // 房主：好友列表（一鍵邀請）＋已邀請玩家的回應狀態
+        const inRoom = new Set(M.map(m => m.id)), full = M.length >= 3;
+        const fl = online.friends.map(f => { const on = online.isOnline(f.uid), inv = (d.invited || {})[f.uid], pend = inv && inv.st === 'pending';
+            return `<div class="row"><span>${esc(f.name)}${on ? ' <small style="color:#38ef7d">● 在線</small>' : ''}</span>${inRoom.has(f.uid) ? '<b style="color:#38ef7d">已在房間</b>' : `<button class="sm" ${full ? 'disabled' : ''} onclick="coop.invite('${f.uid}')">${pend ? '再次邀請' : '邀請'}</button>`}</div>`; }).join('');
+        const E = Object.entries(d.invited || {});
+        const lab = (id, x) => x.st === 'declined' ? ['已拒絕邀請', '#ff6b6b'] : x.st === 'joined' ? (inRoom.has(id) ? ['已加入', '#38ef7d'] : ['已離開', '#8a93a6']) : ['等待回應中…', '#9ab'];
+        return `<h4>邀請好友（${online.friends.length}）</h4><div class="lst" style="max-height:170px;overflow:auto">${fl || '<p class="muted">還沒有好友，到「好友」頁面加好友後即可邀請</p>'}</div>`
+            + (E.length ? `<h4>已邀請的玩家</h4>` + E.map(([id, x]) => { const l = lab(id, x); return `<div class="row"><span>${esc(x.name || '玩家')}</span><b style="color:${l[1]}">${l[0]}</b></div>`; }).join('') : '');
+    },
     renderRoom() {
         const r = this.room;
-        if (!r) { ui(`<div class="menu-overlay" style="width:min(92vw,440px)"><h2 class="shop-title">多人闖關</h2><p class="muted" style="line-height:1.6;text-align:left">2～3 人協力（禁止單人）。房主建立房間後，把 4 位數房間密碼告訴隊友，隊友輸入即可加入。<br>・難度比一般第 9 關更難（第 10～18 關），小怪與 Boss 血量、攻擊都是 5 倍<br>・成語列全隊共用，誰發動，效果就落在誰身上<br>・發動方式與單人模式相同：成語集滿後直接按快捷數字鍵 1、2、3…（或點成語列）即可發動<br>・倒下的隊友要等 Boss 被打倒、進入下一關才會以半血復活<br>・隊員之間以 web 直連（WebRTC P2P）傳送畫面與操作，連不上時自動改走雲端備援<br>・掉落的是「銀河幣」，結算時依貢獻（承受傷害 &gt; 輸出 &gt; 蒐集字卡）分紅，可在機庫突破戰機的等級上限</p>
+        if (!r) { ui(`<div class="menu-overlay" style="width:min(92vw,440px)"><h2 class="shop-title">多人闖關</h2><p class="muted" style="line-height:1.6;text-align:left">2～3 人協力（禁止單人）。房主建立房間後，可以直接從房間下方的<b>好友列表</b>邀請好友（對方會收到通知，按「加入」即可），或把 4 位數房間密碼告訴隊友輸入加入。<br>・難度比一般第 9 關更難（第 10～18 關），小怪與 Boss 血量、攻擊都是 5 倍<br>・成語列全隊共用，誰發動，效果就落在誰身上<br>・發動方式與單人模式相同：成語集滿後直接按快捷數字鍵 1、2、3…（或點成語列）即可發動；任何人發動時，<b>所有玩家暫停 5 秒</b>，等成語顯示完畢才發動<br>・倒下的隊友要等 Boss 被打倒、進入下一關才會以半血復活<br>・隊員之間以 web 直連（WebRTC P2P）傳送畫面與操作，連不上時自動改走雲端備援<br>・每隻 Boss 另有專屬能力（連擊護盾／重擊護甲／破甲彈／四機同體／巨艦；終焉會輪流切換各種形態的簡化版），要靠隊友分工：連射號、狙擊號與烈焰號、堡壘號、環陣號、疾風號各有用武之地<br>・掉落的是「銀河幣」，結算時依貢獻比（承受傷害 &gt; 輸出 &gt; 蒐集字卡）分配，可在機庫突破戰機的等級上限</p>
             <button class="btn btn-start" onclick="coop.create()">建立房間聯機（房主・web 直連）</button>
             <div style="margin:12px 0">輸入房間密碼加入<input class="inp" id="cp-code" maxlength="4" inputmode="numeric" placeholder="4 位數房間密碼"><button class="btn" onclick="coop.join(document.getElementById('cp-code').value)">加入房間</button></div>${BACK}</div>`); return; }
         const d = r.data || {}, host = r.role === 'host', me = this.me(), M = this.members(), mine = (d.members || {})[me] || {};
@@ -4170,12 +4304,13 @@ const coop = {
             <h4>選擇戰機（含銀河幣突破的等級）</h4><div>${owned.map(S => `<button class="chip ${G.shipId === S.id ? 'on' : ''}" onclick="coop.setShip('${S.id}')">${S.name}</button>`).join('')}</div>
             <div style="display:flex;gap:8px;margin-top:10px">${host ? '' : `<button class="btn ${mine.ready ? '' : 'btn-start'}" onclick="coop.ready()">${mine.ready ? '取消準備' : '準備'}</button>`}
             ${host ? `<button class="btn btn-start" ${canStart ? '' : 'disabled'} onclick="coop.start()">${M.length < 2 ? '需要至少 2 人' : '出擊'}</button>` : ''}</div>
+            ${host && d.state === 'lobby' ? this.inviteHtml(d, M) : ''}
             <button class="btn" style="margin-top:10px" onclick="coop.leaveRoom(true)">離開房間</button></div>`);
     },
 
     // ================= 開戰 =================
     freshState(st) {   // 主控端用來模擬「隊員」的狀態（欄位與 Game 上的同名欄位一一對應）
-        return { hp: st.hp, maxHp: st.hp, shield: 0, st: { dmg: st.dmg, interval: st.iv, pen: st.pen, crit: st.crit }, skin: Math.max(0, SHIPS.findIndex(x => x.id === st.sid)), shipId: st.sid, covLv: st.cov, weaponLvl: st.wl,
+        return { hp: st.hp, maxHp: st.hp, shield: 0, st: { dmg: st.dmg, interval: st.iv, pen: st.pen, crit: st.crit, len: st.len || 0 }, skin: Math.max(0, SHIPS.findIndex(x => x.id === st.sid)), shipId: st.sid, covLv: st.cov, weaponLvl: st.wl,
             invincibleTimer: 0, laserTimer: 0, pierceTimer: 0, missileTimer: 0, missileCd: 0, allies: [], allyTimer: 0, snipe: { c: 0, t: [], fx: [] }, magnetLvl: st.mg, _lanceN: 0,
             player: { pos: new Vec2(WORLD.w / 2, WORLD.h - 150), radius: st.r, speed: st.spd, lastShoot: 0, rapidFire: 0, spreadFire: 0 } };
     },
@@ -4240,14 +4375,93 @@ const coop = {
     },
     withAim(pos, fn) { const real = G.player.pos; G.player.pos = pos; try { return fn(); } finally { G.player.pos = real; } },
     credit(id, k, v) { if (!G.coopHost || !(v > 0) || !id) return; const s = this.stats[id] || (this.stats[id] = { dmg: 0, tank: 0, chr: 0 }); s[k] += v; },
-    coin(x, y, amount) {   // 銀河幣：進入團隊獎池，結算時依貢獻分紅
+    coin(x, y, amount) {   // 銀河幣：進入團隊獎池，結算時依貢獻比分配
         const c = Math.max(1, Math.round(amount * (1 + 0.25 * (G.currentStage - 1)) * COIN_K)); this.pool += c;
         G.burst(x, y, c >= 20 ? 10 : 3); G.showFloatText('+' + c + ' 銀河幣', x, y, '#ffd700');
     },
     spawnBoss() {
         const g = G, b = new Boss(g.currentStage), M = bossMods(9, b.type), N = this.order.length;
         b.maxHp = Math.round(5000 * M.hp * COOP_HP * (1 + 0.08 * (g.currentStage - 1)) * (0.75 + 0.25 * N)); b.hp = b.maxHp; b.dmgMul = M.dmg; b.rateMul = M.rate; b.dmReward = (g.currentStage * 100 + 300) * COOP_HP;
+        b.aff = COOP_AFFIX[g.currentStage] || null; b.need = COMBO_NEED[g.currentStage] || 0; b.heavyMin = HEAVY_MIN[g.currentStage] || 0; b._cl = []; b.cmb = 0; b.csUp = true; b.csT = 0; b.cd = COMBO_CD; b.aegisMul = AEGIS_MUL; b.aegisBastion = 1; b.healPct = WIDE_HEAL; g.bossClones = [];
+        if (b.aff === 'final') { b.final = true; b.fm = 0; b.formT = FINAL_FORM_T; this.setForm(b, 0); }
+        if (b.aff === 'wide') {   // 巨艦：寬度＝螢幕寬、不能移動、彈幕極密、子彈單發傷害較低（命中會回血，不能太痛）
+            const W = WORLD.w; b.wide = true; b.noMove = true; b.hw = W / 2; b.hh = Math.round(W * 0.16); b.radius = b.hh; b.targetY = b.hh + 22;
+            b.cfg = { mv: 'hover', sh: ['curtain', 'curtain', 'aim3'], r: 0.3 }; b.dmgMul *= WIDE_DMG;
+        }
+        if (b.aff === 'quad') {   // 四機同體：再生出下、左、右三台（血量共用主體），四台射速都放慢一半
+            b.rateMul *= 2; const W = WORLD.w, H = WORLD.h;
+            g.bossClones = ['B', 'L', 'R'].map((k, i) => { const c = new Boss(g.currentStage); c.rateMul = b.rateMul; c.dmgMul = b.dmgMul; c.faceA = AFFIX_FACE[k]; c.side = k; c._ph = i * 2.1; c.pos = new Vec2(k === 'B' ? W / 2 : k === 'L' ? -90 : W + 90, k === 'B' ? H + 110 : H * 0.4); return c; });
+        }
         g.boss = b; document.getElementById('boss-bar').style.display = 'block'; sfx.playReady();
+        if (b.aff) g.showFloatText(this.affixText(b), WORLD.w / 2, WORLD.h * 0.56, AFFIX_COL[b.aff]);
+    },
+    affixText(b) { return b.final ? FORM_TXT[b.aff] : AFFIX_TXT[b.aff](b.stage); },
+    setForm(b, i) {   // 終焉換形態：套用該詞綴的閹割版數值
+        b.fm = i; b.aff = FINAL_FORMS[i]; b._cl = []; b.cmb = 0; b.csUp = true; b.csT = 0;
+        b.need = FINAL_NEED; b.cd = FINAL_CD; b.heavyMin = FINAL_HEAVY; b.aegisMul = FINAL_AEGIS; b.aegisBastion = 0; b.healPct = FINAL_HEAL;
+    },
+    gate(b, n, src) {   // 詞綴閘門：回傳 true＝這一發無效（傷害 0）
+        const now = G.bgClock;
+        if (b.aff === 'combo') {
+            const L = b._cl || (b._cl = []), who = (src && src.owner) || this.cur || '?';
+            while (L.length && now - L[0][0] > COMBO_WIN) L.shift();
+            if (!L.some(a => a[1] === who && now - a[0] < COMBO_DEDUP)) L.push([now, who]);
+            if (!b.csUp) return false;   // 護盾已破：這段 CD 內可以正常輸出
+            b.cmb = L.length;
+            if (L.length >= b.need) { b.csUp = false; b.csT = b.cd || COMBO_CD; L.length = 0; b.cmb = 0; G.showFloatText('連擊護盾破裂！', b.pos.x, b.pos.y + 70, '#7dff9a'); return false; }
+            return true;
+        }
+        if (b.aff === 'heavy') return n < b.heavyMin;
+        return false;
+    },
+    bossHeal() {   // 巨艦：擊中我方戰機回復血量
+        const g = G, b = g.boss; if (!b || b.hp <= 0) return; b.hp = Math.min(b.maxHp, b.hp + b.maxHp * b.healPct);
+        if (G.bgClock - (b._hl === undefined ? -9 : b._hl) >= 0.4) { b._hl = G.bgClock; g.showFloatText('+' + +(b.healPct * 100).toFixed(1) + '%', b.pos.x + (Math.random() - 0.5) * 120, b.pos.y + (b.hh || b.radius) + 6, '#7dff9a'); }
+    },
+    drawWide(ctx, b) {   // 巨艦：圖片拉成螢幕寬
+        const bimg = IMG['boss_' + b.stage] || IMG.boss, W = WORLD.w, h = Math.round(W * 0.32);
+        ctx.save(); ctx.translate(b.pos.x, b.pos.y); ctx.shadowBlur = 25; ctx.shadowColor = b.color;
+        if (bimg) ctx.drawImage(bimg, -W / 2, -h / 2, W, h); else { ctx.fillStyle = '#0a0a1a'; ctx.strokeStyle = b.color; ctx.lineWidth = 4; ctx.fillRect(-W / 2, -h / 2, W, h); ctx.strokeRect(-W / 2, -h / 2, W, h); }
+        ctx.shadowBlur = 8; ctx.fillStyle = '#fff'; ctx.font = 'bold 18px ' + KAI_FONT; ctx.textAlign = 'center'; ctx.fillText('BOSS・' + bossLabel(b.stage), 0, h / 2 + 18); ctx.restore();
+    },
+    comboCount(b) { const L = b._cl || []; while (L.length && G.bgClock - L[0][0] > COMBO_WIN) L.shift(); return L.length; },
+    zeroText(e) {
+        const g = G, x = e.pos.x + (Math.random() - 0.5) * 24, y = e.pos.y - (e.radius || 30) - 6;
+        g.dmgTexts.push({ x, y, t: 0, text: '0', kind: 's', big: 1, rot: (Math.random() - 0.5) * 0.36, seed: Math.random() * 100 }); if (g.dmgTexts.length > 40) g.dmgTexts.shift();
+        if (this.evq.length < 80) this.evq.push(['d', Math.round(x), Math.round(y), '0', 's', 1]);
+    },
+    updateClones(dt) {   // 四機同體：分身沿著畫面邊緣游走，各自朝隊員開火
+        const g = G, W = WORLD.w, H = WORLD.h;
+        (g.bossClones || []).forEach(c => {
+            c.tm = (c.tm || 0) + dt * 1000; const t = c.tm + c._ph * 700, e = c.size * 0.3;
+            const tx = c.side === 'B' ? W / 2 + Math.sin(t / 2100) * (W / 2 - e) : c.side === 'L' ? e : W - e, ty = c.side === 'B' ? H - e : H * 0.42 + Math.sin(t / 1900) * H * 0.2;
+            const k = Math.min(1, dt * 3); c.pos.x += (tx - c.pos.x) * k; c.pos.y += (ty - c.pos.y) * k;
+            c.shootTimer += dt; if (c.shootTimer > c.cfg.r * c.rateMul) { c.shoot(() => { const x = g.bullets.get(); x.damage = c.dmgMul; x.radius = 6; x.fromBoss = true; return x; }, this.aim(c, dt)); c.shootTimer = 0; }
+        });
+    },
+    drawBossFx(ctx) {   // 分身＋詞綴提示（主控端與客戶端共用）
+        const g = G, b = g.boss; if (!b) return;
+        const bimg = IMG['boss_' + b.stage] || IMG.boss;
+        (g.bossClones || []).forEach(c => {
+            ctx.save(); ctx.translate(c.pos.x, c.pos.y); ctx.rotate(c.faceA !== undefined ? c.faceA : (AFFIX_FACE[c.side] || 0)); ctx.shadowBlur = 25; ctx.shadowColor = b.color;
+            if (bimg) fitDraw(ctx, bimg, b.size); else { ctx.fillStyle = '#0a0a1a'; ctx.strokeStyle = b.color; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, b.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+            ctx.restore();
+        });
+        const fin = isFinal(b), A = affOf(b); if (!A) return;
+        const x = b.pos.x, y = A === 'wide' ? b.pos.y + Math.round(WORLD.w * 0.16) + 40 : fin ? b.pos.y + b.size * 0.5 + 66 : Math.max(16, b.pos.y - b.size * 0.5 - 14);
+        ctx.save(); ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)';
+        if (fin) { const h = `【終焉形態 ${(b.fm | 0) + 1}/${FINAL_FORMS.length}】${Math.max(0, Math.ceil(b.formT || 0))} 秒後變形`; ctx.font = 'bold 15px ' + KAI_FONT; ctx.fillStyle = '#ffd0ff'; ctx.strokeText(h, x, y - 24); ctx.fillText(h, x, y - 24); }
+        if (A === 'combo') {
+            const need = fin ? FINAL_NEED : COMBO_NEED[b.stage], cdT = fin ? FINAL_CD : COMBO_CD, up = b.csUp !== false, n = b.cmb || 0;
+            if (up) { ctx.save(); ctx.globalAlpha = 0.55 + 0.2 * Math.sin(g.bgClock * 6); ctx.strokeStyle = '#ffea00'; ctx.lineWidth = 5; ctx.shadowBlur = 14; ctx.shadowColor = '#ffea00'; ctx.beginPath(); ctx.arc(b.pos.x, b.pos.y, b.radius * 1.45, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+            const t = up ? `連擊護盾 ${n} / ${need}` : `護盾破裂　${Math.max(0, b.csT || 0).toFixed(1)} 秒後重生`, col = up ? '#ff6b6b' : '#7dff9a';
+            ctx.font = 'bold 22px ' + KAI_FONT; ctx.fillStyle = col; ctx.strokeText(t, x, y); ctx.fillText(t, x, y);
+            ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(x - 55, y + 6, 110, 6); ctx.fillStyle = col; ctx.fillRect(x - 55, y + 6, 110 * (up ? Math.min(1, n / need) : Math.max(0, (b.csT || 0) / cdT)), 6);
+        } else {
+            const t = { heavy: `重擊護甲 ≥ ${(fin ? FINAL_HEAVY : HEAVY_MIN[b.stage]) * SHOW}`, aegis: fin ? '破甲彈・堡壘號免傷' : '破甲彈・躲堡壘號後面', quad: '四機同體・共用血條', wide: `巨艦・被擊中回血 ${WIDE_HEAL * 100}%`, leech: `吸能・被擊中回血 ${FINAL_HEAL * 100}%` }[A];
+            ctx.font = 'bold 18px ' + KAI_FONT; ctx.fillStyle = AFFIX_COL[A]; ctx.strokeText(t, x, y); ctx.fillText(t, x, y);
+        }
+        ctx.restore();
     },
 
     // ================= 主控端：整個戰場 =================
@@ -4264,6 +4478,10 @@ const coop = {
     },
     hostUpdate(dt) {
         const g = G, W = WORLD.w, H = WORLD.h, me = this.hostUid, ids = this.order, N = ids.length;
+        if (this.cast) {   // 有人發動成語：所有玩家一起等 5 秒（戰場凍結），顯示完畢後才套用效果
+            const c = this.cast; c.t -= dt; if (c.t > 0) return;
+            this.cast = null; if (this.P[c.id] && this.P[c.id].alive) this.ctx(c.id, () => { g.applyIdiom(c.idiom); });
+        }
         // 1) 移動：房主自己用鍵盤／拖曳；隊員跟著他們回報的位置走；倒下的人移出畫面
         if (this.P[me].alive) this.moveSelf(dt); else g.player.pos.y = -500;
         ids.forEach(id => {
@@ -4295,9 +4513,12 @@ const coop = {
         // 4) Boss
         if (g.boss) {
             const b = g.boss;
-            b.update(dt, this.aim(b, dt), () => { const x = g.bullets.get(); x.damage = b.dmgMul; x.radius = 6; return x; }, (x, y) => g.spawnIdiomBlock(x, y));
+            b.update(dt, this.aim(b, dt), () => { const x = g.bullets.get(); x.damage = b.dmgMul; x.radius = 6; x.fromBoss = true; return x; }, (x, y) => g.spawnIdiomBlock(x, y));
+            this.updateClones(dt);
+            if (b.final && b.pos.y > 0) { b.formT -= dt; if (b.formT <= 0) { b.formT = FINAL_FORM_T; this.setForm(b, (b.fm + 1) % FINAL_FORMS.length); g.showFloatText('終焉變形！' + FORM_TXT[b.aff], WORLD.w / 2, WORLD.h * 0.56, AFFIX_COL[b.aff]); sfx.playReady(); } }
+            if (b.aff === 'combo') { if (b.csUp) b.cmb = this.comboCount(b); else { b.cmb = 0; b.csT -= dt; if (b.csT <= 0) { b.csUp = true; b._cl.length = 0; g.showFloatText('連擊護盾重新生成', b.pos.x, b.pos.y + 70, '#ffea00'); } } }
             document.getElementById('boss-hp-fill').style.width = (b.hp / b.maxHp * 100) + '%';
-            if (b.hp <= 0) { this.coin(b.pos.x, b.pos.y, b.dmReward); g.runKills = (g.runKills || 0) + 1; g.enemyDrop({ type: 'BOSS', pos: b.pos }); sfx.playExplosion(); g.boss = null; g.clearStage(true); }
+            if (b.hp <= 0) { this.coin(b.pos.x, b.pos.y, b.dmReward); g.runKills = (g.runKills || 0) + 1; g.enemyDrop({ type: 'BOSS', pos: b.pos }); sfx.playExplosion(); g.boss = null; g.bossClones = []; g.clearStage(true); }
         }
         // 5) 小怪移動與開火（各自鎖定一位隊員）
         { const real = g.player.pos;
@@ -4314,16 +4535,20 @@ const coop = {
                 const hitB = g.bullets.pool.find(o => o.active && !o.isPlayer && Math.hypot(b.pos.x - o.pos.x, b.pos.y - o.pos.y) < b.radius + o.radius);
                 if (hitB) { b.active = false; hitB.hits = (hitB.hits || 0) + 1; if (hitB.hits >= cancelNeed(hitB.damage)) hitB.active = false; g.burst(b.pos.x, b.pos.y, 1); return; }
             }
-            if (g.boss) { const d = Math.hypot(b.pos.x - g.boss.pos.x, b.pos.y - g.boss.pos.y), R = bigHitR(b, g.boss.radius); if (d < R) { g.dmgEnt(g.boss, b.damage * bigMul(b, d, R), b.pierce, true, b); b.active = false; sfx.playHit(); } }
+            if (g.boss) {   // Boss 本體或分身（四機同體）：打到誰都算在同一條血條上
+                const hitU = q => q.wide ? (Math.abs(b.pos.x - q.pos.x) < q.hw && Math.abs(b.pos.y - q.pos.y) < q.hh + (b.big ? b.radius : 0)) : bdist(b, q.pos.x, q.pos.y) < bigHitR(b, q.radius);
+                const us = [g.boss, ...(g.bossClones || [])], u = us.find(hitU);
+                if (u) { const d = u.wide ? 0 : bdist(b, u.pos.x, u.pos.y), R = u.wide ? 1 : bigHitR(b, u.radius), sp = g.boss.pos; g.boss.pos = u.pos; try { g.dmgEnt(g.boss, b.damage * bigMul(b, d, R), b.pierce, true, b); } finally { g.boss.pos = sp; } b.active = false; sfx.playHit(); }
+            }
             g.enemies.forEach((e, i) => {
-                const d = Math.hypot(b.pos.x - e.pos.x, b.pos.y - e.pos.y), R = bigHitR(b, e.radius);
+                const d = bdist(b, e.pos.x, e.pos.y), R = bigHitR(b, e.radius);
                 if (b.active && d < R) {
                     g.dmgEnt(e, b.damage * bigMul(b, d, R), b.pierce, true, b); b.active = false; sfx.playHit();
                     if (e.hp <= 0) { g.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); g.runKills = (g.runKills || 0) + 1; g.enemyDrop(e); sfx.playExplosion(); g.enemies.splice(i, 1); }
                 }
             });
             g.idiomBlocks.forEach((m, i) => {
-                const d = Math.hypot(b.pos.x - m.pos.x, b.pos.y - m.pos.y), R = bigHitR(b, m.radius);
+                const d = bdist(b, m.pos.x, m.pos.y), R = bigHitR(b, m.radius);
                 if (b.active && d < R) { m.hp -= b.damage * bigMul(b, d, R); b.active = false; sfx.playHit(); if (m.hp <= 0) { g.blockBreak(m); sfx.playExplosion(); g.idiomBlocks.splice(i, 1); } }
             });
         });
@@ -4345,7 +4570,7 @@ const coop = {
         // 9) 雷射、計時器、友軍（各隊員各自）
         this.aliveIds().forEach(id => this.ctx(id, () => {
             if (g.laserTimer > 0) {
-                if (g.boss && Math.abs(g.boss.pos.x - g.player.pos.x) < g.boss.radius + 25) g.dmgEnt(g.boss, 70 * dt);
+                if (g.boss && Math.abs(g.boss.pos.x - g.player.pos.x) < (g.boss.hw || g.boss.radius) + 25) g.dmgEnt(g.boss, 70 * dt);
                 g.enemies.forEach((e, i) => { if (Math.abs(e.pos.x - g.player.pos.x) < 25 && e.pos.y < g.player.pos.y) { g.dmgEnt(e, 50 * dt); if (e.hp <= 0) { g.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); g.runKills = (g.runKills || 0) + 1; g.enemyDrop(e); sfx.playExplosion(); g.enemies.splice(i, 1); } } });
                 g.idiomBlocks.forEach((m, i) => { if (Math.abs(m.pos.x - g.player.pos.x) < 25 && m.pos.y < g.player.pos.y) { m.hp -= 100 * dt; if (m.hp <= 0) { g.blockBreak(m); sfx.playExplosion(); g.idiomBlocks.splice(i, 1); } } });
             }
@@ -4367,7 +4592,7 @@ const coop = {
             if (!b.active || b.isPlayer) return;
             for (const id of this.aliveIds()) {
                 const P = this.P[id], pos = this.posOf(id), r = P.host ? g.player.radius : P.s.player.radius;
-                if (Math.hypot(b.pos.x - pos.x, b.pos.y - pos.y) < r) { b.active = false; this.ctx(id, () => { if (g.shipId === 'bastion' && bastionBlocks(g.maxHp, b.damage)) this.dmgP(id, COOP_ATK); else if (g.invincibleTimer <= 0) { this.dmgP(id, b.damage * 10 * COOP_ATK); g.invincibleTimer = 0.5; } }); break; }
+                if (Math.hypot(b.pos.x - pos.x, b.pos.y - pos.y) < r) { b.active = false; this.ctx(id, () => { const AG = b.fromBoss && g.boss && g.boss.aff === 'aegis', HL = b.fromBoss && g.boss && (g.boss.aff === 'wide' || g.boss.aff === 'leech'); if (AG && g.shipId === 'bastion') { this.dmgP(id, g.boss.aegisBastion); g.showFloatText(String(g.boss.aegisBastion), pos.x, pos.y - 34, '#9ff'); } else if (g.shipId === 'bastion' && bastionBlocks(g.maxHp, b.damage)) this.dmgP(id, COOP_ATK); else if (g.invincibleTimer <= 0) { this.dmgP(id, b.damage * 10 * COOP_ATK * (AG ? g.boss.aegisMul : 1)); g.invincibleTimer = 0.5; if (HL) this.bossHeal(); } }); break; }
             }
         });
         g.enemies.forEach(e => {
@@ -4392,11 +4617,11 @@ const coop = {
         if (!this.aliveIds().length) this.end(false);
     },
     doUse(id, i) {   // 成語列共用：誰發動，效果就落在誰身上（由主控端依到達順序裁決，避免兩個人同時發動同一格）
-        const g = G, P = this.P[id]; if (!P || !P.alive || this.ended || g.gameState !== 'PLAYING') return;
+        const g = G, P = this.P[id]; if (!P || !P.alive || this.ended || this.cast || g.gameState !== 'PLAYING') return;   // 已有人在發動：全場暫停中，等這一個完成
         const s = g.slots[i]; if (!s || s.type !== 'READY') return;
         const idiom = { word: s.word, effect: s.effect, desc: s.effectDesc }, r = g.pickIdiom();
         g.slots[i] = { type: 'COLLECTING', word: r.word, chars: [], effect: r.effect, effectDesc: r.desc };
-        this.ctx(id, () => { g.applyIdiom(idiom); });
+        this.cast = { id, idiom, t: 5 }; sfx.playIdiomCast && sfx.playIdiomCast();   // 全場暫停 5 秒，成語顯示完畢才發動（hostUpdate 裡倒數）
         const info = IDIOM_INFO[idiom.word] || ['', ''], um = Math.random() < 0.5, label = um ? '解釋' : '造句', text = info[um ? 0 : 1] || '';
         this.evq.push(['c', P.name, idiom.word, idiom.desc, label, text]); this.showCast(P.name, idiom.word, idiom.desc, label, text); g.renderIdiomSlots();
     },
@@ -4431,8 +4656,8 @@ const coop = {
         S.sl = g.slots.map(s => [s.type === 'READY' ? 1 : 0, s.word, s.chars.join(''), s.effect, s.effectDesc]);
         S.P = ids.map(id => { const P = this.P[id], s = src(id), pos = P.host ? g.player.pos : s.player.pos; return [id, ri(pos.x), ri(pos.y), r1(s.hp), ri(s.maxHp), r1(s.shield), r1(Math.max(0, s.invincibleTimer)), s.laserTimer > 0 ? 1 : 0, s.skin, P.alive ? 1 : 0, r1(Math.max(0, s.pierceTimer)), r1(Math.max(0, s.missileTimer))]; });
         S.E = g.enemies.map(e => { if (!e._id) e._id = ++this.nid; return [e._id, COOP_TYPES.indexOf(e.type), ri(e.pos.x), ri(e.pos.y), r1(e.hp), r1(e.maxHp), ri(e.radius), ri(g.shieldOf(e)), ri(e.maxShield || 0), e.charge > 0 ? r1(e.charge) : 0, r1(e.lockA || 0), r1(e.snipeP || 0)]; });
-        const b = g.boss; S.B = b ? [ri(b.pos.x), ri(b.pos.y), r1(b.hp), r1(b.maxHp), ri(g.shieldOf(b)), ri(b.maxShield || 0), b.stage] : 0;
-        S.U = []; const sl = g.slowTimer > 0; g.bullets.pool.forEach(x => { if (x.active && S.U.length < 420) { const k = (!x.isPlayer && sl) ? 0.4 : 1; S.U.push([ri(x.pos.x), ri(x.pos.y), ri(x.vel.x * k), ri(x.vel.y * k), ri(x.radius * 10), pi(x.color), x.isPlayer ? 1 : 0]); } }); S.pal = pal;
+        const b = g.boss; S.B = b ? [ri(b.pos.x), ri(b.pos.y), r1(b.hp), r1(b.maxHp), ri(g.shieldOf(b)), ri(b.maxShield || 0), b.stage, b.cmb || 0, b.csUp === false ? 0 : 1, r1(b.csT || 0), b.fm | 0, r1(b.formT || 0)] : 0; S.BC = (g.bossClones || []).map(c => [ri(c.pos.x), ri(c.pos.y), c.side]);
+        S.U = []; const sl = g.slowTimer > 0; g.bullets.pool.forEach(x => { if (x.active && S.U.length < 420) { const k = (!x.isPlayer && sl) ? 0.4 : 1; S.U.push([ri(x.pos.x), ri(x.pos.y), ri(x.vel.x * k), ri(x.vel.y * k), ri(x.radius * 10), pi(x.color), x.isPlayer ? 1 : 0, ri(x.len || 0)]); } }); S.pal = pal;
         S.M = g.idiomBlocks.map(m => { if (!m._id) m._id = ++this.nid; return [m._id, ri(m.pos.x), ri(m.pos.y), m.radius, r1(m.hp), r1(m.maxHp), m.char]; });
         S.C = g.charItems.map(c => { if (!c._id) c._id = ++this.nid; return [c._id, ri(c.pos.x), ri(c.pos.y), c.char]; });
         S.A = []; ids.forEach(id => { if (this.P[id].alive) src(id).allies.forEach(a => S.A.push([a.sid, ri(a.pos.x), ri(a.pos.y), ri(a.hp), ri(a.maxHp), a.leaving ? 1 : 0])); });
@@ -4491,8 +4716,10 @@ const coop = {
         // Boss
         if (S.B) {
             const a = S.B; if (!g.boss || g.boss.stage !== a[6]) { g.boss = new Boss(a[6]); g.boss.pos = new Vec2(a[0], a[1]); document.getElementById('boss-bar').style.display = 'block'; }
-            const b = g.boss; b.tx = a[0]; b.ty = a[1]; b.hp = a[2]; b.maxHp = a[3]; b.shield = a[4]; b.maxShield = a[5]; document.getElementById('boss-hp-fill').style.width = (b.hp / Math.max(1, b.maxHp) * 100) + '%';
-        } else if (g.boss) { g.boss = null; document.getElementById('boss-bar').style.display = 'none'; }
+            const b = g.boss; b.tx = a[0]; b.ty = a[1]; b.hp = a[2]; b.maxHp = a[3]; b.shield = a[4]; b.maxShield = a[5]; b.cmb = a[7] || 0; b.csUp = a[8] !== 0; b.csT = a[9] || 0; b.fm = a[10] | 0; b.formT = a[11] || 0;
+            const bc = S.BC || []; if (!this.vc) this.vc = []; while (this.vc.length > bc.length) this.vc.pop(); bc.forEach((q, i) => { let c = this.vc[i]; if (!c) c = this.vc[i] = { pos: new Vec2(q[0], q[1]) }; c.tx = q[0]; c.ty = q[1]; c.side = q[2]; }); g.bossClones = this.vc;
+            document.getElementById('boss-hp-fill').style.width = (b.hp / Math.max(1, b.maxHp) * 100) + '%';
+        } else if (g.boss) { g.boss = null; g.bossClones = []; this.vc = []; document.getElementById('boss-bar').style.display = 'none'; }
         // 字塊、字卡、友軍
         const bm = new Map(g.idiomBlocks.map(m => [m.id, m]));
         g.idiomBlocks = S.M.map(a => { let m = bm.get(a[0]); if (!m) m = { id: a[0], pos: new Vec2(a[1], a[2]), radius: a[3] }; m.tx = a[1]; m.ty = a[2]; m.hp = a[4]; m.maxHp = a[5]; m.char = a[6]; return m; });
@@ -4512,11 +4739,11 @@ const coop = {
         const g = G, me = this.me(), v = this.view[me], alive = !(v && v.alive === 0);
         if (alive) this.moveSelf(dt); else g.player.pos.y = -500;
         const k = 1 - Math.exp(-14 * dt), sm = o => { if (o.tx === undefined) return; if (Math.abs(o.tx - o.pos.x) > 160 || Math.abs(o.ty - o.pos.y) > 160) { o.pos.x = o.tx; o.pos.y = o.ty; } else { o.pos.x += (o.tx - o.pos.x) * k; o.pos.y += (o.ty - o.pos.y) * k; } };
-        g.enemies.forEach(sm); g.idiomBlocks.forEach(sm); g.charItems.forEach(sm); if (g.boss) sm(g.boss);
+        g.enemies.forEach(sm); g.idiomBlocks.forEach(sm); g.charItems.forEach(sm); if (g.boss) sm(g.boss); (g.bossClones || []).forEach(sm);
         Object.keys(this.view).forEach(id => { const o = this.view[id]; if (id === me || o.tx === undefined) return; if (Math.abs(o.tx - o.x) > 200 || Math.abs(o.ty - o.y) > 200) { o.x = o.tx; o.y = o.ty; } else { o.x += (o.tx - o.x) * k; o.y += (o.ty - o.y) * k; } });
         const el = Math.min(0.4, (performance.now() - (this.snapAt || 0)) / 1000), pool = g.bullets;   // 子彈用最後一張畫面的速度往前推算
         pool.pool.forEach(b => { b.active = false; });
-        (this.vb || []).forEach(a => { const b = pool.get(); b.pos.x = a[0] + a[2] * el; b.pos.y = a[1] + a[3] * el; b.radius = a[4] / 10; b.color = this.pal[a[5]] || '#fff'; b.isPlayer = !!a[6]; });
+        (this.vb || []).forEach(a => { const b = pool.get(); b.pos.x = a[0] + a[2] * el; b.pos.y = a[1] + a[3] * el; b.radius = a[4] / 10; b.color = this.pal[a[5]] || '#fff'; b.isPlayer = !!a[6]; b.vel.x = a[2]; b.vel.y = a[3]; b.len = a[7] || 0; });
         g.texts.pool.forEach(t => { if (t.active) t.update(dt); });
         if (g.invincibleTimer > 0) g.invincibleTimer -= dt; if (g.laserTimer > 0) g.laserTimer = 1;
         if (g.shock) { g.shock.t += dt; if (g.shock.t > 1.2) g.shock = null; }
@@ -4532,6 +4759,7 @@ const coop = {
         return this.view[id] || null;
     },
     drawTeam(ctx) {
+        this.drawBossFx(ctx);
         const g = G, me = this.me(), tr = (g.gameState === 'TRANSITION' && g.transitionTimer > 1) ? (g.transitionTimer - 1) * 1000 : 0;
         this.order.forEach(id => {
             if (id === me) return; const v = this.vw(id); if (!v || !v.alive || v.x === undefined) return;
@@ -4554,7 +4782,7 @@ const coop = {
             return `<div style="margin-bottom:4px;opacity:${dead ? .55 : 1}"><b style="color:${id === me ? '#ffea00' : '#9ff'}">${esc(this.nm[id] || '')}</b> ${dead ? '✖' : ''} <span style="color:#ffd700">貢獻 ${Math.round((sh[id] || 0) * 100)}%</span><div style="width:96px;height:5px;background:#222"><i style="display:block;height:5px;width:${hp * 100}%;background:${hp > .3 ? '#33ff88' : '#ff3344'}"></i></div></div>`; }).join('');
     },
 
-    // ================= 結算：依貢獻分紅 =================
+    // ================= 結算：依貢獻比 =================
     calc(ids) {
         const n = ids.length || 1, tot = { tank: 0, dmg: 0, chr: 0 }; ids.forEach(id => { const s = this.stats[id] || {}; Object.keys(tot).forEach(k => { tot[k] += s[k] || 0; }); });
         const act = Object.keys(tot).filter(k => tot[k] > 0), ws = act.reduce((a, k) => a + COOP_W[k], 0);
@@ -4564,7 +4792,7 @@ const coop = {
         const sum = rows.reduce((a, r) => a + r.share, 0) || 1; rows.forEach(r => { r.share /= sum; r.coins = Math.floor(this.pool * r.share); });
         return rows;
     },
-    end(win) {   // 主控端：結束這場，算出分紅並通知所有人
+    end(win) {   // 主控端：結束這場，算出貢獻比並通知所有人
         if (this.ended) return; this.ended = true;
         const rows = this.calc(this.order.filter(id => !this.P[id].left)); rows.forEach(r => { r.tank = Math.round(r.tank); r.dmg = Math.round(r.dmg); r.chr = Math.round(r.chr); });
         const res = { win: !!win, st: G.currentStage, sb: G.currentSub, pool: Math.round(this.pool), rows, mid: this.mid };
@@ -4585,8 +4813,8 @@ const coop = {
         const mine = r.rows.find(x => x.uid === me);
         ui(`<div class="menu-overlay" style="width:min(96vw,560px)"><h1 style="color:${win ? 'var(--neon-gold)' : '#ff6b6b'};margin:0 0 4px">${win ? '多人闖關・完全勝利' : '多人闖關・任務結束'}</h1>
             <p style="margin:4px 0 8px">到達第 ${r.st + 9} 關　團隊銀河幣 <b style="color:#ffd700">${num(r.pool)}</b></p>
-            <table style="width:100%;border-collapse:collapse;text-align:center;font-size:.85rem;line-height:1.35"><tr style="color:#9ab"><th style="text-align:left">隊員</th><th>承受傷害</th><th>輸出傷害</th><th>蒐集字卡</th><th>分紅</th><th>銀河幣</th></tr>${rows}</table>
-            <p class="muted" style="margin:8px 0">分紅＝承受傷害 45%＋輸出傷害 35%＋蒐集字卡 20%（各項看你占全隊的比例），再保留 15% 出席保底${mine ? '' : '。你中途離開，沒有分紅'}。</p>
+            <table style="width:100%;border-collapse:collapse;text-align:center;font-size:.85rem;line-height:1.35"><tr style="color:#9ab"><th style="text-align:left">隊員</th><th>承受傷害</th><th>輸出傷害</th><th>蒐集字卡</th><th>貢獻比</th><th>銀河幣</th></tr>${rows}</table>
+            <p class="muted" style="margin:8px 0">貢獻比＝承受傷害 45%＋輸出傷害 35%＋蒐集字卡 20%（各項看你占全隊的比例），再保留 15% 出席保底${mine ? '' : '。你中途離開，沒有銀河幣'}。</p>
             ${mine ? `<p style="color:#ffd700">你獲得 <b>${num(mine.coins)}</b> 銀河幣，持有 ${num(G.galaxy)}。可到「戰機管理」突破等級上限。</p>` : ''}
             <button class="btn btn-start" onclick="coop.again()">回到房間</button><button class="btn" onclick="coop.toLobby()">返回大廳</button></div>`);
     },
@@ -4609,18 +4837,21 @@ const coop = {
     cleanupMatch() {
         const was = G.coopMode; this.pauseMatch(); G.coopMode = false; G.coopHost = false; G._silent = false;
         if (was && G._keepSlots) { G.maxSlots = G._keepSlots; G._keepSlots = 0; }
-        const h = $('coop-hud'); if (h) h.remove(); const cc = $('coop-casts'); if (cc) cc.remove(); const el = document.querySelector('.hud-dm'); if (el && el.firstChild) el.firstChild.nodeValue = '暗物質: ';
+        const h = $('coop-hud'); if (h) h.remove(); const cc = $('coop-casts'); if (cc) cc.remove(); this.cast = null; const el = document.querySelector('.hud-dm'); if (el && el.firstChild) el.firstChild.nodeValue = '暗物質: ';
         if (was) { G.enemies = []; G.boss = null; G.idiomBlocks = []; G.charItems = []; G.allies = []; G.bullets.pool.forEach(b => { b.active = false; }); const bb = document.getElementById('boss-bar'); if (bb) bb.style.display = 'none'; G.applyUpgrades(); }
     }
 };
 
-// ================= 多人闖關：發動成語時顯示 5 秒的解釋／造句（不凍結戰場）、web 直連（WebRTC） =================
+// ================= 多人闖關：發動成語時全場暫停 5 秒、顯示解釋／造句、web 直連（WebRTC） =================
 Object.assign(coop, {
     showCast(name, word, desc, label, text) {
         let box = $('coop-casts'); if (!box) { $('game-container').insertAdjacentHTML('beforeend', '<div id="coop-casts"></div>'); box = $('coop-casts'); }
         const el = document.createElement('div'); el.className = 'cc-card';
-        el.innerHTML = `<div class="cc-name">${esc(name)} 發動！</div><div class="cc-word">${esc(word)}</div><div class="cc-eff">大招效果：${esc(desc)}</div><div class="cc-line"><b>${esc(label)}</b>　${label === '造句' ? boldIdiom(text, word) : esc(text)}</div><div class="cc-bar"><i></i></div>`;
-        box.appendChild(el); while (box.children.length > 3) box.firstChild.remove(); setTimeout(() => el.remove(), 5000);
+        el.innerHTML = `<div class="cc-name">${esc(name)} 發動！</div><div class="cc-word">${esc(word)}</div><div class="cc-eff">大招效果：${esc(desc)}</div><div class="cc-line"><b>${esc(label)}</b>　<span class="cc-tx"></span></div><div class="cc-bar"><i></i></div>`;
+        box.appendChild(el); while (box.children.length > 3) box.firstChild.remove();
+        const tx = el.querySelector('.cc-tx'), ch = [...String(text || '')], rng = label === '造句' ? idiomRange(text, word) : null, step = Math.max(40, Math.min(110, 2800 / Math.max(1, ch.length))); let n = 0;
+        const iv = setInterval(() => { n++; tx.innerHTML = boldSlice(ch, n, rng); if (n >= ch.length) clearInterval(iv); }, step);
+        setTimeout(() => { clearInterval(iv); el.remove(); }, 5000);
     },
     // ---- web 直連：Realtime Database 只交換連線資訊，連上後畫面與操作直接在裝置之間傳（星狀：房主 ↔ 每位隊員）----
     rtcStart(d) {
@@ -4743,7 +4974,7 @@ const lcoop = window.lcoop = {
                 <small class="muted">磁吸 Lv.${lo.mg}・成語列 ${lo.sl} 格　｜　${LC_HINT[i]}</small></div>`);
         }
         ui(`<div class="menu-overlay" style="width:min(96vw,580px);max-height:94vh;overflow:auto"><h2 class="shop-title">同機多人闖關</h2>
-            <p class="muted" style="line-height:1.6;text-align:left">2～3 人共用這個鍵盤協力闖關（難度比一般第 9 關更難）。<b>玩家 1 是主控端</b>（原本登入的帳號）；連線後可再登入另外 1～2 位玩家，用他們自己的戰機與裝備，沒登入的是訪客（不領獎勵）。<br>同機模式每位玩家用「切換」鍵選成語、「使用」鍵發動（不使用數字快捷鍵，連線版才用數字鍵直接發動）。戰鬥中<b>完全不連線</b>，結束時依貢獻度把銀河幣一次寫入各登入帳號。<b>要用銀河幣突破升級，須以該帳號當主控端登入，到「戰機管理」進行。</b>${online.free ? '<br>單機離線模式：全部是訪客，不能登入、不累積任何貨幣。' : ''}</p>
+            <p class="muted" style="line-height:1.6;text-align:left">2～3 人共用這個鍵盤協力闖關（難度比一般第 9 關更難）。<b>玩家 1 是主控端</b>（原本登入的帳號）；連線後可再登入另外 1～2 位玩家，用他們自己的戰機與裝備，沒登入的是訪客（不領獎勵）。<br>同機模式每位玩家用「切換」鍵選成語、「使用」鍵發動（不使用數字快捷鍵）；任何玩家發動成語時，<b>所有玩家暫停 5 秒</b>，等成語顯示完畢才發動。Boss 另有專屬能力（連擊護盾／重擊護甲／破甲彈／四機同體／巨艦），需要不同戰機分工。戰鬥中<b>完全不連線</b>，結束時依貢獻度把銀河幣一次寫入各登入帳號。<b>要用銀河幣突破升級，須以該帳號當主控端登入，到「戰機管理」進行。</b>${online.free ? '<br>單機離線模式：全部是訪客，不能登入、不累積任何貨幣。' : ''}</p>
             ${rows.join('')}
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${this.n < 3 ? '<button class="btn" onclick="lcoop.addP()">＋ 加入玩家 3</button>' : '<button class="btn" onclick="lcoop.delP()">－ 移除玩家 3</button>'}<button class="btn btn-start" ${this.needMore() ? 'disabled' : ''} onclick="lcoop.start()">出擊</button></div>
             ${this.needMore() ? '<div class="muted" style="color:#ff9aa8;margin-top:6px">連線模式至少需要 2 位玩家登入帳號才能出擊（訪客不計）：請在其他玩家欄位按「登入帳號」。</div>' : ''}
@@ -4843,14 +5074,15 @@ const lcoop = window.lcoop = {
         ui(`<div class="menu-overlay" style="width:min(96vw,600px)"><h1 style="color:${win ? 'var(--neon-gold)' : '#ff6b6b'};margin:0 0 4px">${win ? '同機多人闖關・完全勝利' : '同機多人闖關・任務結束'}</h1>
             <p style="margin:4px 0 8px">到達第 ${r.st + 9} 關　團隊銀河幣 <b style="color:#ffd700">${num(r.pool)}</b></p>
             <table style="width:100%;border-collapse:collapse;text-align:center;font-size:.85rem;line-height:1.35"><tr style="color:#9ab"><th style="text-align:left">玩家</th><th>承受傷害</th><th>輸出傷害</th><th>蒐集字卡</th><th>銀河幣</th><th>帳號</th></tr>${rows}</table>
-            <p class="muted" style="margin:8px 0">分紅＝承受傷害 45%＋輸出傷害 35%＋蒐集字卡 20%，再保留 15% 出席保底。訪客不領獎勵。銀河幣存在各自的帳號裡，要升級請用該帳號登入（成為主控端）後到「戰機管理」。${failed ? '<br><b style="color:#ff9aa8">有帳號上傳失敗：請確認網路後按「重試上傳」，離開前請務必成功。</b>' : ''}</p>
+            <p class="muted" style="margin:8px 0">貢獻比＝承受傷害 45%＋輸出傷害 35%＋蒐集字卡 20%，再保留 15% 出席保底。訪客不領獎勵。銀河幣存在各自的帳號裡，要升級請用該帳號登入（成為主控端）後到「戰機管理」。${failed ? '<br><b style="color:#ff9aa8">有帳號上傳失敗：請確認網路後按「重試上傳」，離開前請務必成功。</b>' : ''}</p>
             ${failed ? '<button class="btn" onclick="lcoop.retry()">重試上傳</button>' : ''}<button class="btn btn-start" onclick="lcoop.again()">再玩一場</button><button class="btn" onclick="lcoop.toLobby()">返回大廳</button></div>`);
     },
     pending() { return (this.pl || []).some(p => p.kind === 'acct' && (p.up === 'fail' || p.up === 'busy')); },
     again() { if (this.pending() && !confirm('還有帳號沒有上傳成功（或上傳中），現在離開結算會遺失那場的銀河幣。確定繼續？')) return; coop.cleanupMatch(); G.setState('COOP'); },
     toLobby() { if (this.pending() && !confirm('還有帳號沒有上傳成功（或上傳中），現在離開會遺失那場的銀河幣。確定離開？')) return; coop.cleanupMatch(); this.dispose(); G.setState('LOBBY'); }
 };
-coop.renderRoom = function () { lcoop.render(); };
+coop.renderRoomNet = coop.renderRoom;   // 連線版（闖關對戰）的房間畫面
+coop.renderRoom = function () { if (this.room || this.viaNet) return this.renderRoomNet(); lcoop.render(); };   // 沒進房間、也不是從「連線對戰」進來 → 同機多人闖關
 Object.assign(coop, {
     selNext(id) { const n = Math.max(1, G.maxSlots); this.sel[id] = ((this.sel[id] || 0) + 1) % n; lcoop.paintSel(); },
     useSel(id) { const i = this.sel[id] || 0, s = G.slots[i]; if (s && s.type === 'READY') this.doUse(id, i); },
@@ -4861,7 +5093,7 @@ Object.assign(coop, {
     },
     packWith(fleet, mg, sl, sid) {   // 用「那位玩家自己的機庫」算出機體數值
         const keep = G.fleet; G.fleet = fleet;
-        try { const st = G.statsOf(sid), S = G.ship(sid); return { sid, dmg: st.dmg, iv: st.iv, pen: st.pen, crit: st.crit, hp: st.hp, spd: st.spd, cov: G.lvOf(sid, 'cov'), wl: G.lvOf(sid, 'dmg'), r: S.r, mg, sl }; }
+        try { const st = G.statsOf(sid), S = G.ship(sid); return { sid, len: st.len || 0, dmg: st.dmg, iv: st.iv, pen: st.pen, crit: st.crit, hp: st.hp, spd: st.spd, cov: G.lvOf(sid, 'cov'), wl: G.lvOf(sid, 'dmg'), r: S.r, mg, sl }; }
         finally { G.fleet = keep; }
     },
     beginLocal(players) {
@@ -4975,7 +5207,7 @@ window.addEventListener('online', () => { setTimeout(() => G.quietCheck(), 1500)
 // ---------- 啟動 ----------
 online.authReady = new Promise(res => {
     if (!fbOk) return res();
-    auth.onAuthStateChanged(async u => { try { if (u) await online.onLogin(u); else online.onLogout(); } catch (e) { console.error(e); toast(errMsg(e)); } finally { res(); } });
+    auth.onAuthStateChanged(async u => { try { if (u) await online.onLogin(u); else online.onLogout(); } catch (e) { console.error(e); toast(errMsg(e)); const m = $('lg-msg'); if (m) { m.textContent = errMsg(e); const b = $('lg-go'); if (b) b.disabled = false; } } finally { res(); } });
 });
 })();
 

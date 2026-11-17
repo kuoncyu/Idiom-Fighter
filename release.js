@@ -2,7 +2,7 @@
 // 成語戰機：發佈工具（在專案資料夾執行：node release.js）
 //
 // 做三件事：
-//   1. 產生新版本號：日期＋英文字母。當天第一版 20261113a，第二版 20261113b……隔天從 a 重新開始。
+//   1. 產生新版本號：日期＋英文字母。當天第一版 20261116a，第二版 20261116b……隔天從 a 重新開始。
 //   2. 把版本號寫進 index.html 的 APP_VERSION 與 sw.js 的 VERSION（不用手動改）。
 //   3. 掃描所有遊戲檔案，產生 version.json（每個檔案的雜湊值與大小）。
 //      玩家端比對雜湊值，只會下載有變動的檔案。
@@ -10,7 +10,7 @@
 // 用法：
 //   node release.js            自動產生下一個版本號（沒有任何檔案變動時不會發佈）
 //   node release.js --force    就算沒有變動也強制發佈新版本
-//   node release.js 20261113c  指定版本號（必須比目前版本新）
+//   node release.js 20261116c  指定版本號（必須比目前版本新）
 //
 // 發佈流程：改完遊戲 → node release.js → 把整個資料夾（含 version.json）一起上傳。
 
@@ -69,7 +69,7 @@ const paths = [...new Set(list)].sort();
 const args = process.argv.slice(2), force = args.includes('--force'), given = args.find(a => !a.startsWith('--'));
 let version;
 if (given) {
-    if (!VER_RE.test(given)) fail(`版本號格式錯誤：${given}（要像 20261113a：8 位數日期＋1 個小寫英文字母）`);
+    if (!VER_RE.test(given)) fail(`版本號格式錯誤：${given}（要像 20261116a：8 位數日期＋1 個小寫英文字母）`);
     if (oldVersion && VER_RE.test(oldVersion) && given <= oldVersion) fail(`指定的版本 ${given} 不比目前版本 ${oldVersion} 新`);
     version = given;
 } else version = nextVersion(oldVersion);

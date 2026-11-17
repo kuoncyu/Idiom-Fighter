@@ -2,7 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    // 管理員：用「管理員帳號的 Email」判斷（在遊戲「關於」頁輸入管理員密碼登入的就是這個帳號）；
+    // 也相容舊做法：admins 集合裡有該 UID 的文件也算管理員。
+    function isAdmin() { return signedIn() && (request.auth.token.email == 'admin@idiom-fighter.app' || exists(/databases/$(database)/documents/admins/$(request.auth.uid))); }
 
     // 黑名單：只有管理員可以新增／移除；玩家只能讀自己的那一筆（登入時用來判斷是否被停權）
     match /banned/{uid} {
@@ -10,7 +12,14 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow write: if isAdmin();
     }
-    function notBanned() { return !exists(/databases/$(database)/documents/banned/$(request.auth.uid)); }
+    function notBanned() { return !exists(/databases/$(database)/documents/banned/$(request.auth.uid)) && !exists(/databases/$(database)/documents/deleted/$(request.auth.uid)); }
+
+    // 已刪除的帳號：管理員刪除玩家時寫入；該帳號之後不能再寫入任何資料，下次登入時遊戲會自動把「登入帳號」本身也刪掉
+    match /deleted/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
 
     // 管理員名單：只能在 Firebase 後台手動新增，玩家端不可寫入
     match /admins/{uid} {
@@ -22,8 +31,8 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if signedIn();
       allow create, update: if signedIn() && ((request.auth.uid == uid && notBanned()) || isAdmin());
-      allow delete: if isAdmin();   // 管理員刪除帳號
-      match /friends/{fid} { allow read, write: if signedIn() && request.auth.uid == uid; allow delete: if isAdmin(); }
+      allow delete: if isAdmin();   // 刪除別人的帳號：只有管理員（一般玩家無法刪除任何其他玩家的資料）
+      match /friends/{fid} { allow read: if signedIn() && (request.auth.uid == uid || isAdmin()); allow write: if signedIn() && request.auth.uid == uid; allow delete: if isAdmin(); }   // 管理員要能讀出好友清單才能刪除帳號
       match /invites/{code} {
         allow read, delete: if signedIn() && (request.auth.uid == uid || isAdmin());
         allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
@@ -34,7 +43,8 @@ service cloud.firestore {
     match /friendRequests/{id} {
       allow read: if signedIn() && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid || isAdmin());
       allow create: if signedIn() && request.resource.data.from == request.auth.uid;
-      allow update, delete: if signedIn() && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
+      allow update: if signedIn() && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid);
+      allow delete: if signedIn() && (resource.data.to == request.auth.uid || resource.data.from == request.auth.uid || isAdmin());
     }
 
     // 上線狀態（5 分鐘內有活動＝在線）：只能寫自己的，登入者都能讀

@@ -13,6 +13,17 @@ Build → **Firestore Database** → Create database（建議 production mode，
 Firestore → **Rules** → 把本資料夾的 `firestore.rules` 全部貼上 → Publish。
 沒有發布規則的話，排行榜、好友、聊天、PK 都會顯示「沒有權限」。
 
+## 3-2. 建立 Realtime Database（PK 對戰與多人聯機的 web 直連需要）
+PK 對戰和連線闖關會用 Realtime Database 交換 web 直連（WebRTC）的連線資訊；沒建立的話，PK 會出現「連線失敗：即時資料庫連不上」。
+1. Firebase Console → Build → **Realtime Database** → Create database（地點可選美國、比利時或新加坡；模式選 **Locked mode** 即可，下一步會貼規則）。
+2. 建好後，在 Realtime Database 的 **Data** 分頁最上方會看到資料庫網址：
+   - 美國：`https://idiom-fighter-default-rtdb.firebaseio.com`
+   - 新加坡：`https://idiom-fighter-default-rtdb.asia-southeast1.firebasedatabase.app`（**目前 `index.html` 已設定為這個**）
+   - 比利時：`https://idiom-fighter-default-rtdb.europe-west1.firebasedatabase.app`
+   **如果網址和 `index.html` 裡 `databaseURL` 不一樣，請把 `databaseURL` 改成主控台顯示的網址**（改完要重新執行 `node release.js` 發佈）。
+3. Realtime Database → **Rules** → 把本資料夾的 `database.rules.json` 全部貼上 → Publish。（只開放登入的玩家讀寫 `pk/` 底下的連線資訊。）
+4. 免費方案同時連線數有限，所以遊戲只在 PK／連線闖關時才連上 Realtime Database，結束就斷線。
+
 ## 4. 授權網域
 Authentication → Settings → **Authorized domains**，加入你放遊戲的網域（例如 `你的帳號.github.io`）。
 `localhost` 預設已授權。請用 https 網址或 localhost 開啟遊戲，直接雙擊 index.html（file://）可能無法登入。
@@ -21,7 +32,8 @@ Authentication → Settings → **Authorized domains**，加入你放遊戲的�
 管理員密碼**不寫在程式碼裡**，而是設定成 Firebase 管理員帳號的登入密碼，由 Firebase 伺服器驗證。
 1. 先在遊戲註冊頁建立帳號，**帳號必須是 `admin`**，密碼設成你的管理員密碼（至少 6 碼）。
 2. Authentication → Users 複製 `admin` 帳號的 **UID**。
-3. Firestore → Data → 新增集合 **admins** → 文件 ID 貼上該 UID，欄位可以隨意（例如 `role` = `admin`）。
+3. （選用）Firestore → Data → 新增集合 **admins** → 文件 ID 貼上該 UID。新版規則已改成「Email 為 `admin@idiom-fighter.app` 的帳號就是管理員」，不建立這份名單也能管理；建立了也相容。
+4. **一定要把本資料夾的 `firestore.rules` 貼到 Firestore → Rules 並按 Publish**，管理員才有權限管理其他帳號。
 4. 遊戲內：設定 → 管理員登入 → 輸入密碼（畫面只會顯示 ••••••••）→ 進入管理員介面，可看大廳、所有群組、所有好友私聊。
 - 管理員登入使用獨立的連線，不會登出目前的玩家帳號；關閉頁面後需要重新輸入密碼。
 - 真正的保護是 Firebase 帳號密碼加上 Firestore 規則（只有 `admins` 集合裡的 UID 才讀得到所有聊天），瀏覽器端的程式碼本來就無法完全保密，所以不要把密碼寫進程式。
@@ -88,7 +100,8 @@ Authentication → Settings → **Authorized domains**，加入你放遊戲的�
 
 # 版本號與資料包（第二次更新）
 - 版本號格式為日期，同一天多次修改就在後面加英文字母：`20261109` → `20261109a` → `20261109b`…
-- **每次發布新版要改兩個地方**：`index.html` 的 `APP_VERSION`，以及 `sw.js` 最上面的 `VERSION`（兩邊要一樣）。
+- **發布新版：在資料夾執行 `node release.js`**，它會自動把新版本號寫進 `index.html` 的 `APP_VERSION` 與 `sw.js` 的 `VERSION`，並重新產生 `version.json`（資源包清單與雜湊值）。改完要把整個資料夾（含 `version.json`）一起上傳；只改版本號、沒更新 `version.json`，玩家會看到「伺服器上的檔案還沒同步」。
+- 目前版本：`20261116k`（版本號格式一定要「8 位數日期＋1 個小寫英文字母」）。
 - 玩家連網開啟遊戲時會自動比對版本：版本不同 → 顯示更新畫面、重新下載並覆蓋舊檔案；版本相同 → 背景檢查，只補缺少的檔案。
 - 首次下載最久；之後進遊戲會直接讀本機快取，也可離線遊玩。
 
@@ -107,3 +120,23 @@ Authentication → Settings → **Authorized domains**，加入你放遊戲的�
 - 戰機新增第 7 項能力「火力覆蓋」，決定射擊方式與彈道數量；各戰機的射擊方式不同（扇形、雙管直射、窄角集束、正面＋側面、巨型單發、穿透平行線、正面＋背刺、全向火網）。
 - 新戰機「環陣號」（軍械商店 2200 DM）：火力覆蓋上限 16，升滿可同時向 8 個方位（四面八方）放射，單發威力低於其他戰機。
 - 舊存檔會自動補上火力覆蓋初始等級，不需要重新發布規則。
+
+## 20261116 更新內容（a～k）
+- PK：裝備最高層級可由主控端設定（3～8），超過能力上限的點數自動分配到其他能力；磁吸固定 2 級、成語列固定 3 格（不可調整）。
+- 同機多人闖關：連線模式至少 2 位玩家登入（訪客不計）；戰機下方顯示選中的成語；發動成語顯示 5 秒解釋／造句。
+- 連線闖關：改用 web 直連（WebRTC），連不上時自動改走 Firestore 備援；成語用數字鍵直接發動。
+- 造句中用到的成語顯示粗體（圖鑑與發動招式）。
+- 管理員可手動調整玩家銀河幣。
+- 註冊與離線資源包下載會顯示具體錯誤原因。
+- `databaseURL` 改為新加坡的 Realtime Database 網址（20261116b）。
+- 大廳新增「連線對戰」功能磚，裡面有「PK 對戰」與「闖關對戰」兩個子功能磚；「同機多人闖關」磚保留。
+- 同機多人闖關與闖關對戰：任何玩家發動成語時，所有玩家暫停 5 秒，等成語列（解釋／造句）顯示完畢才發動效果。
+- 結算畫面的「分紅」改稱「貢獻比」。
+- 開啟遊戲的初始畫面一偵測到新版本，就會立刻跳出「發現新版本」視窗，按「確定」才開始下載更新。
+- 管理員權限改用管理員帳號的 Email 判斷（`firestore.rules` 的 `isAdmin()`），在「關於」輸入管理員密碼就能管理其他帳號，不必再手動建立 `admins` 名單（需重新發布 `firestore.rules`）。
+- 離線資料包下載更穩：失敗自動重試 3 次、音樂（大檔案）逐批下載；音樂改為選用，沒下載到也能進遊戲並在背景補下載；下載不完整時畫面會顯示失敗的檔案與原因。
+- 修正管理員無法刪除帳號：規則允許管理員讀取好友清單（`firestore.rules` 需重新發布）；刪除時一併移除別人好友清單中的該帳號與相關好友邀請。
+- 管理員刪除帳號：清除玩家資料並寫入 `deleted/{uid}` 標記（`firestore.rules` 需重新發布）。瀏覽器只能刪除「自己」的登入帳號，所以該玩家下次開啟遊戲或登入時，遊戲會自動把他的 Firebase 登入帳號也刪掉，名稱即可重新註冊；想立刻釋出名稱，可到 Firebase Console → Authentication → Users 手動刪除。
+- 刪除／重置／停權等管理操作：規則只允許管理員，遊戲端也加了「非管理員不得執行」的檢查。
+- 安全提醒：管理員身分是靠 Email `admin@idiom-fighter.app` 判斷，請確認這個帳號已經由你自己註冊好，並使用只有你知道的密碼。
+- 管理員入口：登入任何帳號（或尚未登入）後，打開「設定 → 關於」，直接用鍵盤按下管理員密碼（畫面上不會顯示任何輸入欄），就會進入管理員介面。
