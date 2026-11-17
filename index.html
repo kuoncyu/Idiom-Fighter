@@ -176,6 +176,7 @@
         #buff-bar { position:absolute; top:66px; left:12px; display:flex; flex-wrap:wrap; gap:6px; max-width:48%; z-index:6; pointer-events:none; }
         .buff { position:relative; overflow:hidden; min-width:96px; padding:3px 8px 6px; border-radius:8px; background:rgba(0,0,0,.65); border:1px solid var(--c); color:var(--c); font-size:.75rem; font-weight:bold; }
         .buff i { position:absolute; left:0; bottom:0; height:3px; background:var(--c); }
+        .buff .by { display:block; font-size:.85em; line-height:1.15; opacity:.95; text-shadow:0 0 3px #000; white-space:nowrap; }
         .dlg { display:none; position:absolute; inset:0; z-index:60; background:rgba(0,0,10,.72); align-items:center; justify-content:center; }
         .dlg .box { max-height:90%; overflow-y:auto; background:#0a0a1a; border:2px solid var(--neon-blue); border-radius:14px; padding:20px 26px; min-width:270px; max-width:90vw; text-align:center; box-shadow:0 0 25px rgba(0,242,255,.4); color:#fff; }
         .dlg label { display:block; margin:12px 0; font-size:.9rem; text-align:left; } .dlg input[type=range] { width:100%; }
@@ -383,7 +384,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261117e', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261117f', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -1518,6 +1519,7 @@ class Game {
     setAutoFS(v) { try { localStorage.setItem('idiomFS', v ? '1' : '0'); } catch (e) {} }
     afterBoot() { this.tryFullscreen(); if (window.online) window.online.afterBoot(); else this.setState('LOBBY'); }
     updateBuffs() {
+        if (this.coopMode && window.coop && coop.order && coop.order.length) return coop.paintBuffs();   // 多人闖關：左上角列出全隊的成語效果，並註明是誰發動的
         const L = [['穿甲彈', this.pierceTimer, 30, '#ffb347'], ['追蹤導彈', this.missileTimer, 10, '#ff6b6b'], ['雷射貫穿', this.laserTimer, 3, '#ffea00'],
                    ['無敵', this.invincibleTimer > 1.05 ? this.invincibleTimer : 0, 10, '#7dffb0'], ['敵彈減速', this.slowTimer, 6, '#9aa8ff'], ['呼叫友軍', this.allyTimer, 15, '#7ad7ff']];
         const html = L.filter(x => x[1] > 0).map(([n, t, m, c]) => `<div class="buff" style="--c:${c}">${n} ${Math.ceil(t)}s<i style="width:${Math.min(100, t / m * 100)}%"></i></div>`).join('');
@@ -4349,7 +4351,7 @@ const coop = {
         }
         this.mountHud(); G.setState('PLAYING'); G.updateHUD(); this.rtcStart(d);
     },
-    mountHud() { if ($('coop-hud')) return; $('game-container').insertAdjacentHTML('beforeend', '<div id="coop-hud" style="position:absolute;left:6px;top:74px;z-index:6;pointer-events:none;font-size:12px;line-height:1.35;text-shadow:0 0 3px #000"></div>'); },
+    mountHud() { if ($('coop-hud')) return; $('game-container').insertAdjacentHTML('beforeend', '<div id="coop-hud" style="position:absolute;right:max(6px,env(safe-area-inset-right));top:74px;z-index:6;pointer-events:none;font-size:12px;line-height:1.35;text-shadow:0 0 3px #000;text-align:right"></div>'); },
     placeAll() {   // 關卡開始：全員排在畫面下方；客戶端靠 rs 序號知道要重置自己的位置
         const N = this.order.length; this.order.forEach((id, i) => {
             const P = this.P[id], x = WORLD.w * (i + 1) / (N + 1), y = WORLD.h - 150; if (!P.alive) return;
@@ -4481,7 +4483,7 @@ const coop = {
         const g = G, W = WORLD.w, H = WORLD.h, me = this.hostUid, ids = this.order, N = ids.length;
         if (this.cast) {   // 有人發動成語：所有玩家一起等 5 秒（戰場凍結），顯示完畢後才套用效果
             const c = this.cast; c.t -= dt; if (c.t > 0) return;
-            this.cast = null; if (this.P[c.id] && this.P[c.id].alive) this.ctx(c.id, () => { g.applyIdiom(c.idiom); });
+            this.cast = null; if (this.P[c.id] && this.P[c.id].alive) { this.ctx(c.id, () => { g.applyIdiom(c.idiom); }); if (c.idiom.effect === 'SLOW_TIME') this.slowBy = this.nm[c.id] || ''; }
         }
         // 1) 移動：房主自己用鍵盤／拖曳；隊員跟著他們回報的位置走；倒下的人移出畫面
         if (this.P[me].alive) this.moveSelf(dt); else g.player.pos.y = -500;
@@ -4653,9 +4655,9 @@ const coop = {
         if ((this._wr || 0) >= 2 || !this.room) return;
         const g = G, ids = this.order, ri = x => Math.round(x), r1 = x => Math.round(x * 10) / 10, pal = [], pi = c => { let i = pal.indexOf(c); if (i < 0) { pal.push(c); i = pal.length - 1; } return i; };
         const src = id => this.P[id].host ? g : this.P[id].s;
-        const S = { q: ++this.seq, gs: g.gameState, st: g.currentStage, sb: g.currentSub, ct: r1(g.clearT || 0), cn: g.clearNext ? 1 : 0, nx: g.isNextStage ? 1 : 0, rs: this.resetSeq, pool: ri(this.pool), ms: g.maxSlots, sw: g.slowTimer > 0 ? 1 : 0 };
+        const S = { q: ++this.seq, gs: g.gameState, st: g.currentStage, sb: g.currentSub, ct: r1(g.clearT || 0), cn: g.clearNext ? 1 : 0, nx: g.isNextStage ? 1 : 0, rs: this.resetSeq, pool: ri(this.pool), ms: g.maxSlots, sw: g.slowTimer > 0 ? Math.max(0.1, r1(g.slowTimer)) : 0, sn: g.slowTimer > 0 ? (this.slowBy || '') : '' };
         S.sl = g.slots.map(s => [s.type === 'READY' ? 1 : 0, s.word, s.chars.join(''), s.effect, s.effectDesc]);
-        S.P = ids.map(id => { const P = this.P[id], s = src(id), pos = P.host ? g.player.pos : s.player.pos; return [id, ri(pos.x), ri(pos.y), r1(s.hp), ri(s.maxHp), r1(s.shield), r1(Math.max(0, s.invincibleTimer)), s.laserTimer > 0 ? 1 : 0, s.skin, P.alive ? 1 : 0, r1(Math.max(0, s.pierceTimer)), r1(Math.max(0, s.missileTimer))]; });
+        S.P = ids.map(id => { const P = this.P[id], s = src(id), pos = P.host ? g.player.pos : s.player.pos; return [id, ri(pos.x), ri(pos.y), r1(s.hp), ri(s.maxHp), r1(s.shield), r1(Math.max(0, s.invincibleTimer)), s.laserTimer > 0 ? Math.max(0.1, r1(s.laserTimer)) : 0, s.skin, P.alive ? 1 : 0, r1(Math.max(0, s.pierceTimer)), r1(Math.max(0, s.missileTimer)), r1(Math.max(0, s.allyTimer || 0))]; });
         S.E = g.enemies.map(e => { if (!e._id) e._id = ++this.nid; return [e._id, COOP_TYPES.indexOf(e.type), ri(e.pos.x), ri(e.pos.y), r1(e.hp), r1(e.maxHp), ri(e.radius), ri(g.shieldOf(e)), ri(e.maxShield || 0), e.charge > 0 ? r1(e.charge) : 0, r1(e.lockA || 0), r1(e.snipeP || 0)]; });
         const b = g.boss; S.B = b ? [ri(b.pos.x), ri(b.pos.y), r1(b.hp), r1(b.maxHp), ri(g.shieldOf(b)), ri(b.maxShield || 0), b.stage, b.cmb || 0, b.csUp === false ? 0 : 1, r1(b.csT || 0), b.fm | 0, r1(b.formT || 0)] : 0; S.BC = (g.bossClones || []).map(c => [ri(c.pos.x), ri(c.pos.y), c.side]);
         S.U = []; const sl = g.slowTimer > 0; g.bullets.pool.forEach(x => { if (x.active && S.U.length < 420) { const k = (!x.isPlayer && sl) ? 0.4 : 1; S.U.push([ri(x.pos.x), ri(x.pos.y), ri(x.vel.x * k), ri(x.vel.y * k), ri(x.radius * 10), pi(x.color), x.isPlayer ? 1 : 0, ri(x.len || 0)]); } }); S.pal = pal;
@@ -4689,7 +4691,7 @@ const coop = {
         if (S.gs === 'TRANSITION' && g.gameState === 'PLAYING') g.startTransition(!!S.nx);
         else if (S.gs === 'PLAYING' && (g.gameState === 'TRANSITION' || g.currentStage !== S.st || g.currentSub !== S.sb)) { g.currentStage = S.st; g.currentSub = S.sb; g.resetStage(); g.setState('PLAYING'); g.updateHUD(); this.ge = new Map(); }
         if (g.gameState !== 'PLAYING' && g.gameState !== 'TRANSITION') return;
-        if (g.gameState === 'PLAYING') { g.clearT = S.ct || 0; g.clearNext = !!S.cn; } g.slowTimer = S.sw ? 1 : 0;
+        if (g.gameState === 'PLAYING') { g.clearT = S.ct || 0; g.clearNext = !!S.cn; } g.slowTimer = S.sw ? 1 : 0; this.slowLeft = +S.sw || 0; this.slowBy = S.sn || '';
         // 成語列（全隊共用）
         const sk = S.ms + '|' + JSON.stringify(S.sl);
         if (sk !== this.slk) { this.slk = sk; g.maxSlots = S.ms; g.slots = S.sl.map(a => ({ type: a[0] ? 'READY' : 'COLLECTING', word: a[1], chars: a[2].split(''), effect: a[3], effectDesc: a[4] })); g.renderIdiomSlots(); }
@@ -4698,11 +4700,11 @@ const coop = {
             const id = a[0];
             if (id === me) {
                 g.hp = a[3]; g.maxHp = a[4]; g.shield = a[5]; g.invincibleTimer = a[6]; g.laserTimer = a[7] ? 1 : 0; g.pierceTimer = a[10]; g.missileTimer = a[11];
-                this.view[me] = { alive: a[9], hp: a[3], maxHp: a[4], shield: a[5] };
+                this.view[me] = { alive: a[9], hp: a[3], maxHp: a[4], shield: a[5], inv: a[6], laser: a[7], pierce: a[10], missile: a[11], ally: a[12] || 0 };
                 if (S.rs !== this.rsSeen) { this.rsSeen = S.rs; if (a[9]) g.player.pos = new Vec2(a[1], a[2]); }
             } else {
                 let o = this.view[id]; if (!o) o = this.view[id] = { x: a[1], y: a[2] };
-                o.tx = a[1]; o.ty = a[2]; o.hp = a[3]; o.maxHp = a[4]; o.shield = a[5]; o.inv = a[6]; o.laser = a[7]; o.skin = a[8]; o.alive = a[9];
+                o.tx = a[1]; o.ty = a[2]; o.hp = a[3]; o.maxHp = a[4]; o.shield = a[5]; o.inv = a[6]; o.laser = a[7]; o.skin = a[8]; o.alive = a[9]; o.pierce = a[10]; o.missile = a[11]; o.ally = a[12] || 0;
             }
         });
         // 敵機
@@ -4776,11 +4778,26 @@ const coop = {
         const mv = this.vw(me), dead = G.coopHost ? !this.P[me].alive : (this.view[me] && this.view[me].alive === 0);
         if (dead) { ctx.save(); ctx.textAlign = 'center'; ctx.font = "bold 20px " + KAI_FONT; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.fillStyle = '#ff9aa8'; const t = '你已倒下：打倒 Boss 進入下一關後，會以半血復活'; ctx.strokeText(t, WORLD.w / 2, 120); ctx.fillText(t, WORLD.w / 2, 120); ctx.restore(); }
     },
+    paintBuffs() {   // 左上角：全隊的成語效果，每一條都註明是誰發動的（效果落在發動者身上；減速為全場效果）
+        const g = G, me = this.me(), host = G.coopHost, rows = [];
+        const T = [['穿甲彈', 'pierce', 30, '#ffb347'], ['追蹤導彈', 'missile', 10, '#ff6b6b'], ['雷射貫穿', 'laser', 3, '#ffea00'], ['無敵', 'inv', 10, '#7dffb0'], ['呼叫友軍', 'ally', 15, '#7ad7ff']];
+        this.order.forEach((id, idx) => {
+            let v;
+            if (host) { const P = this.P[id]; if (!P || P.left || !P.alive) return; const s = P.host ? g : P.s; v = { pierce: s.pierceTimer, missile: s.missileTimer, laser: s.laserTimer, inv: s.invincibleTimer, ally: s.allyTimer }; }
+            else { v = this.view[id]; if (!v || v.alive === 0) return; }
+            const pc = this.local ? (LC_COL[idx] || '#9ff') : (id === me ? '#ffea00' : '#9ff');
+            T.forEach(([n, k, m, c]) => { let t = +v[k] || 0; if (k === 'inv' && t <= 1.05) t = 0; if (t > 0) rows.push([this.nm[id] || '', pc, n, t, m, c]); });
+        });
+        const sl = host ? g.slowTimer : (this.slowLeft || 0);
+        if (sl > 0) rows.push([this.slowBy || '', '#9ff', '敵彈減速', sl, 6, '#9aa8ff']);
+        const html = rows.map(([nm, pc, n, t, m, c]) => `<div class="buff" style="--c:${c}">${nm ? `<span class="by" style="color:${pc}">${esc(nm)} 發動</span>` : ''}${n} ${Math.ceil(t)}s<i style="width:${Math.min(100, t / m * 100)}%"></i></div>`).join('');
+        if (html !== g._buffHtml) { g._buffHtml = html; document.getElementById('buff-bar').innerHTML = html; }
+    },
     shares() { const rows = this.calc(this.order.filter(id => !(G.coopHost && this.P[id] && this.P[id].left))), o = {}; rows.forEach(r => { o[r.uid] = r.share; }); return o; },
     paintHud() {
         const h = $('coop-hud'); if (!h || !this.order.length) return; const me = this.me(), sh = this.shares();
         h.innerHTML = this.order.map(id => { const v = this.vw(id) || {}, hp = v.maxHp ? Math.max(0, Math.min(1, v.hp / v.maxHp)) : 1, dead = v.alive === 0;
-            return `<div style="margin-bottom:4px;opacity:${dead ? .55 : 1}"><b style="color:${this.local ? (LC_COL[this.order.indexOf(id)] || '#9ff') : (id === me ? '#ffea00' : '#9ff')}">${esc(this.nm[id] || '')}</b> ${dead ? '✖' : ''} <span style="color:#ffd700">貢獻 ${Math.round((sh[id] || 0) * 100)}%</span><div style="width:96px;height:5px;background:#222"><i style="display:block;height:5px;width:${hp * 100}%;background:${hp > .3 ? '#33ff88' : '#ff3344'}"></i></div></div>`; }).join('');
+            return `<div style="margin-bottom:4px;opacity:${dead ? .55 : 1}"><b style="color:${this.local ? (LC_COL[this.order.indexOf(id)] || '#9ff') : (id === me ? '#ffea00' : '#9ff')}">${esc(this.nm[id] || '')}</b> ${dead ? '✖' : ''} <span style="color:#ffd700">貢獻 ${Math.round((sh[id] || 0) * 100)}%</span><div style="width:96px;height:5px;background:#222;margin-left:auto"><i style="display:block;height:5px;width:${hp * 100}%;background:${hp > .3 ? '#33ff88' : '#ff3344'}"></i></div></div>`; }).join('');
     },
 
     // ================= 結算：依貢獻比 =================
