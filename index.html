@@ -384,7 +384,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261117f', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261117g', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -2982,6 +2982,10 @@ const online = window.online = {
         $('lg-go').onclick = () => this.submitLogin(reg); $('lg-sw').onclick = () => this.renderLogin(!reg); if ($('lg-off')) $('lg-off').onclick = () => this.startOffline();
         $('lg-free').onclick = () => this.startFree(); $('lg-pack').onclick = () => game.offlineDialog();
         $('lg-pass').onkeydown = e => { if (e.key === 'Enter') this.submitLogin(reg); };
+        if (reg && fbOk) this.regClosed().then(c => { const m = $('lg-msg'); if (c && m && $('lg-go')) m.textContent = '目前管理員已暫停開放註冊新帳號，已有帳號請回到登入'; });
+    },
+    async regClosed() {   // 管理員是否已停止註冊新帳號（config/app.regClosed）；讀取失敗時視為開放，避免誤擋
+        try { const d = await Promise.race([db.collection('config').doc('app').get(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))]); return !!(d.exists && d.data().regClosed); } catch (e) { return false; }
     },
     async submitLogin(reg) {
         const msg = t => { const m = $('lg-msg'); if (m) m.textContent = t; };
@@ -2990,6 +2994,7 @@ const online = window.online = {
         if (!/^[a-z0-9_]{3,16}$/.test(u)) return msg('帳號需為 3~16 字的英文、數字或底線');
         if (p.length < 6) return msg('密碼至少 6 碼');
         $('lg-go').disabled = true; msg('處理中…');
+        if (reg && await this.regClosed()) { msg('目前管理員已暫停開放註冊新帳號，已有帳號請回到登入'); const b = $('lg-go'); if (b) b.disabled = false; return; }
         try {
             if (reg) { this.pending = name || u; await auth.createUserWithEmailAndPassword(u + MAIL, p); }
             else await auth.signInWithEmailAndPassword(u + MAIL, p);
@@ -3535,11 +3540,11 @@ const online = window.online = {
         const adb = this.adminDb || db;
         const T = [['users', '玩家管理'], ['rank', '排行榜紀錄'], ['lobby', '大廳'], ['group', '群組聊天'], ['dm', '好友私聊']];
         tab = tab || 'users';
-        const usersBody = `<div class="row" style="gap:6px;margin-bottom:6px"><select class="inp" id="ad-sel" style="margin:0;flex:1" onchange="online.adPick(this.value)"><option value="">載入帳號清單中…</option></select><button class="sm" onclick="online.adList(true)" title="重新整理清單">↻</button></div><div class="row" style="gap:6px"><input class="inp" id="ad-q" placeholder="輸入玩家帳號（登入用帳號）" style="margin:0" onkeydown="if(event.key==='Enter')online.adFind()"><button class="sm" onclick="online.adFind()">搜尋</button></div><p id="ad-umsg" class="muted"></p><div id="ad-user" style="text-align:left"></div>`;
+        const usersBody = `<div class="row" id="ad-reg" style="gap:6px;margin-bottom:8px;align-items:center"><span class="muted">註冊新帳號：載入中…</span></div><div class="row" style="gap:6px;margin-bottom:6px"><select class="inp" id="ad-sel" style="margin:0;flex:1" onchange="online.adPick(this.value)"><option value="">載入帳號清單中…</option></select><button class="sm" onclick="online.adList(true)" title="重新整理清單">↻</button></div><div class="row" style="gap:6px"><input class="inp" id="ad-q" placeholder="輸入玩家帳號（登入用帳號）" style="margin:0" onkeydown="if(event.key==='Enter')online.adFind()"><button class="sm" onclick="online.adFind()">搜尋</button></div><p id="ad-umsg" class="muted"></p><div id="ad-user" style="text-align:left"></div>`;
         ui(`<div class="menu-overlay" style="width:min(94vw,600px);max-height:92vh;overflow-y:auto"><h2 class="shop-title">管理員</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderAdmin('${t[0]}')">${t[1]}</button>`).join('')}</div>
             ${tab === 'users' ? usersBody : tab === 'rank' ? '<div id="ad-rk">載入中…</div>' : `<div class="lst" id="ad-list">載入中…</div><h4 id="ad-title"></h4><div class="lst" id="ad-msgs" style="min-height:120px"></div>`}<button class="sm red" onclick="online.adminLogout()">登出管理員</button>${BACK}</div>`);
         if (this._adUnsub) { this._adUnsub(); this._adUnsub = null; }
-        if (tab === 'users') { this.adList(); if (this._adT) this.adCard(); return; }
+        if (tab === 'users') { this.adReg(); this.adList(); if (this._adT) this.adCard(); return; }
         if (tab === 'rank') return this.adRank();
         try {
             if (tab === 'lobby') { $('ad-list').innerHTML = ''; return this.adView(adb.collection('lobbyChat'), '大廳'); }
@@ -3547,6 +3552,16 @@ const online = window.online = {
             $('ad-list').innerHTML = s.docs.length ? s.docs.map(d => { const x = d.data(); const label = tab === 'group' ? `${x.name}（${Object.values(x.memberNames || {}).join('、')}）` : Object.values(x.names || {}).join(' ⇄ ');
                 return `<div class="row"><span>${esc(label)}</span><button class="sm" onclick="online.adOpen('${tab}','${d.id}')">查看</button></div>`; }).join('') : '<p class="muted">沒有資料</p>';
         } catch (e) { $('ad-list').textContent = errMsg(e); }
+    },
+    // ----- 開放／停止註冊新帳號（寫入 config/app，登入頁註冊前會檢查；Firestore 規則也會擋下新帳號的玩家資料）-----
+    async adReg(set) {
+        const box = $('ad-reg'); if (!box) return; const adb = this.adminDb || db, ref = adb.collection('config').doc('app');
+        try {
+            if (typeof set === 'boolean') await ref.set({ regClosed: set, updatedAt: Date.now() }, { merge: true });
+            const d = await ref.get(), closed = !!(d.exists && d.data().regClosed);
+            box.innerHTML = `<span style="flex:1;text-align:left">註冊新帳號：<b style="color:${closed ? '#ff6b6b' : '#7dffb0'}">${closed ? '已停止（只有舊帳號能登入）' : '開放中'}</b></span><button class="sm ${closed ? '' : 'red'}" onclick="online.adReg(${!closed})">${closed ? '重新開放註冊' : '停止註冊新帳號'}</button>`;
+            if (typeof set === 'boolean') toast(closed ? '已停止註冊新帳號' : '已重新開放註冊');
+        } catch (e) { box.innerHTML = `<span class="muted" style="text-align:left">${esc(errMsg(e))}（請確認已發布最新的 firestore.rules）</span>`; }
     },
     // ----- 玩家管理：設定暗物質／免費升級戰機／重置／黑名單 -----
     adDefaultSave() { const f = {}; SHIPS.forEach(S => { f[S.id] = Object.assign({ own: S.price === 0 }, S.base); }); return { dm: 0, g: 0, s: 1, m: 0, d: 0, f, i: 'star', b: 1, t: 1 }; },

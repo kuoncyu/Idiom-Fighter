@@ -6,6 +6,13 @@ service cloud.firestore {
     // 也相容舊做法：admins 集合裡有該 UID 的文件也算管理員。
     function isAdmin() { return signedIn() && (request.auth.token.email == 'admin@idiom-fighter.app' || exists(/databases/$(database)/documents/admins/$(request.auth.uid))); }
 
+    // 全域設定：任何人都能讀（註冊前要先確認是否開放註冊），只有管理員能改。regClosed=true 表示停止註冊新帳號
+    function regClosed() { return exists(/databases/$(database)/documents/config/app) && get(/databases/$(database)/documents/config/app).data.get('regClosed', false) == true; }   // 文件不存在＝開放註冊
+    match /config/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // 黑名單：只有管理員可以新增／移除；玩家只能讀自己的那一筆（登入時用來判斷是否被停權）
     match /banned/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
@@ -30,7 +37,8 @@ service cloud.firestore {
     // 玩家資料（排行榜需要讀取名稱與統計）
     match /users/{uid} {
       allow read: if signedIn();
-      allow create, update: if signedIn() && ((request.auth.uid == uid && notBanned()) || isAdmin());
+      allow create: if signedIn() && ((request.auth.uid == uid && notBanned() && !regClosed()) || isAdmin());   // 管理員停止註冊時，新帳號建不起玩家資料
+      allow update: if signedIn() && ((request.auth.uid == uid && notBanned()) || isAdmin());
       allow delete: if isAdmin();   // 刪除別人的帳號：只有管理員（一般玩家無法刪除任何其他玩家的資料）
       match /friends/{fid} { allow read: if signedIn() && (request.auth.uid == uid || isAdmin()); allow write: if signedIn() && request.auth.uid == uid; allow delete: if isAdmin(); }   // 管理員要能讀出好友清單才能刪除帳號
       match /invites/{code} {
