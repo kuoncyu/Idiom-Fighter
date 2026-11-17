@@ -383,7 +383,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261117d', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261117e', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -4771,7 +4771,7 @@ const coop = {
             else { ctx.fillStyle = S.c; ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(24, 24); ctx.lineTo(-24, 24); ctx.closePath(); ctx.fill(); }
             ctx.restore();
             g.drawBars(ctx, x, y + 54 * S.s, 64, v.hp, v.maxHp, v.shield, v.maxHp, '#33ff88');
-            ctx.save(); ctx.fillStyle = '#9ff'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(this.nm[id] || '', x, y - 38 * S.s); ctx.restore();
+            ctx.save(); ctx.fillStyle = (this.local && LC_COL[this.order.indexOf(id)]) || '#9ff'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(this.nm[id] || '', x, y - 38 * S.s); ctx.restore();
         });
         const mv = this.vw(me), dead = G.coopHost ? !this.P[me].alive : (this.view[me] && this.view[me].alive === 0);
         if (dead) { ctx.save(); ctx.textAlign = 'center'; ctx.font = "bold 20px " + KAI_FONT; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.fillStyle = '#ff9aa8'; const t = '你已倒下：打倒 Boss 進入下一關後，會以半血復活'; ctx.strokeText(t, WORLD.w / 2, 120); ctx.fillText(t, WORLD.w / 2, 120); ctx.restore(); }
@@ -4780,7 +4780,7 @@ const coop = {
     paintHud() {
         const h = $('coop-hud'); if (!h || !this.order.length) return; const me = this.me(), sh = this.shares();
         h.innerHTML = this.order.map(id => { const v = this.vw(id) || {}, hp = v.maxHp ? Math.max(0, Math.min(1, v.hp / v.maxHp)) : 1, dead = v.alive === 0;
-            return `<div style="margin-bottom:4px;opacity:${dead ? .55 : 1}"><b style="color:${id === me ? '#ffea00' : '#9ff'}">${esc(this.nm[id] || '')}</b> ${dead ? '✖' : ''} <span style="color:#ffd700">貢獻 ${Math.round((sh[id] || 0) * 100)}%</span><div style="width:96px;height:5px;background:#222"><i style="display:block;height:5px;width:${hp * 100}%;background:${hp > .3 ? '#33ff88' : '#ff3344'}"></i></div></div>`; }).join('');
+            return `<div style="margin-bottom:4px;opacity:${dead ? .55 : 1}"><b style="color:${this.local ? (LC_COL[this.order.indexOf(id)] || '#9ff') : (id === me ? '#ffea00' : '#9ff')}">${esc(this.nm[id] || '')}</b> ${dead ? '✖' : ''} <span style="color:#ffd700">貢獻 ${Math.round((sh[id] || 0) * 100)}%</span><div style="width:96px;height:5px;background:#222"><i style="display:block;height:5px;width:${hp * 100}%;background:${hp > .3 ? '#33ff88' : '#ff3344'}"></i></div></div>`; }).join('');
     },
 
     // ================= 結算：依貢獻比 =================
@@ -4937,7 +4937,7 @@ const LC_KEYS = [   // 移動鍵
     { u: 'KeyW', d: 'KeyS', l: 'KeyA', r: 'KeyD' },
     { u: 'KeyI', d: 'KeyK', l: 'KeyJ', r: 'KeyL' },
     { u: 'Numpad8', d: 'Numpad5', l: 'Numpad4', r: 'Numpad6' }];
-const LC_SW = ['Tab', 'Backspace', 'NumpadSubtract'], LC_USE = ['ShiftLeft', 'Enter', 'NumpadAdd'], LC_COL = ['#ffea00', '#38ef7d', '#ff66ff'];   // 切換成語鍵、使用成語鍵、各玩家的框框顏色
+const LC_SW = ['Tab', 'Backspace', 'NumpadSubtract'], LC_USE = ['ShiftLeft', 'Enter', 'NumpadAdd'], LC_COL = ['#ffea00', '#8fe3ff', '#ff3b30'];   // 切換成語鍵、使用成語鍵、各玩家的框框顏色
 const LC_HINT = ['WASD 移動・Tab 切換成語・左 Shift 使用', 'IJKL 移動・倒退鍵 切換成語・Enter 使用', '數字鍵盤 8／4／5／6 上左下右・「−」切換成語・「＋」使用'];
 const fleetFromSave = save => {   // 與 Game.load() 相同的規則：把帳號的存檔轉成機庫
     const f = {}; SHIPS.forEach(S => { f[S.id] = { own: S.price === 0, ...S.base }; });
@@ -5050,7 +5050,7 @@ const lcoop = window.lcoop = {
             el.querySelectorAll('.slot-subtitle').forEach(s => { s.innerHTML = s.innerHTML.replace(/按 \d 發動/, '選中後按使用鍵'); });
             el.querySelectorAll('.lc-tag').forEach(x => x.remove());
             el.style.boxShadow = own.map((k, j) => `0 0 0 ${3 * (j + 1)}px ${LC_COL[k]}`).join(',');
-            own.forEach(k => { const lx = [24, 50, 76][k] || 50; el.insertAdjacentHTML('beforeend', `<b class="lc-tag" style="position:absolute;left:${lx}%;bottom:calc(100% + 12px);transform:translateX(-50%);font-size:24px;font-weight:900;line-height:1;white-space:nowrap;pointer-events:none;color:${LC_COL[k]};-webkit-text-stroke:1px rgba(0,0,0,.85);text-shadow:0 0 6px #000,0 0 10px ${LC_COL[k]}">P${k + 1}</b>`); });
+            own.forEach(k => { const lx = [24, 50, 76][k] || 50; el.insertAdjacentHTML('beforeend', `<b class="lc-tag" style="position:absolute;left:${lx}%;bottom:calc(100% + 12px);transform:translateX(-50%);font-size:24px;font-weight:900;line-height:1;white-space:nowrap;pointer-events:none;color:${LC_COL[k]};-webkit-text-stroke:1px #000;paint-order:stroke fill">P${k + 1}</b>`); });
         });
     },
     paint() { if (coop.local && ['GAMEOVER', 'VICTORY'].includes(G.gameState)) this.renderResult(!!(coop.res && coop.res.win)); },
