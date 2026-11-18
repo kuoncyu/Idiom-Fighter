@@ -384,7 +384,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261118c', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261118e', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -3260,9 +3260,15 @@ const online = window.online = {
         ui(`<div class="menu-overlay" style="width:min(94vw,520px)"><h2 class="shop-title">線上排行榜</h2>${cats}<div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderRank('${t[0]}')">${t[1]}</button>`).join('')}</div>${sb}
             <div class="lst" id="rk-list">載入中…</div><p class="muted">${note}</p><button class="btn" style="margin-top:8px" onclick="online.renderRankHome()">返回榜單類別</button>${BACK}</div>`);
         try {
-            const s = await db.collection('users').orderBy(sp.key, sp.asc ? 'asc' : 'desc').limit(40).get(); if (G.gameState !== 'RANK') return;
+            const s = await db.collection('users').orderBy(sp.key, sp.asc ? 'asc' : 'desc').limit(sp.mates ? 80 : 40).get(); if (G.gameState !== 'RANK') return;
             // 管理員帳號只用於測試與管理，不列入排行榜
-            const docs = s.docs.filter(d => { const x = d.data(); return x.username !== ADMIN_USER && !x.hideRank && x[sp.ms] !== undefined && (sp.time || x[sp.ms] > 0); }).slice(0, 20);
+            let docs = s.docs.filter(d => { const x = d.data(); return x.username !== ADMIN_USER && !x.hideRank && x[sp.ms] !== undefined && (sp.time || x[sp.ms] > 0); });
+            if (sp.mates) {   // 多人榜：同一支隊伍只列一筆（以隊長那筆為主，隊員不重複上榜），隊員名單列在名字下方
+                const tm = d => { const x = d.data(), m = Array.isArray(x[sp.mates]) ? x[sp.mates] : []; return x[sp.ms] + '|' + m.join(','); }, by = new Map();
+                docs.forEach(d => { const k = tm(d), cap = ((d.data()[sp.mates] || [])[0]), cur = by.get(k); if (!cur || (d.data().name === cap && cur.data().name !== cap)) by.set(k, d); });
+                docs = docs.filter(d => by.get(tm(d)) === d);
+            }
+            docs = docs.slice(0, 20);
             // 破關紀錄 → 破紀錄當下使用的戰機；其他（成就）→ 該玩家最常使用的戰機
             const rows = docs.map((d, i) => { const x = d.data(), v = sp.time ? fmtTime(x[sp.ms]) : Number(x[sp.ms] || 0).toLocaleString() + unit, sid = sp.time ? (x[sp.ship] || this.topShip(x)) : this.topShip(x);
                 const mates = sp.mates && Array.isArray(x[sp.mates]) && x[sp.mates].length ? `<br><small style="color:#9ab">隊員：${x[sp.mates].map(esc).join('、')}</small>` : '';
@@ -4221,7 +4227,7 @@ const COOP_FIELDS = ['hp', 'maxHp', 'shield', 'st', 'skin', 'shipId', 'covLv', '
 // quad  四機同體：Boss 分成上下左右四台，共用同一條血條 → 環陣號全向火網
 const COOP_AFFIX = { 1: 'combo', 2: 'heavy', 3: 'quad', 4: 'aegis', 5: 'heavy', 6: 'combo', 7: 'aegis', 8: 'wide', 9: 'final' };   // 想換關卡就改這張表（final＝終焉：輪流切換各種詞綴的閹割版）
 window.COOP_AFFIX = COOP_AFFIX;   // Game.draw（第一個 script）也要讀這張表；這裡在 IIFE 裡，不公開的話 Boss 一出現畫面迴圈就會因 ReferenceError 中斷而卡死
-const COMBO_WIN = 1.0, COMBO_DEDUP = 0.08, COMBO_NEED = { 1: 5, 6: 8 }, COMBO_CD = 5, HEAVY_MIN = { 2: 6, 5: 10 }, AEGIS_MUL = 3, WIDE_HEAL = 0.05, WIDE_DMG = 0.6;   // COMBO_CD：護盾破裂後幾秒重生；WIDE_HEAL：巨艦每擊中我方一次回復的最大血量比例
+const COMBO_WIN = 1.0, COMBO_DEDUP = 0.08, COMBO_NEED = { 1: 10, 6: 20 }, COMBO_CD = 5, HEAVY_MIN = { 2: 6, 5: 10 }, AEGIS_MUL = 3, WIDE_HEAL = 0.05, WIDE_DMG = 0.6;   // COMBO_CD：護盾破裂後幾秒重生；WIDE_HEAL：巨艦每擊中我方一次回復的最大血量比例
 // 終焉（第 9 關）：每 FINAL_FORM_T 秒換一種形態，各詞綴的閹割版，沒有「四機同體」
 const FINAL_FORMS = ['combo', 'heavy', 'aegis', 'leech'], FINAL_FORM_T = 18, FINAL_NEED = 4, FINAL_CD = 8, FINAL_HEAVY = 5, FINAL_AEGIS = 1.5, FINAL_HEAL = 0.01;
 const FORM_TXT = {
