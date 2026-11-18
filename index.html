@@ -384,7 +384,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261117g', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261118c', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -2859,6 +2859,28 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n, l) => String(n).padStart(l, '0');
 const fmtTime = ms => { const s = ms / 1000, m = Math.floor(s / 60); return `${m}:${(s % 60).toFixed(1).padStart(4, '0')}`; };
+
+// ===== 多人闖關：解鎖規則與紀錄 =====
+// 內部關卡編號 1～9 ＝ 畫面上的第 10～18 關；每位玩家用 cl（位元遮罩）記錄「自己通關過」的多人關卡
+const COOP_ST = 9, coopBit = n => 1 << (n - 1), coopShow = n => n + 9, coopAll = () => [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const coopOpen = mask => { const s = new Set([1]); for (let n = 1; n <= COOP_ST; n++) if (((mask | 0) >> (n - 1)) & 1) { s.add(n); if (n < COOP_ST) s.add(n + 1); } return s; };   // 第 10 關永遠開放；通關過的關卡與它的下一關也開放（跳關通關只解鎖那一關與它的下一關，中間被跳過的不會解鎖）
+const coopTeamOpen = (capMask, memMasks) => { const s = coopOpen(capMask); memMasks.forEach(m => { for (let n = 1; n <= COOP_ST; n++) if (((m | 0) >> (n - 1)) & 1) s.add(n); }); return [...s].sort((a, b) => a - b); };   // 以隊長的紀錄為主；隊員通關過的關卡也算解鎖
+const coopClrHtml = r => { const c = r.clr || [], f = r.from || 1; if (!c.length && f === 1) return ''; return `<p style="margin:4px 0;color:#9fe;font-size:.85rem;line-height:1.5">${f > 1 ? `從第 ${coopShow(f)} 關出發（不計入全關時間）。` : ''}${c.length ? '破關時間：' + c.map(x => `第 ${coopShow(x[0])} 關 ${fmtTime(x[1])}`).join('　') : ''}${r.win && f === 1 && r.ms > 0 ? `　｜　全關 ${fmtTime(r.ms)}` : ''}</p>`; };
+const coopPatch = (prof, res, row) => {   // 這一場結算後，要寫進某位玩家資料的欄位（只在比個人紀錄更快時才更新該關紀錄；一起破關的隊員一併記下）
+    const patch = {}, at = Date.now(), names = (res.rows || []).map(r => String(r.name || '').replace(/^P\d /, '')); let mask = prof.cl | 0;
+    (res.clr || []).forEach(([st, ms]) => {
+        if (!(ms > 0) || st < 1 || st > COOP_ST) return; mask |= coopBit(st);
+        const k = 'c' + st, old = prof[k + 'Ms'];
+        if (old === undefined || ms < old) { patch[k + 'Ms'] = ms; patch[k + 'Ship'] = (row && row.sid) || 'star'; patch[k + 'Key'] = pad(ms, 9) + pad(at, 14); patch[k + 'Mates'] = names; }
+    });
+    if (res.win && (res.from || 1) === 1 && res.ms > 0 && (prof.cClearMs === undefined || res.ms < prof.cClearMs)) { patch.cClearMs = res.ms; patch.cClearShip = (row && row.sid) || 'star'; patch.cClearKey = pad(res.ms, 9) + pad(at, 14); patch.cClearMates = names; }
+    if (mask !== (prof.cl | 0)) patch.cl = mask;
+    return patch;
+};
+
+// ===== 排行榜分類 =====
+const RANK_ACH = [['totalDM', '累積暗物質', ' DM'], ['spentDM', '花費暗物質', ' DM'], ['totalGalaxy', '累積銀河幣', ''], ['spentGalaxy', '花費銀河幣', ''], ['pkWins', 'PK 勝場', ' 勝']];
+const RANK_CLR = [['bestScore', '破關分數'], ['clear', '單人總破關時間'], ['cclear', '多人總破關時間'], ['stage', '各關卡']];
 const ui = html => { G.uiLayer.innerHTML = html; };
 const toast = (msg, ms = 2800) => {
     let t = $('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; $('game-container').appendChild(t); }
@@ -3068,7 +3090,7 @@ const online = window.online = {
     readMirror() { try { return JSON.parse(localStorage.getItem(MIRROR) || 'null'); } catch (e) { return null; } },
     writeMirror() {
         const uid = this.user ? this.user.uid : this.offlineUid; if (!uid || !this.profile) return;
-        const keys = ['bestScore', 'totalDM', 'spentDM', 'pkWins', 'pkLosses', 'bestClearMs', 'clearAt', 'clearKey', 'tutorialDone', 'shipUse', 'topShip', 'clearShip', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].flatMap(n => ['s' + n + 'Ms', 's' + n + 'Key', 's' + n + 'Ship'])], pr = {}; keys.forEach(k => { if (this.profile[k] !== undefined) pr[k] = this.profile[k]; });
+        const keys = ['bestScore', 'totalDM', 'spentDM', 'pkWins', 'pkLosses', 'bestClearMs', 'clearAt', 'clearKey', 'tutorialDone', 'shipUse', 'topShip', 'clearShip', 'totalGalaxy', 'spentGalaxy', 'galaxy', 'cl', 'cClearMs', 'cClearKey', 'cClearShip', 'cClearMates', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].flatMap(n => ['s' + n + 'Ms', 's' + n + 'Key', 's' + n + 'Ship', 'c' + n + 'Ms', 'c' + n + 'Key', 'c' + n + 'Ship', 'c' + n + 'Mates'])], pr = {}; keys.forEach(k => { if (this.profile[k] !== undefined) pr[k] = this.profile[k]; });
         let sv = null; try { sv = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); } catch (e) {}
         try { localStorage.setItem(MIRROR, JSON.stringify({ uid, username: this.profile.username, name: this.profile.name, profile: pr, save: sv, dirty: !!(this.offline || this._dirty), updatedAt: Date.now() })); } catch (e) {}
     },
@@ -3100,9 +3122,14 @@ const online = window.online = {
     pushNow() {
         if (!this.user || !this.profile || !db || this._pendingAdmin) return;
         let sv = null; try { sv = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); } catch (e) {}
-        const doc = Object.assign({}, this.profile, { save: sv, darkMatter: G.darkMatter, updatedAt: Date.now() });
+        const doc = Object.assign({}, this.profile, { save: sv, darkMatter: G.darkMatter, galaxy: G.galaxy, updatedAt: Date.now() });
         if (this.isAdmin || this.profile.username === ADMIN_USER) doc.hideRank = true;   // 管理員不列入排行榜
         db.collection('users').doc(this.user.uid).set(doc, { merge: true }).then(() => { this._dirty = false; this.writeMirror(); }).catch(() => {});
+    },
+    coopMask() { return this.profile ? (this.profile.cl | 0) : 0; },
+    recordCoop(res, row) {   // 多人闖關結算：把這場的各關破關時間、隊員名單與解鎖寫進自己的資料
+        if (!this.profile || this.free || this.offline) return; const p = coopPatch(this.profile, res, row || {}); if (!Object.keys(p).length) return;
+        Object.assign(this.profile, p); this.queuePush(); clearTimeout(this._pt); this.pushNow();
     },
     stat(k, d) { if (!this.profile) return; this.profile[k] = (this.profile[k] || 0) + d; this.queuePush(); },
     topShip(p) { const u = (p && p.shipUse) || {}; let best = null, n = 0; Object.keys(u).forEach(k => { if (u[k] > n) { n = u[k]; best = k; } }); return best || (p && p.topShip) || 'star'; },
@@ -3161,7 +3188,7 @@ const online = window.online = {
     // ===== 畫面分派 =====
     renderState(st) {
         this.updateChatVis();
-        ({ LOGIN: () => this.renderLogin(false), RANK: () => this.renderRank('bestScore'), FRIENDS: () => this.renderFriends(), PK: () => this.renderPK(), COOP: () => coop.renderRoom(), NET: () => this.renderNet(),
+        ({ LOGIN: () => this.renderLogin(false), RANK: () => this.renderRankHome(), FRIENDS: () => this.renderFriends(), PK: () => this.renderPK(), COOP: () => coop.renderRoom(), NET: () => this.renderNet(),
            DB: () => this.renderDB(), DB2: () => this.renderDex('ship'), STATS: () => this.renderStats(), TUTORIAL: () => this.renderTutorial(0), ADMIN: () => this.renderAdmin('users') }[st])();
     },
     refresh() { const st = G.gameState; if (st === 'FRIENDS') this.renderFriends(); else if (st === 'PK') this.renderPK(); else if (st === 'COOP' && coop.room && coop.room.role === 'host') coop.renderRoom(); this.updateFriendDot(); this.renderInvites(); },
@@ -3191,8 +3218,8 @@ const online = window.online = {
         const row = (k, v) => `<div class="rrow"><span>${k}</span><b>${v}</b></div>`;
         const uses = SHIPS.filter(x => use[x.id]).sort((a, b) => use[b.id] - use[a.id]).map(x => `${x.name} ${use[x.id]} 次`).join('、') || '尚無出擊紀錄';
         return `<img src="${shipImg(top.id)}" style="height:90px;object-fit:contain;filter:drop-shadow(0 0 8px ${top.c})" onerror="this.style.display='none'"><p style="margin:2px 0 8px;color:${top.c}">最常使用：${top.name}</p>
-            <div class="res-rows">${row('歷史最高分', p.bestScore || 0)}${row('累積暗物質', (p.totalDM || 0) + ' DM')}${row('已花費暗物質', (p.spentDM || 0) + ' DM')}
-            ${row('全關卡破關時間', p.bestClearMs !== undefined ? fmtTime(p.bestClearMs) : '尚未破關')}${row('PK 戰績', `${p.pkWins || 0} 勝 ${p.pkLosses || 0} 敗`)}${row('出擊次數', total)}</div>
+            <div class="res-rows">${row('歷史最高分', p.bestScore || 0)}${row('累積暗物質', (p.totalDM || 0) + ' DM')}${row('已花費暗物質', (p.spentDM || 0) + ' DM')}${row('累積銀河幣', p.totalGalaxy || 0)}${row('已花費銀河幣', p.spentGalaxy || 0)}
+            ${row('全關卡破關時間', p.bestClearMs !== undefined ? fmtTime(p.bestClearMs) : '尚未破關')}${row('多人闖關全關時間', p.cClearMs !== undefined ? fmtTime(p.cClearMs) : '尚未破關')}${row('PK 戰績', `${p.pkWins || 0} 勝 ${p.pkLosses || 0} 敗`)}${row('出擊次數', total)}</div>
             <p class="muted" style="margin:8px 0">${uses}</p>`;
     },
     renderStats() {
@@ -3211,20 +3238,35 @@ const online = window.online = {
     },
 
     // ===== 排行榜 =====
+    rankSpec(tab, st) {   // 各榜單對應的資料欄位：key＝排序用，ms＝數值，ship＝破紀錄當下戰機，mates＝一起破關的隊員
+        if (tab === 'stage') { const p = st >= 10 ? 'c' + (st - 9) : 's' + st; return { key: p + 'Key', ms: p + 'Ms', ship: p + 'Ship', mates: st >= 10 ? p + 'Mates' : '', asc: true, time: true }; }
+        if (tab === 'clear') return { key: 'clearKey', ms: 'bestClearMs', ship: 'clearShip', asc: true, time: true };
+        if (tab === 'cclear') return { key: 'cClearKey', ms: 'cClearMs', ship: 'cClearShip', mates: 'cClearMates', asc: true, time: true };
+        return { key: tab, ms: tab, asc: false };
+    },
+    stageTabs(fn, st) { return `<div class="tabs">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button class="${n === st ? 'on' : ''}" onclick="${fn}('stage',${n})">第${n}關</button>`).join('')}</div><div class="tabs">${[10, 11, 12, 13, 14, 15, 16, 17, 18].map(n => `<button class="${n === st ? 'on' : ''}" onclick="${fn}('stage',${n})">第${n}關</button>`).join('')}</div>`; },
+    renderRankHome() {   // 排行榜首頁：兩大類功能磚
+        const T = (a, b, h, sm, ico, onclick) => `<div class="tile w2" style="--a:${a};--b:${b}" onclick="${onclick}"><h4>${h}</h4><small>${sm}</small><span class="ico">${ico}</span></div>`;
+        ui(`<div class="menu-overlay" style="width:min(94vw,580px)"><h2 class="shop-title">線上排行榜</h2>
+            <p class="muted" style="line-height:1.6;text-align:left">・<b>成就排行榜</b>：累積與花費的暗物質、銀河幣，以及 PK 勝場。<br>・<b>破關排行榜</b>：破關分數、單人／多人總破關時間，以及第 1～18 關的各關卡破關時間（第 10～18 關是多人闖關，會列出一起破關的隊員）。</p>
+            <div class="tiles" style="grid-template-columns:repeat(2,1fr)">${T('#f7971e', '#ffd200', '成就排行榜', '暗物質・銀河幣・PK 勝場', '★', "online.renderRank('totalDM')")}${T('#00b09b', '#96c93d', '破關排行榜', '分數・總時間・各關卡', '⚔', "online.renderRank('bestScore')")}</div>${BACK}</div>`);
+    },
     async renderRank(tab, st) {
-        st = st || this.rankStage || 1; this.rankStage = st;
-        const T = [['bestScore', '最高分數'], ['totalDM', '累積暗物質'], ['spentDM', '花費排行'], ['clear', '全關破關時間'], ['stage', '各關卡']];
-        const sb = tab === 'stage' ? `<div class="tabs">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button class="${n === st ? 'on' : ''}" onclick="online.renderRank('stage',${n})">第${n}關</button>`).join('')}</div>` : '';
-        ui(`<div class="menu-overlay" style="width:min(94vw,520px)"><h2 class="shop-title">線上排行榜</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderRank('${t[0]}')">${t[1]}</button>`).join('')}</div>${sb}
-            <div class="lst" id="rk-list">載入中…</div><p class="muted">${tab === 'clear' ? '從第 1 關出發並全部通關；時間越短越前面，時間相同則先達成者排前面' : tab === 'stage' ? `第 ${st} 關（${bossLabel(st)}）：從該關第 1 區塊開始到擊敗 Boss 的時間，越短越前面` : '前 20 名'}</p>${BACK}</div>`);
+        const ach = RANK_ACH.some(t => t[0] === tab); st = st || this.rankStage || 1; this.rankStage = st;
+        const cats = `<div class="tabs"><button class="${ach ? 'on' : ''}" onclick="online.renderRank('totalDM')">成就排行榜</button><button class="${ach ? '' : 'on'}" onclick="online.renderRank('bestScore')">破關排行榜</button></div>`;
+        const T = ach ? RANK_ACH : RANK_CLR, sp = this.rankSpec(tab, st), unit = (RANK_ACH.find(t => t[0] === tab) || [])[2] || '';
+        const sb = tab === 'stage' ? this.stageTabs('online.renderRank', st) : '';
+        const note = tab === 'clear' ? '單人：從第 1 關出發並全部通關；時間越短越前面，時間相同則先達成者排前面' : tab === 'cclear' ? '多人闖關：從第 10 關出發並通關第 18 關；時間越短越前面，並列出一起破關的隊員' : tab === 'stage' ? (st >= 10 ? `第 ${st} 關（${bossLabel(st - 9)}）多人闖關：從該關第 1 區塊開始到擊敗 Boss 的時間，越短越前面，並列出一起破關的隊員` : `第 ${st} 關（${bossLabel(st)}）：從該關第 1 區塊開始到擊敗 Boss 的時間，越短越前面`) : tab === 'bestScore' ? '單人出擊的歷史最高分（前 20 名）' : '前 20 名';
+        ui(`<div class="menu-overlay" style="width:min(94vw,520px)"><h2 class="shop-title">線上排行榜</h2>${cats}<div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderRank('${t[0]}')">${t[1]}</button>`).join('')}</div>${sb}
+            <div class="lst" id="rk-list">載入中…</div><p class="muted">${note}</p><button class="btn" style="margin-top:8px" onclick="online.renderRankHome()">返回榜單類別</button>${BACK}</div>`);
         try {
-            const q = tab === 'stage' ? db.collection('users').orderBy('s' + st + 'Key', 'asc').limit(30) : tab === 'clear' ? db.collection('users').orderBy('clearKey', 'asc').limit(30) : db.collection('users').orderBy(tab, 'desc').limit(30);
-            const s = await q.get(); if (G.gameState !== 'RANK') return;
+            const s = await db.collection('users').orderBy(sp.key, sp.asc ? 'asc' : 'desc').limit(40).get(); if (G.gameState !== 'RANK') return;
             // 管理員帳號只用於測試與管理，不列入排行榜
-            const docs = s.docs.filter(d => { const x = d.data(); return x.username !== ADMIN_USER && !x.hideRank; }).slice(0, 20);
+            const docs = s.docs.filter(d => { const x = d.data(); return x.username !== ADMIN_USER && !x.hideRank && x[sp.ms] !== undefined && (sp.time || x[sp.ms] > 0); }).slice(0, 20);
             // 破關紀錄 → 破紀錄當下使用的戰機；其他（成就）→ 該玩家最常使用的戰機
-            const rows = docs.map((d, i) => { const x = d.data(), v = tab === 'stage' ? fmtTime(x['s' + st + 'Ms']) : tab === 'clear' ? fmtTime(x.bestClearMs) : (x[tab] || 0), sid = tab === 'stage' ? (x['s' + st + 'Ship'] || this.topShip(x)) : tab === 'clear' ? (x.clearShip || this.topShip(x)) : this.topShip(x);
-                return `<div class="rk ${this.user && d.id === this.user.uid ? 'me' : ''}"><b class="n">${i + 1}</b><img src="${shipImg(sid)}" onerror="this.style.visibility='hidden'"><span>${esc(x.name)}</span><b>${v}</b></div>`; });
+            const rows = docs.map((d, i) => { const x = d.data(), v = sp.time ? fmtTime(x[sp.ms]) : Number(x[sp.ms] || 0).toLocaleString() + unit, sid = sp.time ? (x[sp.ship] || this.topShip(x)) : this.topShip(x);
+                const mates = sp.mates && Array.isArray(x[sp.mates]) && x[sp.mates].length ? `<br><small style="color:#9ab">隊員：${x[sp.mates].map(esc).join('、')}</small>` : '';
+                return `<div class="rk ${this.user && d.id === this.user.uid ? 'me' : ''}"><b class="n">${i + 1}</b><img src="${shipImg(sid)}" onerror="this.style.visibility='hidden'"><span>${esc(x.name)}${mates}</span><b>${v}</b></div>`; });
             $('rk-list').innerHTML = rows.length ? rows.join('') : '<p class="muted">還沒有人上榜</p>';
         } catch (e) { const l = $('rk-list'); if (l) l.textContent = errMsg(e); }
     },
@@ -3569,25 +3611,23 @@ const online = window.online = {
     async adRank(board, st) {
         board = board || (this._adRk && this._adRk.board) || 'bestScore'; st = st || (this._adRk && this._adRk.st) || 1; this._adRk = { board, st };
         const box = $('ad-rk'); if (!box) return; const adb = this.adminDb || db;
-        const T = [['bestScore', '最高分數'], ['totalDM', '累積暗物質'], ['spentDM', '花費排行'], ['clear', '全關破關時間'], ['stage', '各關卡']];
-        const sub = board === 'stage' ? `<div class="tabs">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button class="${n === st ? 'on' : ''}" onclick="online.adRank('stage',${n})">第${n}關</button>`).join('')}</div>` : '';
+        const T = [...RANK_ACH, ...RANK_CLR], sp = this.rankSpec(board, st);
+        const sub = board === 'stage' ? this.stageTabs('online.adRank', st) : '';
         box.innerHTML = `<div class="tabs">${T.map(t => `<button class="${t[0] === board ? 'on' : ''}" onclick="online.adRank('${t[0]}')">${t[1]}</button>`).join('')}</div>${sub}<div class="lst" id="ad-rk-list">載入中…</div><p class="muted" id="ad-rk-msg">按「刪除」會清除該玩家在這個榜上的這一筆紀錄（玩家其他資料不受影響）。</p>`;
         try {
-            const q = board === 'stage' ? adb.collection('users').orderBy('s' + st + 'Key', 'asc').limit(50) : board === 'clear' ? adb.collection('users').orderBy('clearKey', 'asc').limit(50) : adb.collection('users').orderBy(board, 'desc').limit(50);
-            const s = await q.get(); if (!$('ad-rk-list') || !this._adRk || this._adRk.board !== board || this._adRk.st !== st) return;
-            this._adRkRows = s.docs.map(d => ({ uid: d.id, x: d.data() })).filter(r => (board === 'stage' ? r.x['s' + st + 'Ms'] : board === 'clear' ? r.x.bestClearMs : r.x[board]) !== undefined && (board === 'stage' || board === 'clear' || r.x[board] > 0));
-            $('ad-rk-list').innerHTML = this._adRkRows.length ? this._adRkRows.map((r, i) => { const x = r.x, v = board === 'stage' ? fmtTime(x['s' + st + 'Ms']) : board === 'clear' ? fmtTime(x.bestClearMs) : (x[board] || 0);
+            const s = await adb.collection('users').orderBy(sp.key, sp.asc ? 'asc' : 'desc').limit(50).get(); if (!$('ad-rk-list') || !this._adRk || this._adRk.board !== board || this._adRk.st !== st) return;
+            this._adRkRows = s.docs.map(d => ({ uid: d.id, x: d.data() })).filter(r => r.x[sp.ms] !== undefined && (sp.time || r.x[sp.ms] > 0));
+            $('ad-rk-list').innerHTML = this._adRkRows.length ? this._adRkRows.map((r, i) => { const x = r.x, v = sp.time ? fmtTime(x[sp.ms]) : (x[sp.ms] || 0);
                 return `<div class="row"><b class="n">${i + 1}</b><span>${esc(x.name || '')} <small style="color:#aaa">${esc(x.username || '')}${x.hideRank || x.username === ADMIN_USER ? '・不上榜' : ''}</small></span><b>${v}</b><button class="sm red" onclick="online.adRkDel(${i})">刪除</button></div>`; }).join('') : '<p class="muted">這個榜目前沒有紀錄</p>';
         } catch (e) { const l = $('ad-rk-list'); if (l) l.textContent = errMsg(e); }
     },
     async adRkDel(i) {
         const r = (this._adRkRows || [])[i], rk = this._adRk, adb = this.adminDb || db, m = $('ad-rk-msg'); if (!r || !rk) return;
-        const x = r.x, board = rk.board, st = rk.st, del = firebase.firestore.FieldValue.delete();
-        const label = { bestScore: '最高分數', totalDM: '累積暗物質', spentDM: '花費排行', clear: '全關破關時間', stage: `第 ${st} 關` }[board];
+        const x = r.x, board = rk.board, st = rk.st, del = firebase.firestore.FieldValue.delete(), sp = this.rankSpec(board, st);
+        const label = board === 'stage' ? `第 ${st} 關` : ([...RANK_ACH, ...RANK_CLR].find(t => t[0] === board) || [])[1] || board;
         if (!confirm(`確定要刪除「${x.name || x.username || r.uid}」在【${label}】榜上的紀錄嗎？\n此動作無法復原。`)) return;
         const now = Date.now(), upd = { adminAt: now, updatedAt: now };
-        if (board === 'stage') { upd['s' + st + 'Ms'] = del; upd['s' + st + 'Key'] = del; upd['s' + st + 'Ship'] = del; }
-        else if (board === 'clear') { upd.bestClearMs = del; upd.clearAt = del; upd.clearKey = del; upd.clearShip = del; }
+        if (sp.time) { [sp.key, sp.ms, sp.ship, sp.mates].filter(Boolean).forEach(k => { upd[k] = del; }); if (board === 'clear') upd.clearAt = del; }
         else upd[board] = 0;
         try { await adb.collection('users').doc(r.uid).set(upd, { merge: true }); await this.adRank(board, st); const mm = $('ad-rk-msg'); if (mm) mm.textContent = `已刪除「${x.name || x.username}」的${label}紀錄`; }
         catch (e) { if (m) m.textContent = errMsg(e); }
@@ -3663,7 +3703,7 @@ const online = window.online = {
             await adb.collection('users').doc(T.uid).set(upd, { merge: true }); if (m) m.textContent = okMsg || '已更新'; return true;
         } catch (e) { if (m) m.textContent = errMsg(e); }
     },
-    async adSaveSave(msg) { const T = this._adT; if (await this.adWrite({ save: T.save, darkMatter: T.save.dm || 0 }, msg)) this.adCard(); },
+    async adSaveSave(msg) { const T = this._adT; if (await this.adWrite({ save: T.save, darkMatter: T.save.dm || 0, galaxy: T.save.g || 0 }, msg)) this.adCard(); },
     adSetDM() { const v = Math.max(0, Math.floor(+($('ad-dm') || {}).value || 0)); this._adT.save.dm = v; this.adSaveSave(`已把暗物質設為 ${v}`); },
     adSetG() { const v = Math.max(0, Math.floor(+($('ad-g') || {}).value || 0)); this._adT.save.g = v; this.adSaveSave(`已把銀河幣設為 ${v}`); },
     adAddG(n) { const v = Math.max(0, Math.floor((this._adT.save.g || 0) + n)); this._adT.save.g = v; this.adSaveSave(`銀河幣已${n >= 0 ? '增加' : '減少'} ${Math.abs(n)}，目前 ${v}`); },
@@ -3676,7 +3716,8 @@ const online = window.online = {
     async adReset() {
         const T = this._adT; if (!T || !confirm('確定要把這個帳號重置回全新狀態嗎？（存檔、暗物質、戰機、分數統計都會清空）')) return;
         const del = firebase.firestore.FieldValue.delete(), z = { save: del, darkMatter: 0, bestScore: 0, totalDM: 0, spentDM: 0, pkWins: 0, pkLosses: 0, bestClearMs: del, clearAt: del, clearKey: del, tutorialDone: false };
-        for (let n = 1; n <= 9; n++) { z['s' + n + 'Ms'] = del; z['s' + n + 'Key'] = del; z['s' + n + 'Ship'] = del; }
+        for (let n = 1; n <= 9; n++) { z['s' + n + 'Ms'] = del; z['s' + n + 'Key'] = del; z['s' + n + 'Ship'] = del; z['c' + n + 'Ms'] = del; z['c' + n + 'Key'] = del; z['c' + n + 'Ship'] = del; z['c' + n + 'Mates'] = del; }
+        Object.assign(z, { cl: del, cClearMs: del, cClearKey: del, cClearShip: del, cClearMates: del, totalGalaxy: 0, spentGalaxy: 0, galaxy: 0 });
         if (await this.adWrite(z, '帳號已重置')) { await this.adLoad(T.uid); }
     },
     async adBan() {
@@ -4125,7 +4166,7 @@ wrap('renderLobby', function (o) { if (online._pendingAdmin && !['PLAYING', 'TRA
 wrap('draw', function (o) { o.call(this); if (this.pkMode && this.gameState === 'PLAYING' && online.pk) online.drawGhost(this.ctx); });
 wrap('save', function (o) { if (this._pkFleet && this._realFleet) { const f = this.fleet, mg = this.magnetLvl, sl = this.maxSlots; this.fleet = this._realFleet; if (this._realMg !== undefined && this._realMg !== null) { this.magnetLvl = this._realMg; this.maxSlots = this._realSl; } try { o.call(this); } finally { this.fleet = f; this.magnetLvl = mg; this.maxSlots = sl; } } else o.call(this); online.queuePush(); });   // PK 期間存檔一律存真實進度，不會把 PK 用的 3 級數值存進去
 wrap('dropDarkMatter', function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = this.darkMatter - b; if (d > 0) online.stat('totalDM', d); });
-['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); }));
+['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter, g0 = this.galaxy; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); const gd = g0 - this.galaxy; if (gd > 0) online.stat('spentGalaxy', gd); }));
 wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; this.runStageClears = {}; this.runClearLog = {}; this.stageStart = 0; this.stageStartFor = this.currentStage; this.runSeq = (this.runSeq || 0) + 1; });
 wrap('startNewGame', function (o) { if (!this.pkMode && FORCE_UPDATE.gate()) return; o.call(this); });   // 不是最新版：不能開始出擊
 wrap('setState', function (o, state) { if (!['INIT', 'PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(state)) FORCE_UPDATE.gate(); return o.call(this, state); });   // 不是最新版：離開結算、進入大廳或任何選單時，立刻跳出更新視窗
@@ -4213,7 +4254,14 @@ const coop = {
         const st = G.statsOf(sid), S = G.ship(sid);
         return { sid, len: st.len || 0, dmg: st.dmg, iv: st.iv, pen: st.pen, crit: st.crit, hp: st.hp, spd: st.spd, cov: G.lvOf(sid, 'cov'), wl: G.lvOf(sid, 'dmg'), r: S.r, mg: G.magnetLvl, sl: G.maxSlots };
     },
-    memberDoc(sid, ready) { return { name: online.profile.name, sid, ready: !!ready, at: Date.now(), st: this.pack(sid) }; },
+    memberDoc(sid, ready) { return { name: online.profile.name, sid, ready: !!ready, at: Date.now(), st: this.pack(sid), cl: online.coopMask() }; },
+    // ---- 起始關卡：以隊長（房主）的通關紀錄為主，隊員通關過的關卡也算解鎖 ----
+    roomOpen(d) { const M = this.members(), me = this.me(), cap = M.find(m => m.id === d.host) || {}; return coopTeamOpen(d.host === me ? online.coopMask() : (cap.cl | 0), M.filter(m => m.id !== d.host).map(m => m.id === me ? online.coopMask() : (m.cl | 0))); },
+    roomStage(d) { const o = this.roomOpen(d), s = (d.stage | 0) || 1; return o.includes(s) ? s : (o.filter(n => n <= s).pop() || 1); },
+    stepStage(dir) {
+        const r = this.room; if (!r || r.role !== 'host' || !r.data || r.data.state !== 'lobby') return; const o = this.roomOpen(r.data), i = o.indexOf(this.roomStage(r.data)), n = o[Math.max(0, Math.min(o.length - 1, i + dir))];
+        online.roomRef(r.code).update({ stage: n }).catch(e => toast(errMsg(e)));
+    },
 
     // ================= 房間（大廳） =================
     async create() {
@@ -4272,15 +4320,15 @@ const coop = {
     },
     setShip(id) {
         if (!this.room || !G.fleet[id] || !G.fleet[id].own) return; G.shipId = id; G.applyUpgrades(); G.save();
-        online.roomRef(this.room.code).update({ ['members.' + this.me() + '.sid']: id, ['members.' + this.me() + '.st']: this.pack(id) }).catch(e => toast(errMsg(e)));
+        online.roomRef(this.room.code).update({ ['members.' + this.me() + '.sid']: id, ['members.' + this.me() + '.st']: this.pack(id), ['members.' + this.me() + '.cl']: online.coopMask() }).catch(e => toast(errMsg(e)));
     },
     ready() {
         const m = ((this.room.data || {}).members || {})[this.me()] || {};
-        online.roomRef(this.room.code).update({ ['members.' + this.me() + '.ready']: !m.ready, ['members.' + this.me() + '.st']: this.pack(G.shipId), ['members.' + this.me() + '.sid']: G.shipId }).catch(e => toast(errMsg(e)));
+        online.roomRef(this.room.code).update({ ['members.' + this.me() + '.ready']: !m.ready, ['members.' + this.me() + '.st']: this.pack(G.shipId), ['members.' + this.me() + '.sid']: G.shipId, ['members.' + this.me() + '.cl']: online.coopMask() }).catch(e => toast(errMsg(e)));
     },
     start() {
         const M = this.members(); if (M.length < 2) return toast('多人闖關至少 2 人才能出擊（禁止單人）'); if (!M.every(m => m.ready)) return toast('還有隊員沒有準備');
-        online.roomRef(this.room.code).update({ state: 'playing', startAt: Date.now(), order: M.map(m => m.id), result: firebase.firestore.FieldValue.delete() }).catch(e => toast(errMsg(e)));
+        online.roomRef(this.room.code).update({ state: 'playing', startAt: Date.now(), order: M.map(m => m.id), stage: this.roomStage(this.room.data || {}), result: firebase.firestore.FieldValue.delete() }).catch(e => toast(errMsg(e)));
     },
     async invite(uid, name) {   // 邀請好友加入多人闖關房間（沒有房間就先建立一個）
         try {
@@ -4319,6 +4367,7 @@ const coop = {
             ${d.state === 'ended' ? '<p style="color:#ffd700">上一場已結束，等待房主重新開房…</p>' : ''}
             ${M.map((m, i) => `<div class="row"><span>${m.id === d.host ? '★ 房主' : '隊員'}：${esc(m.name)}　${this.shipName(m.sid)}</span><b style="color:${m.ready ? '#38ef7d' : '#9ab'}">${m.ready ? '已準備' : '未準備'}</b></div>`).join('')}
             ${M.length < 3 ? `<div class="row"><span style="color:#9ab">等待隊員加入…</span></div>` : ''}
+            ${(() => { const open = this.roomOpen(d), cs = this.roomStage(d); return `<h4>起始關卡</h4><div style="display:flex;gap:8px;align-items:center">${host && d.state === 'lobby' ? '<button class="sm" onclick="coop.stepStage(-1)">◀</button>' : ''}<b style="color:var(--neon-gold)">第 ${coopShow(cs)} 關</b>${host && d.state === 'lobby' ? '<button class="sm" onclick="coop.stepStage(1)">▶</button>' : ''}<small class="muted">Boss：${bossLabel(cs)}${host ? '' : '（由房主選擇）'}</small></div><small class="muted" style="display:block;line-height:1.5">可選：${open.map(coopShow).join('、')}。以房主（隊長）的通關紀錄為主，隊員通關過的關卡也會解鎖；跟著隊長跳關通關，只會記錄你實際破的那一關，被跳過的關卡不會解鎖。</small>`; })()}
             <h4>選擇戰機（含銀河幣突破的等級）</h4><div>${owned.map(S => `<button class="chip ${G.shipId === S.id ? 'on' : ''}" onclick="coop.setShip('${S.id}')">${S.name}</button>`).join('')}</div>
             <div style="display:flex;gap:8px;margin-top:10px">${host ? '' : `<button class="btn ${mine.ready ? '' : 'btn-start'}" onclick="coop.ready()">${mine.ready ? '取消準備' : '準備'}</button>`}
             ${host ? `<button class="btn btn-start" ${canStart ? '' : 'disabled'} onclick="coop.start()">${M.length < 2 ? '需要至少 2 人' : '出擊'}</button>` : ''}</div>
@@ -4342,7 +4391,7 @@ const coop = {
         G.applyUpgrades();
         G.maxSlots = Math.max(1, ...this.order.map(id => (mem[id] && mem[id].st && mem[id].st.sl) || 1));   // 成語列數量＝隊員中最多的那位
         G.shield = 0; G.pierceTimer = 0; G.missileTimer = 0; G.allies = []; G.allyTimer = 0; G.laserTimer = 0; G.invincibleTimer = 0; G.snipe = { c: 0, t: [], fx: [] };
-        G.hp = G.maxHp; G.slots = []; G.runClock = 0; G.runDM = 0; G.score = 0; G.runKills = 0; G.runCasts = 0; G.currentStage = 1; G.currentSub = 1; G.runSeq = (G.runSeq || 0) + 1; G.clearT = 0; G.runClearLog = {}; G.runStageClears = {};
+        G.hp = G.maxHp; G.slots = []; G.runClock = 0; G.runDM = 0; G.score = 0; G.runKills = 0; G.runCasts = 0; G.currentStage = this.startStage = Math.max(1, Math.min(COOP_ST, (d.stage | 0) || 1)); G.currentSub = 1; G.runSeq = (G.runSeq || 0) + 1; G.clearT = 0; G.runClearLog = {}; G.runStageClears = {};
         const el = document.querySelector('.hud-dm'); if (el && el.firstChild) el.firstChild.nodeValue = '銀河幣: ';
         const ref = online.roomRef(r.code);
         if (host) {
@@ -4372,6 +4421,13 @@ const coop = {
             const P = this.P[id], x = WORLD.w * (i + 1) / (N + 1), y = WORLD.h - 150; if (!P.alive) return;
             if (P.host) G.player.pos = new Vec2(x, y); else { P.s.player.pos = new Vec2(x, y); P.in = { x, y }; P.at = performance.now(); }
         }); this.resetSeq++;
+    },
+    revive(id, idiom) {   // 倒下的隊員用補血成語（如起死回生）原地重生：回復補血成語的血量，並無敵 5 秒
+        const P = this.P[id]; if (!P || P.alive || P.left) return;
+        const x = Math.max(40, Math.min(WORLD.w - 40, P.dx === undefined ? WORLD.w / 2 : P.dx)), y = Math.max(60, Math.min(WORLD.h - 40, P.dy === undefined ? WORLD.h - 150 : P.dy));
+        P.alive = true; if (!P.host && !this.local) { P.in = { x, y }; P.at = performance.now(); }
+        this.ctx(id, () => { G.player.pos.x = x; G.player.pos.y = y; G.hp = 0; G.shield = 0; G.allies = []; G.laserTimer = 0; G.applyIdiom(idiom); G.invincibleTimer = 5; });
+        G.showFloatText(`${P.name} ${idiom.word}！原地復活・無敵 5 秒`, WORLD.w / 2, WORLD.h * 0.5, '#7dffb0');
     },
     reviveAll() {   // 進入下一關：倒下的隊員以一半血量復活
         this.order.forEach(id => { const P = this.P[id]; if (P.alive || P.left) return; P.alive = true;
@@ -4498,7 +4554,9 @@ const coop = {
         const g = G, W = WORLD.w, H = WORLD.h, me = this.hostUid, ids = this.order, N = ids.length;
         if (this.cast) {   // 有人發動成語：所有玩家一起等 5 秒（戰場凍結），顯示完畢後才套用效果
             const c = this.cast; c.t -= dt; if (c.t > 0) return;
-            this.cast = null; if (this.P[c.id] && this.P[c.id].alive) { this.ctx(c.id, () => { g.applyIdiom(c.idiom); }); if (c.idiom.effect === 'SLOW_TIME') this.slowBy = this.nm[c.id] || ''; }
+            this.cast = null; const cp = this.P[c.id];
+            if (cp && cp.alive) { this.ctx(c.id, () => { g.applyIdiom(c.idiom); }); if (c.idiom.effect === 'SLOW_TIME') this.slowBy = this.nm[c.id] || ''; }
+            else if (cp && !cp.left && c.idiom.effect === 'HEAL') this.revive(c.id, c.idiom);   // 倒下的人用補血成語：原地復活
         }
         // 1) 移動：房主自己用鍵盤／拖曳；隊員跟著他們回報的位置走；倒下的人移出畫面
         if (this.P[me].alive) this.moveSelf(dt); else g.player.pos.y = -500;
@@ -4536,7 +4594,7 @@ const coop = {
             if (b.final && b.pos.y > 0) { b.formT -= dt; if (b.formT <= 0) { b.formT = FINAL_FORM_T; this.setForm(b, (b.fm + 1) % FINAL_FORMS.length); g.showFloatText('終焉變形！' + FORM_TXT[b.aff], WORLD.w / 2, WORLD.h * 0.56, AFFIX_COL[b.aff]); sfx.playReady(); } }
             if (b.aff === 'combo') { if (b.csUp) b.cmb = this.comboCount(b); else { b.cmb = 0; b.csT -= dt; if (b.csT <= 0) { b.csUp = true; b._cl.length = 0; g.showFloatText('連擊護盾重新生成', b.pos.x, b.pos.y + 70, '#ffea00'); } } }
             document.getElementById('boss-hp-fill').style.width = (b.hp / b.maxHp * 100) + '%';
-            if (b.hp <= 0) { this.coin(b.pos.x, b.pos.y, b.dmReward); g.runKills = (g.runKills || 0) + 1; g.enemyDrop({ type: 'BOSS', pos: b.pos }); sfx.playExplosion(); g.boss = null; g.bossClones = []; g.clearStage(true); }
+            if (b.hp <= 0) { this.coin(b.pos.x, b.pos.y, b.dmReward); g.runKills = (g.runKills || 0) + 1; g.enemyDrop({ type: 'BOSS', pos: b.pos }); sfx.playExplosion(); if (g.stageStart !== undefined && g.stageStartFor === g.currentStage) g.noteStageClear(g.currentStage, Math.round((g.runClock - g.stageStart) * 1000)); g.boss = null; g.bossClones = []; g.clearStage(true); }
         }
         // 5) 小怪移動與開火（各自鎖定一位隊員）
         { const real = g.player.pos;
@@ -4626,8 +4684,9 @@ const coop = {
         if (g.hp <= 0) this.kill(id);
     },
     kill(id) {
-        const P = this.P[id]; if (!P || !P.alive) return; P.alive = false; G.hp = 0; G.laserTimer = 0; G.allies = []; G.player.pos.y = -500;
-        G.showFloatText(`${P.name} 倒下了！打倒 Boss 後下一關復活`, WORLD.w / 2, WORLD.h * 0.4, '#ff6b6b');
+        const P = this.P[id]; if (!P || !P.alive) return; const dp = G.player.pos; if (dp.y > -100) { P.dx = dp.x; P.dy = dp.y; }   // 記下倒下的位置，補血成語復活時原地重生
+        P.alive = false; G.hp = 0; G.laserTimer = 0; G.allies = []; G.player.pos.y = -500;
+        G.showFloatText(`${P.name} 倒下了！用補血成語可原地復活，或打倒 Boss 後下一關復活`, WORLD.w / 2, WORLD.h * 0.4, '#ff6b6b');
     },
     leftP(id) {
         const P = this.P[id]; if (!P || P.left || this.ended) return; P.left = true; P.alive = false; if (!P.host) P.s.player.pos.y = -500;
@@ -4635,8 +4694,9 @@ const coop = {
         if (!this.aliveIds().length) this.end(false);
     },
     doUse(id, i) {   // 成語列共用：誰發動，效果就落在誰身上（由主控端依到達順序裁決，避免兩個人同時發動同一格）
-        const g = G, P = this.P[id]; if (!P || !P.alive || this.ended || this.cast || g.gameState !== 'PLAYING') return;   // 已有人在發動：全場暫停中，等這一個完成
+        const g = G, P = this.P[id]; if (!P || P.left || this.ended || this.cast || g.gameState !== 'PLAYING') return;   // 已有人在發動：全場暫停中，等這一個完成
         const s = g.slots[i]; if (!s || s.type !== 'READY') return;
+        if (!P.alive && s.effect !== 'HEAL') { const now = performance.now(); if (now - (P._dn || 0) > 1200) { P._dn = now; g.showFloatText(`${P.name} 已倒下：只能用補血成語復活`, WORLD.w / 2, WORLD.h * 0.4, '#ff9aa8'); } return; }   // 倒下時只有補血成語能用，其他成語不消耗
         const idiom = { word: s.word, effect: s.effect, desc: s.effectDesc }, r = g.pickIdiom();
         g.slots[i] = { type: 'COLLECTING', word: r.word, chars: [], effect: r.effect, effectDesc: r.desc };
         this.cast = { id, idiom, t: 5 }; sfx.playIdiomCast && sfx.playIdiomCast();   // 全場暫停 5 秒，成語顯示完畢才發動（hostUpdate 裡倒數）
@@ -4714,7 +4774,9 @@ const coop = {
         S.P.forEach(a => {
             const id = a[0];
             if (id === me) {
+                const wasDead = this.view[me] && this.view[me].alive === 0;   // 倒下→復活：把自己的戰機對齊主控端算好的復活位置
                 g.hp = a[3]; g.maxHp = a[4]; g.shield = a[5]; g.invincibleTimer = a[6]; g.laserTimer = a[7] ? 1 : 0; g.pierceTimer = a[10]; g.missileTimer = a[11];
+                if (wasDead && a[9]) g.player.pos = new Vec2(a[1], a[2]);
                 this.view[me] = { alive: a[9], hp: a[3], maxHp: a[4], shield: a[5], inv: a[6], laser: a[7], pierce: a[10], missile: a[11], ally: a[12] || 0 };
                 if (S.rs !== this.rsSeen) { this.rsSeen = S.rs; if (a[9]) g.player.pos = new Vec2(a[1], a[2]); }
             } else {
@@ -4791,7 +4853,7 @@ const coop = {
             ctx.save(); ctx.fillStyle = (this.local && LC_COL[this.order.indexOf(id)]) || '#9ff'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(this.nm[id] || '', x, y - 38 * S.s); ctx.restore();
         });
         const mv = this.vw(me), dead = G.coopHost ? !this.P[me].alive : (this.view[me] && this.view[me].alive === 0);
-        if (dead) { ctx.save(); ctx.textAlign = 'center'; ctx.font = "bold 20px " + KAI_FONT; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.fillStyle = '#ff9aa8'; const t = '你已倒下：打倒 Boss 進入下一關後，會以半血復活'; ctx.strokeText(t, WORLD.w / 2, 120); ctx.fillText(t, WORLD.w / 2, 120); ctx.restore(); }
+        if (dead) { ctx.save(); ctx.textAlign = 'center'; ctx.font = "bold 20px " + KAI_FONT; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.fillStyle = '#ff9aa8'; const t = '你已倒下：使用補血成語（如起死回生）可原地復活並無敵 5 秒；或打倒 Boss 後以半血復活'; ctx.strokeText(t, WORLD.w / 2, 120); ctx.fillText(t, WORLD.w / 2, 120); ctx.restore(); }
     },
     paintBuffs() {   // 左上角：全隊的成語效果，每一條都註明是誰發動的（效果落在發動者身上；減速為全場效果）
         const g = G, me = this.me(), host = G.coopHost, rows = [];
@@ -4828,7 +4890,9 @@ const coop = {
     end(win) {   // 主控端：結束這場，算出貢獻比並通知所有人
         if (this.ended) return; this.ended = true;
         const rows = this.calc(this.order.filter(id => !this.P[id].left)); rows.forEach(r => { r.tank = Math.round(r.tank); r.dmg = Math.round(r.dmg); r.chr = Math.round(r.chr); });
-        const res = { win: !!win, st: G.currentStage, sb: G.currentSub, pool: Math.round(this.pool), rows, mid: this.mid };
+        rows.forEach(r => { const P = this.P[r.uid]; r.sid = P ? (P.host ? G.shipId : (P.s && P.s.shipId)) || 'star' : 'star'; });   // 各隊員用的戰機（紀錄榜顯示用）
+        const lg = G.runClearLog || {}, clr = Object.keys(lg).map(Number).sort((a, b) => a - b).map(k => [k, lg[k].ms]);
+        const res = { win: !!win, st: G.currentStage, sb: G.currentSub, pool: Math.round(this.pool), rows, mid: this.mid, from: this.startStage || 1, ms: Math.round(G.runClock * 1000), clr };
         if (this.room) online.roomRef(this.room.code).update({ state: 'ended', result: res }).catch(() => {});
         this.finish(res);
     },
@@ -4837,7 +4901,10 @@ const coop = {
         const mine = res.rows.find(r => r.uid === this.me());
         G.maxSlots = G._keepSlots || G.maxSlots;   // 還原自己原本的成語列數量
         if (this.local) lcoop.payout(res);   // 同機模式：遊戲結束才把各帳號的銀河幣一次寫入
-        else try { if (mine && localStorage.getItem('coopPaid') !== String(res.mid)) { localStorage.setItem('coopPaid', String(res.mid)); G.galaxy += mine.coins; G.save(); } } catch (e) {}
+        else {
+            try { if (mine) online.recordCoop(res, mine); } catch (e) {}
+            try { if (mine && localStorage.getItem('coopPaid') !== String(res.mid)) { localStorage.setItem('coopPaid', String(res.mid)); G.galaxy += mine.coins; online.stat('totalGalaxy', mine.coins); G.save(); } } catch (e) {}
+        }
         this.res = res; this.pauseMatch(); G.setState(res.win ? 'VICTORY' : 'GAMEOVER');
     },
     renderResult(win) {
@@ -4845,7 +4912,7 @@ const coop = {
         const rows = r.rows.map(x => `<tr style="${x.uid === me ? 'color:#ffd700;font-weight:bold' : ''}"><td style="text-align:left">${esc(x.name)}</td><td>${num(x.tank * SHOW)}<br><small>${pct(x.pt)}</small></td><td>${num(x.dmg * SHOW)}<br><small>${pct(x.pd)}</small></td><td>${num(x.chr)}<br><small>${pct(x.pc)}</small></td><td>${pct(x.share)}</td><td style="color:#ffd700">+${num(x.coins)}</td></tr>`).join('');
         const mine = r.rows.find(x => x.uid === me);
         ui(`<div class="menu-overlay" style="width:min(96vw,560px)"><h1 style="color:${win ? 'var(--neon-gold)' : '#ff6b6b'};margin:0 0 4px">${win ? '多人闖關・完全勝利' : '多人闖關・任務結束'}</h1>
-            <p style="margin:4px 0 8px">到達第 ${r.st + 9} 關　團隊銀河幣 <b style="color:#ffd700">${num(r.pool)}</b></p>
+            <p style="margin:4px 0 8px">到達第 ${r.st + 9} 關　團隊銀河幣 <b style="color:#ffd700">${num(r.pool)}</b></p>${coopClrHtml(r)}
             <table style="width:100%;border-collapse:collapse;text-align:center;font-size:.85rem;line-height:1.35"><tr style="color:#9ab"><th style="text-align:left">隊員</th><th>承受傷害</th><th>輸出傷害</th><th>蒐集字卡</th><th>貢獻比</th><th>銀河幣</th></tr>${rows}</table>
             <p class="muted" style="margin:8px 0">貢獻比＝承受傷害 45%＋輸出傷害 35%＋蒐集字卡 20%（各項看你占全隊的比例），再保留 15% 出席保底${mine ? '' : '。你中途離開，沒有銀河幣'}。</p>
             ${mine ? `<p style="color:#ffd700">你獲得 <b>${num(mine.coins)}</b> 銀河幣，持有 ${num(G.galaxy)}。可到「戰機管理」突破等級上限。</p>` : ''}
@@ -4853,7 +4920,7 @@ const coop = {
     },
     again() {
         const r = this.room; this.cleanupMatch();
-        if (r && r.role === 'host' && r.data) { const p = { state: 'lobby', result: firebase.firestore.FieldValue.delete() }; Object.keys(r.data.members || {}).forEach(id => { if (r.data.members[id] && id !== r.data.host) p['members.' + id + '.ready'] = false; }); online.roomRef(r.code).update(p).catch(() => {}); }
+        if (r && r.role === 'host' && r.data) { const p = { state: 'lobby', result: firebase.firestore.FieldValue.delete(), ['members.' + r.data.host + '.cl']: online.coopMask() }; Object.keys(r.data.members || {}).forEach(id => { if (r.data.members[id] && id !== r.data.host) p['members.' + id + '.ready'] = false; }); online.roomRef(r.code).update(p).catch(() => {}); }
         G.setState('COOP');
     },
     toLobby() { this.cleanupMatch(); this.leaveRoom(true); G.setState('LOBBY'); },
@@ -4984,6 +5051,12 @@ const lcoop = window.lcoop = {
         return this._guest;
     },
     hasMain() { return !!(online.profile && !online.free); },
+    maskOf(pl) { return pl.kind === 'main' ? online.coopMask() : pl.kind === 'acct' ? (pl.cl | 0) : 0; },
+    openStages() {   // 起始關卡：以玩家 1（隊長）的通關紀錄為主，其他已登入玩家通關過的關卡也算解鎖；單機離線模式全部開放
+        this.ensure(); if (online.free) return coopAll(); return coopTeamOpen(this.maskOf(this.pl[0]), this.pl.slice(1, this.n).map(p => this.maskOf(p)));
+    },
+    stageSel() { const o = this.openStages(), s = this.stage | 0 || 1; return o.includes(s) ? s : (o.filter(n => n <= s).pop() || 1); },
+    stepStage(d) { const o = this.openStages(), i = o.indexOf(this.stageSel()); this.stage = o[Math.max(0, Math.min(o.length - 1, i + d))]; this.render(); },
     loggedN() { this.ensure(); let c = 0; for (let i = 0; i < this.n; i++) { const k = this.pl[i].kind; if (k === 'main' || k === 'acct') c++; } return c; },   // 已登入帳號的玩家數（訪客不算）
     needMore() { return !online.free && this.loggedN() < 2; },   // 連線模式：至少 2 位玩家登入才能出擊
     ensure() {
@@ -5009,6 +5082,7 @@ const lcoop = window.lcoop = {
         ui(`<div class="menu-overlay" style="width:min(96vw,580px);max-height:94vh;overflow:auto"><h2 class="shop-title">同機多人闖關</h2>
             <p class="muted" style="line-height:1.6;text-align:left">2～3 人共用這個鍵盤協力闖關（難度比一般第 9 關更難）。<b>玩家 1 是主控端</b>（原本登入的帳號）；連線後可再登入另外 1～2 位玩家，用他們自己的戰機與裝備，沒登入的是訪客（不領獎勵）。<br>同機模式每位玩家用「切換」鍵選成語、「使用」鍵發動（不使用數字快捷鍵）；任何玩家發動成語時，<b>所有玩家暫停 5 秒</b>，等成語顯示完畢才發動。Boss 另有專屬能力（連擊護盾／重擊護甲／破甲彈／四機同體／巨艦），需要不同戰機分工。戰鬥中<b>完全不連線</b>，結束時依貢獻度把銀河幣一次寫入各登入帳號。<b>要用銀河幣突破升級，須以該帳號當主控端登入，到「戰機管理」進行。</b>${online.free ? '<br>單機離線模式：全部是訪客，不能登入、不累積任何貨幣。' : ''}</p>
             ${rows.join('')}
+            ${(() => { const cs = this.stageSel(), open = this.openStages(); return `<div style="text-align:left;border:1px solid #334;border-radius:8px;padding:8px 10px;margin:8px 0"><div style="display:flex;gap:8px;align-items:center"><span style="color:var(--neon-gold)">起始關卡</span><button class="sm" onclick="lcoop.stepStage(-1)">◀</button><b style="color:var(--neon-gold)">第 ${coopShow(cs)} 關</b><button class="sm" onclick="lcoop.stepStage(1)">▶</button><small class="muted">Boss：${bossLabel(cs)}</small></div><small class="muted" style="display:block;line-height:1.5;margin-top:4px">${online.free ? '單機離線模式：全部關卡開放。' : `可選：${open.map(coopShow).join('、')}。以玩家 1（隊長）的通關紀錄為主，其他已登入玩家通關過的關卡也會解鎖；跟著隊長跳關通關，只會記錄實際破的那一關，被跳過的關卡不會解鎖。`}</small></div>`; })()}
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${this.n < 3 ? '<button class="btn" onclick="lcoop.addP()">＋ 加入玩家 3</button>' : '<button class="btn" onclick="lcoop.delP()">－ 移除玩家 3</button>'}<button class="btn btn-start" ${this.needMore() ? 'disabled' : ''} onclick="lcoop.start()">出擊</button></div>
             ${this.needMore() ? '<div class="muted" style="color:#ff9aa8;margin-top:6px">連線模式至少需要 2 位玩家登入帳號才能出擊（訪客不計）：請在其他玩家欄位按「登入帳號」。</div>' : ''}
             <small class="muted" style="display:block;margin-top:6px">成語列上會用各玩家的顏色框出「目前選中」的成語（P1 黃、P2 綠、P3 粉），切換後按使用鍵發動。玩家 3 需要數字鍵盤。三人同時按鍵時部分鍵盤會有按鍵衝突，可改用外接鍵盤。</small>
@@ -5038,7 +5112,7 @@ const lcoop = window.lcoop = {
             if ((await d.collection('banned').doc(uid).get()).exists) throw new Error('此帳號已被停權');
             const snap = await d.collection('users').doc(uid).get(); if (!snap.exists) throw new Error('找不到這個帳號的角色資料（請先用一般登入進遊戲一次）');
             const prof = snap.data(), sv = prof.save || null, fleet = fleetFromSave(sv);
-            this.pl[i] = { kind: 'acct', name: prof.name || u, sid: sv && fleet[sv.i] && fleet[sv.i].own ? sv.i : 'star', acct: { app, auth: a, db: d, uid }, lo: { fleet, mg: Math.min(MAGNET_MAX, (sv && sv.m) || 0), sl: Math.max(1, Math.min(6, (sv && sv.s) || 1)) } };
+            this.pl[i] = { kind: 'acct', cl: prof.cl | 0, name: prof.name || u, sid: sv && fleet[sv.i] && fleet[sv.i].own ? sv.i : 'star', acct: { app, auth: a, db: d, uid }, lo: { fleet, mg: Math.min(MAGNET_MAX, (sv && sv.m) || 0), sl: Math.max(1, Math.min(6, (sv && sv.s) || 1)) } };
             this.msg[i] = ''; this.render();
         } catch (e) {
             try { if (app) { await app.auth().signOut(); await app.delete(); } } catch (e2) {}
@@ -5055,20 +5129,24 @@ const lcoop = window.lcoop = {
             list.push({ id: 'L' + (i + 1), name: `P${i + 1} ${pl.name}`, sid: pl.sid, fleet: lo.fleet, mg: lo.mg, sl: lo.sl });
         }
         this.cur = list; this.pl.forEach(p => { p.up = null; p.coins = 0; });
-        coop.beginLocal(list);
+        coop.beginLocal(list, this.stageSel());
         toast('P1：WASD／Tab 切換／左Shift 使用　P2：IJKL／倒退鍵 切換／Enter 使用　P3：小鍵盤 8456／「−」切換／「＋」使用', 8000);
     },
     // ---- 結算：遊戲結束才寫入 ----
     payout(res) {
         res.rows.forEach(r => {
             const i = (+String(r.uid).slice(1)) - 1, pl = this.pl && this.pl[i]; if (!pl) return; pl.coins = r.coins; pl.up = null;
-            if (pl.kind === 'main') { G._lcPay = true; try { G.galaxy += r.coins; G.save(); } finally { G._lcPay = false; } pl.up = 'ok'; }   // 目前登入的帳號：沿用原本的存檔與同步流程
-            else if (pl.kind === 'acct') this.upload(pl);
+            if (pl.kind === 'main') { G._lcPay = true; try { G.galaxy += r.coins; online.stat('totalGalaxy', r.coins); online.recordCoop(res, r); G.save(); } finally { G._lcPay = false; } pl.up = 'ok'; }   // 目前登入的帳號：沿用原本的存檔與同步流程
+            else if (pl.kind === 'acct') { pl.res = res; pl.row = r; this.upload(pl); }
         });
     },
     async upload(pl) {
         pl.up = 'busy'; this.paint();
-        try { await pl.acct.db.collection('users').doc(pl.acct.uid).update({ 'save.g': firebase.firestore.FieldValue.increment(pl.coins), updatedAt: Date.now() }); pl.up = 'ok'; }
+        try {
+            const ref = pl.acct.db.collection('users').doc(pl.acct.uid), inc = firebase.firestore.FieldValue.increment, snap = await ref.get();
+            const patch = pl.res ? coopPatch(snap.exists ? snap.data() : {}, pl.res, pl.row || {}) : {};
+            await ref.update(Object.assign({ 'save.g': inc(pl.coins), galaxy: inc(pl.coins), totalGalaxy: inc(pl.coins), updatedAt: Date.now() }, patch)); pl.up = 'ok';
+        }
         catch (e) { pl.up = 'fail'; pl.err = errMsg(e); }
         this.paint();
     },
@@ -5097,7 +5175,7 @@ const lcoop = window.lcoop = {
             return `<tr><td style="text-align:left">${esc(x.name)}</td><td>${num(x.tank * SHOW)}<br><small>${pct(x.pt)}</small></td><td>${num(x.dmg * SHOW)}<br><small>${pct(x.pd)}</small></td><td>${num(x.chr)}<br><small>${pct(x.pc)}</small></td><td>${num(x.coins)}</td><td style="font-size:.78rem">${this.statusOf(pl)}</td></tr>`; }).join('');
         const failed = (this.pl || []).some(p => p.kind === 'acct' && p.up === 'fail');
         ui(`<div class="menu-overlay" style="width:min(96vw,600px)"><h1 style="color:${win ? 'var(--neon-gold)' : '#ff6b6b'};margin:0 0 4px">${win ? '同機多人闖關・完全勝利' : '同機多人闖關・任務結束'}</h1>
-            <p style="margin:4px 0 8px">到達第 ${r.st + 9} 關　團隊銀河幣 <b style="color:#ffd700">${num(r.pool)}</b></p>
+            <p style="margin:4px 0 8px">到達第 ${r.st + 9} 關　團隊銀河幣 <b style="color:#ffd700">${num(r.pool)}</b></p>${coopClrHtml(r)}
             <table style="width:100%;border-collapse:collapse;text-align:center;font-size:.85rem;line-height:1.35"><tr style="color:#9ab"><th style="text-align:left">玩家</th><th>承受傷害</th><th>輸出傷害</th><th>蒐集字卡</th><th>銀河幣</th><th>帳號</th></tr>${rows}</table>
             <p class="muted" style="margin:8px 0">貢獻比＝承受傷害 45%＋輸出傷害 35%＋蒐集字卡 20%，再保留 15% 出席保底。訪客不領獎勵。銀河幣存在各自的帳號裡，要升級請用該帳號登入（成為主控端）後到「戰機管理」。${failed ? '<br><b style="color:#ff9aa8">有帳號上傳失敗：請確認網路後按「重試上傳」，離開前請務必成功。</b>' : ''}</p>
             ${failed ? '<button class="btn" onclick="lcoop.retry()">重試上傳</button>' : ''}<button class="btn btn-start" onclick="lcoop.again()">再玩一場</button><button class="btn" onclick="lcoop.toLobby()">返回大廳</button></div>`);
@@ -5121,7 +5199,7 @@ Object.assign(coop, {
         try { const st = G.statsOf(sid), S = G.ship(sid); return { sid, len: st.len || 0, dmg: st.dmg, iv: st.iv, pen: st.pen, crit: st.crit, hp: st.hp, spd: st.spd, cov: G.lvOf(sid, 'cov'), wl: G.lvOf(sid, 'dmg'), r: S.r, mg, sl }; }
         finally { G.fleet = keep; }
     },
-    beginLocal(players) {
+    beginLocal(players, stage) {
         this.local = true; this.room = null; this._lcKeep = { fleet: G.fleet, shipId: G.shipId, magnetLvl: G.magnetLvl };
         this.ended = false; this.finished = 0; this.mid = Date.now(); this.hostUid = players[0].id; this.order = players.map(p => p.id); this.pool = 0; this.stats = {}; this.view = {}; this.ge = new Map(); this.res = null;
         this.seq = 0; this.resetSeq = 0; this.rsSeen = -1; this.lastQ = 0; this.cur = this.hostUid; this.evq = []; this.sendT = 0; this.hudT = 0; this.nid = 0; this.slk = ''; this.vb = []; this.pal = []; this.lastSnapMs = Date.now(); this.inSent = 0; this.inX = -1; this._wr = 0;
@@ -5130,7 +5208,7 @@ Object.assign(coop, {
         const p1 = players[0]; G.fleet = p1.fleet; G.shipId = p1.sid; G.magnetLvl = p1.mg; G.applyUpgrades();
         G.maxSlots = Math.max(1, ...players.map(p => p.sl));   // 成語列數量＝玩家中最多的那位
         G.shield = 0; G.pierceTimer = 0; G.missileTimer = 0; G.allies = []; G.allyTimer = 0; G.laserTimer = 0; G.invincibleTimer = 0; G.snipe = { c: 0, t: [], fx: [] };
-        G.hp = G.maxHp; G.slots = []; G.runClock = 0; G.runDM = 0; G.score = 0; G.runKills = 0; G.runCasts = 0; G.currentStage = 1; G.currentSub = 1; G.runSeq = (G.runSeq || 0) + 1; G.clearT = 0; G.runClearLog = {}; G.runStageClears = {};
+        G.hp = G.maxHp; G.slots = []; G.runClock = 0; G.runDM = 0; G.score = 0; G.runKills = 0; G.runCasts = 0; G.currentStage = this.startStage = Math.max(1, Math.min(COOP_ST, (stage | 0) || 1)); G.currentSub = 1; G.runSeq = (G.runSeq || 0) + 1; G.clearT = 0; G.runClearLog = {}; G.runStageClears = {};
         const el = document.querySelector('.hud-dm'); if (el && el.firstChild) el.firstChild.nodeValue = '銀河幣: ';
         this.P = {};
         players.forEach((p, i) => { const P = { uid: p.id, name: p.name, host: i === 0, alive: true, left: false, in: null, at: performance.now() }; if (i > 0) P.s = this.freshState(this.packWith(p.fleet, p.mg, p.sl, p.sid)); this.P[p.id] = P; });
