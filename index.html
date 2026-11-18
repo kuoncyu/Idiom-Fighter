@@ -279,8 +279,21 @@ class RetroAudio {
         this.bgmDelay.connect(this.bgmFb); this.bgmFb.connect(this.bgmDelay); this.bgmDelay.connect(this.bgmGain);
         this.startSpaceBGM();
     }
+    _take() {   // 音效同時發聲數上限（多人闖關命中、爆炸很多時，避免音訊執行緒塞爆造成音樂與音效斷掉）；背景音樂不計入、不受限
+        if (this._bgm) return 2;
+        if (!this.ctx || this.ctx.state !== 'running') return 0;
+        if ((this._live || 0) >= 36) return 0;
+        this._live = (this._live || 0) + 1; return 1;
+    }
+    _done(node, tk) { if (tk === 1) node.onended = () => { this._live = Math.max(0, (this._live || 1) - 1); }; }
+    _gate(key, gap) {   // 同一種音效的最短間隔（秒）；太密集就略過
+        if (!this.ctx) return false;
+        const t = this.ctx.currentTime, g = this._g || (this._g = {});
+        if (t - (g[key] || -9) < gap) return false; g[key] = t; return true;
+    }
     playTone(freq, type, duration, vol=0.1, useEcho=false) {
         if(!this.ctx) return;
+        const tk = this._take(); if (!tk) return;
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
         osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
         const dst = this._bgm ? this.bgmGain : this.mainGain, dly = this._bgm ? this.bgmDelay : this.delayNode;
@@ -289,43 +302,48 @@ class RetroAudio {
         gain.gain.setValueAtTime(0, this.ctx.currentTime);
         gain.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.05);
         gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-        osc.start(); osc.stop(this.ctx.currentTime + duration);
+        osc.start(); osc.stop(this.ctx.currentTime + duration); this._done(osc, tk);
     }
     playNoise(duration, vol=0.1) {
         if(!this.ctx) return;
-        const bufferSize = this.ctx.sampleRate * duration;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for(let i=0; i<bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        const noise = this.ctx.createBufferSource(); noise.buffer = buffer;
+        const tk = this._take(); if (!tk) return;
+        if (!this._nb) {   // 雜訊只產生一次、之後共用（以前每次命中都現場填滿一整段亂數，是多人闖關卡頓的主因之一）
+            const n = Math.floor(this.ctx.sampleRate * 1.6), b = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = b.getChannelData(0);
+            for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+            this._nb = b;
+        }
+        const dur = Math.min(duration, 1.5);
+        const noise = this.ctx.createBufferSource(); noise.buffer = this._nb;
         const gain = this.ctx.createGain();
         gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-        noise.connect(gain); gain.connect(this.mainGain); noise.start();
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+        noise.connect(gain); gain.connect(this.mainGain); noise.start(this.ctx.currentTime, Math.random() * 0.05, dur); this._done(noise, tk);
     }
     playShoot(kind = 0) {   // 0 普通 / 1 極速開火 / 2 超級散彈
         if (!this.ctx) return;
         const now = this.ctx.currentTime;
         if (now - this.lastShootTime < (kind ? 0.045 : 0.08)) return;
         this.lastShootTime = now;
+        const tk = this._take(); if (!tk) return;
         const osc = this.ctx.createOscillator(), gain = this.ctx.createGain();
         osc.type = ['square', 'sawtooth', 'sawtooth'][kind];
         osc.frequency.setValueAtTime([900, 1100, 700][kind], now);
         osc.frequency.exponentialRampToValueAtTime([260, 400, 180][kind], now + 0.12);
         osc.connect(gain); gain.connect(this.mainGain);
         gain.gain.setValueAtTime(0.07, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-        osc.start(now); osc.stop(now + 0.12);
+        osc.start(now); osc.stop(now + 0.12); this._done(osc, tk);
         if (kind === 2) this.playNoise(0.05, 0.04);
     }
     sweep(type, f0, f1, dur, vol = 0.1, echo = false, swell = false) {
         if (!this.ctx) return;
+        const tk = this._take(); if (!tk) return;
         const t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain();
         o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
         g.gain.setValueAtTime(0.0001, t);
         if (swell) { g.gain.linearRampToValueAtTime(vol, t + dur * 0.92); g.gain.linearRampToValueAtTime(0.0001, t + dur); }
         else { g.gain.linearRampToValueAtTime(vol, t + Math.min(0.05, dur / 4)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
         o.connect(g); g.connect(this.mainGain); if (echo) g.connect(this.delayNode);
-        o.start(t); o.stop(t + dur + 0.02);
+        o.start(t); o.stop(t + dur + 0.02); this._done(o, tk);
     }
     playIdiomCast() {   // 3 秒蓄力：音高與音量逐漸上升
         this.sweep('sawtooth', 120, 900, 2.9, 0.07, true, true);
@@ -345,18 +363,19 @@ class RetroAudio {
             case 'PIERCE': this.sweep('sawtooth', 300, 1500, 0.25, 0.12, true); this.playNoise(0.1, 0.1); break;
             case 'MISSILE': seq([500, 700, 900, 1200], 'triangle', 60, 0.15, 0.08); break;
             case 'ALLY': seq([392, 523, 659, 784, 1047], 'square', 70, 0.2, 0.07, true); break;
+            case 'LIFESTEAL': this.sweep('sawtooth', 180, 720, 0.55, 0.1, true); seq([880, 660, 990], 'sine', 90, 0.3, 0.07, true); break;
             case 'SLOW_TIME': this.sweep('sine', 900, 120, 1.1, 0.15, true); this.sweep('triangle', 450, 60, 1.1, 0.1, true); break;
         }
     }
     playEnemyShoot() { this.playTone(600, 'triangle', 0.1, 0.02); }
-    playHit() { this.playNoise(0.1, 0.05); }
-    playExplosion() { this.playNoise(0.5, 0.3); }
-    playCollect() { this.playTone(800, 'sine', 0.1, 0.05); setTimeout(()=>this.playTone(1200, 'sine', 0.1, 0.05, true), 50); }
+    playHit() { if (this._gate('hit', 0.05)) this.playNoise(0.1, 0.05); }
+    playExplosion() { if (this._gate('boom', 0.09)) this.playNoise(0.5, 0.3); }
+    playCollect() { if (!this._gate('col', 0.05)) return; this.playTone(800, 'sine', 0.1, 0.05); setTimeout(()=>this.playTone(1200, 'sine', 0.1, 0.05, true), 50); }
     playReady() { this.playTone(400, 'square', 0.1, 0.05); setTimeout(()=>this.playTone(600, 'square', 0.1, 0.05), 100); setTimeout(()=>this.playTone(800, 'square', 0.3, 0.08, true), 200); }
     playUpgradeOk() { [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => this.playTone(f, 'triangle', 0.35, 0.09, true), i * 70)); this.sweep('sine', 400, 1600, 0.4, 0.05, true); }   // 戰機升級成功：上行琶音
     playBuy() { this.playTone(1320, 'square', 0.07, 0.06); setTimeout(() => this.playTone(1760, 'square', 0.16, 0.07, true), 70); this.playNoise(0.05, 0.03); }   // 購買物資：叮噹銅板聲
     playFeatureUp() { this.sweep('sawtooth', 200, 900, 0.3, 0.08, true); setTimeout(() => { this.playTone(880, 'sine', 0.2, 0.08, true); this.playTone(1108, 'sine', 0.3, 0.07, true); }, 220); }   // 升級功能：能量充填
-    playPlayerHit() { this.playNoise(0.28, 0.32); this.sweep('sawtooth', 220, 45, 0.3, 0.2); this.playTone(90, 'square', 0.2, 0.12); }   // 戰機被擊中：低沉爆裂
+    playPlayerHit() { if (!this._gate('ph', 0.12)) return; this.playNoise(0.28, 0.32); this.sweep('sawtooth', 220, 45, 0.3, 0.2); this.playTone(90, 'square', 0.2, 0.12); }   // 戰機被擊中：低沉爆裂
     playType() { if (!this.ctx) return; const f = 1500 + Math.random() * 500; this.playTone(f, 'square', 0.035, 0.025); this.playNoise(0.015, 0.02); }   // 打字：喀噠
     playSnipe() { this.sweep('sawtooth', 2400, 300, 0.25, 0.14, true); this.playNoise(0.12, 0.12); }
     playUse() { this.playTone(150, 'sawtooth', 0.6, 0.15, true); }
@@ -384,7 +403,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261118e', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261118k', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -488,6 +507,8 @@ const BASTION_BLOCK0 = 0.7, BASTION_BLOCK_LV = 0.3;   // 堡壘號：子彈傷�
 function bastionLv(maxHp) { return Math.max(0, Math.round((maxHp - SHIPS.find(x => x.id === 'bastion').hp) / 20)); }   // 由最大血量反推裝甲等級（基礎 170，每級 +20；單機、PK、多人闖關都適用）
 function bastionBlocks(maxHp, dmg) { return dmg <= BASTION_BLOCK0 + BASTION_BLOCK_LV * bastionLv(maxHp); }
 const BLAZE_SCALE = 2, BLAZE_CENTER = 2.0, BLAZE_EDGE = 0.4;   // 烈焰號：子彈半徑 ×2（面積 ×4）；彈心打中目標中心傷害 ×2.0，越往外圈遞減到 ×0.4
+const BLAZE_SHOCK_R0 = 55, BLAZE_SHOCK_R1 = 165, BLAZE_SHOCK_K = 0.5, BLAZE_WAVE_T = 0.55;   // 烈焰號震波：半徑 55（打在邊緣）～165（正中彈心）；對大型敵機的傷害係數；動畫秒數
+const BLAZE_SMALL = { SCOUT: 1, DART: 1, SWARM: 1, FIGHTER: 1, SNIPER: 1 };   // 小型機種：被震波波及就直接摧毀（轟炸機、護衛機、坦克屬於大型，只吃震波傷害）
 function bigify(b) { if (b.sid === 'blaze') { b.radius *= BLAZE_SCALE; b.big = true; } }
 function bigHitR(b, r) { return b.big ? r + b.radius : r; }   // 巨彈的判定距離＝目標半徑＋子彈半徑
 function bigMul(b, d, R) { return b.big ? BLAZE_CENTER + (BLAZE_EDGE - BLAZE_CENTER) * Math.min(1, d / Math.max(1, R)) : 1; }   // d：彈心到目標中心的距離
@@ -502,6 +523,7 @@ function bdist(b, ex, ey) {   // 子彈到目標中心的距離：長子彈（�
 const STORM_LEN = 14;   // 連射號：射速每突破 1 層，子彈變長多少（遊戲內單位）
 function snipeN(lv) { lv = lv || 0; const cap = SHIPS.find(s => s.pat === 'snipe').cap.cov; return lv >= cap ? 3 + Math.min(XMAX, Math.floor(lv - cap)) : lv >= 2 ? 2 : 1; }   // 突破：每層 +1 個同時鎖定目標（最多 6）
 function covLabel(S, lv) { if (S.pat === 'snipe') return snipeN(lv) + ' 目標'; const sh = patternShots(S, lv); return S.pat === 'big' ? '大彈×' + (sh[0].rs * BLAZE_SCALE).toFixed(2) : sh.length + ' 發'; }
+const LIFESTEAL_T = 10, LIFESTEAL_RATE = 0.15, LIFESTEAL_CAP = 0.01;   // 吸血：持續秒數、回復＝傷害的比例、每發最多回復自身最大血量的比例
 const CRIT_BASE = 0.2, SHOW = 100, DEF_PER_LV = 0.12, MIN_DMG_K = 0.15;   // SHOW：畫面上傷害／血量數字的倍率；每級裝甲＝12（顯示值）防禦；穿甲後最低仍有 15% 傷害
 const ARMOR_LV = { SCOUT: 0, DART: 0, SWARM: 0, FIGHTER: 1, SNIPER: 2, BOMBER: 2, TANK: 5, GUARD: 7 }, BOSS_ARMOR = { GLASS: 2, BARRAGE: 4, TANK: 8, FINAL: 10 };
 // 子彈火力分級：大小 3 種（小中大）× 七彩 7 色（紅最弱 → 紫最強）＝ 21 級；小紅最弱、大紫最強
@@ -707,7 +729,7 @@ const jukebox = {
 };
 
 const CONFIG = {
-    EFFECTS: { BOMB_BOOST:"清空彈幕", INVINCIBLE:"10秒無敵", LASER_BEAM:"貫穿雷射", HEAL:"回復3000血", SLOW_TIME:"敵彈減速", SHIELD:"護盾+5000", PIERCE:"穿甲彈 30秒", MISSILE:"追蹤導彈 10秒", ALLY:"呼叫友軍 15秒" },
+    EFFECTS: { BOMB_BOOST:"清空彈幕", INVINCIBLE:"10秒無敵", LASER_BEAM:"貫穿雷射", HEAL:"回復3000血", SLOW_TIME:"敵彈減速", SHIELD:"護盾+5000", PIERCE:"穿甲彈 30秒", MISSILE:"追蹤導彈 10秒", ALLY:"呼叫友軍 15秒", LIFESTEAL:"吸血 10秒" },
     IDIOM_LIST: [
         ["天崩地裂","BOMB_BOOST"],["排山倒海","BOMB_BOOST"],["石破天驚","BOMB_BOOST"],["雷霆萬鈞","BOMB_BOOST"],["驚天動地","BOMB_BOOST"],["地動山搖","BOMB_BOOST"],["摧枯拉朽","BOMB_BOOST"],["翻江倒海","BOMB_BOOST"],["氣吞山河","BOMB_BOOST"],["驚濤駭浪","BOMB_BOOST"],
         ["金蟬脫殼","INVINCIBLE"],["安然無恙","INVINCIBLE"],["全身而退","INVINCIBLE"],["平安無事","INVINCIBLE"],["毫髮無傷","INVINCIBLE"],["逢凶化吉","INVINCIBLE"],["吉人天相","INVINCIBLE"],["有驚無險","INVINCIBLE"],["化險為夷","INVINCIBLE"],["轉危為安","INVINCIBLE"],
@@ -717,6 +739,7 @@ const CONFIG = {
         ["直搗黃龍","LASER_BEAM"],["一氣呵成","LASER_BEAM"],["風馳電掣","LASER_BEAM"],["電光石火","LASER_BEAM"],["光芒萬丈","LASER_BEAM"],["一瀉千里","LASER_BEAM"],["一往無前","LASER_BEAM"],["一馬當先","LASER_BEAM"],["日行千里","LASER_BEAM"],["疾風迅雷","LASER_BEAM"],
         ["妙手回春","HEAL"],["起死回生","HEAL"],["枯木逢春","HEAL"],["絕處逢生","HEAL"],["否極泰來","HEAL"],["藥到病除","HEAL"],["華佗再世","HEAL"],["死而復生","HEAL"],["重見天日","HEAL"],["精神抖擻","HEAL"],
         ["按兵不動","SLOW_TIME"],["慢條斯理","SLOW_TIME"],["以靜制動","SLOW_TIME"],["從容不迫","SLOW_TIME"],["穩如泰山","SLOW_TIME"],["氣定神閒","SLOW_TIME"],["沉著冷靜","SLOW_TIME"],["悠然自得","SLOW_TIME"],["泰然自若","SLOW_TIME"],["閒庭信步","SLOW_TIME"],
+        ["敲骨吸髓","LIFESTEAL"],["巧取豪奪","LIFESTEAL"],["蠶食鯨吞","LIFESTEAL"],["狼吞虎嚥","LIFESTEAL"],["風捲殘雲","LIFESTEAL"],["大快朵頤","LIFESTEAL"],["如飢似渴","LIFESTEAL"],["借屍還魂","LIFESTEAL"],["取長補短","LIFESTEAL"],["損人利己","LIFESTEAL"],
         ["呼朋引伴","ALLY"],["鼎力相助","ALLY"],["攜手合作","ALLY"],["同心協力","ALLY"],["並肩作戰","ALLY"],["同舟共濟","ALLY"],["齊心協力","ALLY"],["守望相助","ALLY"],["眾志成城","ALLY"],["患難與共","ALLY"],["肝膽相照","ALLY"],["共襄盛舉","ALLY"]
     ],
     MAX_STAGES: 8
@@ -727,6 +750,16 @@ CONFIG.IDIOMS = [...new Map(CONFIG.IDIOM_LIST.filter(([w]) => w.length === 4 && 
 
 // 成語解釋與造句（大招發動時顯示）
 const IDIOM_INFO = {
+"敲骨吸髓":["敲碎骨頭、吸取骨髓，比喻殘酷地剝削、榨取，一點好處都不放過。","那家黑心公司對員工敲骨吸髓，連加班費都不肯給。"],
+"巧取豪奪":["用欺騙的手段騙取，或憑藉權勢強行奪取別人的財物。","他靠著巧取豪奪的手段，把鄰居的土地一塊一塊併吞了。"],
+"蠶食鯨吞":["像蠶吃桑葉、鯨吞小魚一樣，一點一點或大口大口地侵占、吞併別人的土地或財物。","大企業蠶食鯨吞，讓許多小商店再也撐不下去。"],
+"狼吞虎嚥":["形容吃東西又猛又快的樣子。","他餓了一整天，端起便當就狼吞虎嚥地吃了起來。"],
+"風捲殘雲":["大風把殘餘的雲彩一下子捲走，比喻一下子就把東西清除乾淨。","一桌子的菜，被大家風捲殘雲般吃得精光。"],
+"大快朵頤":["朵頤指鼓動腮頰咀嚼，形容痛痛快快地大吃一頓。","慶功宴上，大家圍著烤肉大快朵頤，笑聲不斷。"],
+"如飢似渴":["像肚子餓、口渴一樣，形容要求非常迫切。","弟弟對新遊戲的攻略如飢似渴，一有空就拿出來讀。"],
+"借屍還魂":["比喻已經消失的事物，借用另一種形式又重新出現。","這部電影是借屍還魂之作，把老故事換上新包裝再次上映。"],
+"取長補短":["吸取別人的長處，來彌補自己的短處。","我們兩人取長補短，一個負責畫圖、一個負責寫字，作品完成得又快又好。"],
+"損人利己":["損害別人的利益，來讓自己得到好處。","搶別人的位子讓自己舒服，這種損人利己的事我不做。"],
 "破釜沉舟":["比喻下定決心、不留退路，抱著非成功不可的決心去做事。","他破釜沉舟辭去工作，把所有時間都拿來準備這次考試。"],
 "排山倒海":["像推倒山、翻動海一樣，形容力量或聲勢非常浩大。","球隊進球的瞬間，球迷的歡呼聲排山倒海地湧了過來。"],
 "天崩地裂":["天塌下來、地裂開來，形容聲響或變故大得驚人。","遠處傳來天崩地裂般的爆炸聲，大家都被嚇得愣住了。"],
@@ -852,13 +885,14 @@ class Vec2 { constructor(x, y) { this.x = x; this.y = y; } }
 
 class ObjectPool {
     constructor(createFn, size = 150) {
-        this.pool = []; this.createFn = createFn;
+        this.pool = []; this.createFn = createFn; this._h = 0;
         for (let i = 0; i < size; i++) this.pool.push(createFn());
     }
     get() {
-        let obj = this.pool.find(o => !o.active);
-        if (!obj) { obj = this.createFn(); this.pool.push(obj); }
-        obj.active = true; obj.homing = false; obj.target = null; obj.pierce = false; obj.pk = false; obj.hits = 0; obj.big = false; obj.len = 0; obj.fromBoss = false; return obj;
+        const pl = this.pool, n = pl.length; let obj = null;
+        for (let k = 0; k < n; k++) { const i = (this._h + k) % n; if (!pl[i].active) { obj = pl[i]; this._h = i + 1; break; } }   // 從上次取用的位置往後找：子彈很多時不會每發都從頭掃描
+        if (!obj) { obj = this.createFn(); pl.push(obj); }
+        obj.active = true; obj.homing = false; obj.target = null; obj.pierce = false; obj.pk = false; obj.hits = 0; obj.big = false; obj.len = 0; obj.fromBoss = false; obj.dud = false; return obj;
     }
 }
 
@@ -871,14 +905,32 @@ class Entity {
     }
 }
 
+const BULLET_SPR = new Map(); let bulletSprSc = 0;
+function bulletSprite(color, r) {   // 同顏色、同大小的子彈共用一張預先畫好的貼圖（光暈＋核心），畫面上子彈再多也只是 drawImage
+    if (!(r > 0)) return null;
+    const sc = Math.min(3, Math.max(1, Math.round((WORLD.dpr || 1) * (WORLD.s || 1) * 4) / 4));
+    if (sc !== bulletSprSc) { BULLET_SPR.clear(); bulletSprSc = sc; }
+    const rq = Math.max(0.5, Math.round(r * 2) / 2), key = color + '|' + rq;
+    let e = BULLET_SPR.get(key); if (e) return e;
+    if (BULLET_SPR.size > 240) BULLET_SPR.clear();
+    const h = Math.ceil(rq * 1.45 + 4), c = document.createElement('canvas'); c.width = c.height = Math.ceil(h * 2 * sc);
+    const x = c.getContext('2d'); if (!x) return null; x.scale(sc, sc);
+    const g = x.createRadialGradient(h, h, rq * 0.6, h, h, rq * 1.45); g.addColorStop(0, 'rgba(255,255,255,0.55)'); g.addColorStop(0.5, 'rgba(255,255,255,0.18)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.beginPath(); x.arc(h, h, rq * 1.45, 0, Math.PI * 2); x.fill();
+    x.shadowBlur = 3; x.shadowColor = color; x.fillStyle = color; x.beginPath(); x.arc(h, h, rq, 0, Math.PI * 2); x.fill();
+    x.shadowBlur = 0; x.fillStyle = 'rgba(255,255,255,0.75)'; x.beginPath(); x.arc(h, h, rq * 0.38, 0, Math.PI * 2); x.fill();
+    e = { c, h }; BULLET_SPR.set(key, e); return e;
+}
 class Bullet extends Entity {
     constructor() { super(); this.isPlayer = false; this.damage = 1; this.sid = null; this.hits = 0; }
-    draw(ctx) {   // 外圈白色虛化光暈（任何背景都看得見）＋ 彩色核心
+    draw(ctx) { if (this.dud) { ctx.globalAlpha = 0.28; this._draw(ctx); ctx.globalAlpha = 1; } else this._draw(ctx); }   // 通關後失效的敵彈：半透明、不再傷人
+    _draw(ctx) {   // 外圈白色虛化光暈（任何背景都看得見）＋ 彩色核心
         const x = this.pos.x, y = this.pos.y, r = this.radius;
         if (this.len > 0) {   // 連射號射速突破：子彈變長（光束狀），尾巴在飛行方向的反側
             const m = Math.hypot(this.vel.x, this.vel.y) || 1, tx = x - this.vel.x / m * this.len, ty = y - this.vel.y / m * this.len, line = (w, c, sb) => { ctx.lineWidth = w; ctx.strokeStyle = c; ctx.shadowBlur = sb; ctx.shadowColor = this.color; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke(); };
             ctx.save(); ctx.lineCap = 'round'; line(r * 2.9, 'rgba(255,255,255,0.3)', 0); line(r * 2, this.color, 3); line(r * 0.76, 'rgba(255,255,255,0.8)', 0); ctx.restore(); return;
         }
+        const sp = bulletSprite(this.color, r); if (sp) { ctx.drawImage(sp.c, x - sp.h, y - sp.h, sp.h * 2, sp.h * 2); return; }
         ctx.save();
         const g = ctx.createRadialGradient(x, y, r * 0.6, x, y, r * 1.45); g.addColorStop(0, 'rgba(255,255,255,0.55)'); g.addColorStop(0.5, 'rgba(255,255,255,0.18)'); g.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 1.45, 0, Math.PI * 2); ctx.fill();
@@ -1041,8 +1093,8 @@ class Game {
         this.slots = [];       
         
         this.laserTimer = 0; this.invincibleTimer = 0; this.slowTimer = 0; this.paused = false; this.particles = [];
-        this.pierceTimer = 0; this.missileTimer = 0; this.missileCd = 0; this.allies = []; this.allyTimer = 0; this.dmgTexts = []; this.snipe = { c: 0, t: [], fx: [] }; this.bgClock = 0; this.runClock = 0; this.pkMode = false; this.pkTime = 0; this.dlgOpen = false; this.dlgConfirm = null; this.dlgResume = false; this.volSfx = 1; this.volMusic = 0.5; this.clearT = 0; this.demo = null; this._buffHtml = '';
-        this.fleet = {}; SHIPS.forEach(S => { this.fleet[S.id] = { own: S.price === 0, ...S.base }; }); this.shipId = 'star'; this.startStage = 1; this.bestStage = 1; this.st = null; this.hIdx = 0; this.shield = 0; this.shock = null; this.magnetLvl = 0; this.dmLvl = 0; this.skin = 0; this.casting = null;
+        this.pierceTimer = 0; this.lifestealTimer = 0; this.missileTimer = 0; this.missileCd = 0; this.allies = []; this.allyTimer = 0; this.dmgTexts = []; this.snipe = { c: 0, t: [], fx: [] }; this.bgClock = 0; this.runClock = 0; this.pkMode = false; this.pkTime = 0; this.dlgOpen = false; this.dlgConfirm = null; this.dlgResume = false; this.volSfx = 1; this.volMusic = 0.5; this.clearT = 0; this.demo = null; this._buffHtml = '';
+        this.fleet = {}; SHIPS.forEach(S => { this.fleet[S.id] = { own: S.price === 0, ...S.base }; }); this.shipId = 'star'; this.startStage = 1; this.bestStage = 1; this.st = null; this.hIdx = 0; this.shield = 0; this.shock = null; this.waves = []; this.magnetLvl = 0; this.dmLvl = 0; this.skin = 0; this.casting = null;
 
         this.load(); this.loadVol(); this.applyUpgrades(); this.init();
     }
@@ -1213,6 +1265,7 @@ class Game {
         else if (E === 'INVINCIBLE') d.fx.push({ type: E, t: 0, life: 4 });
         else if (E === 'HEAL') d.fx.push({ type: E, t: 0, life: 1.6 });
         else if (E === 'SLOW_TIME') { d.fx.push({ type: E, t: 0, life: 4 }); d.slowT = 4; }
+        else if (E === 'LIFESTEAL') d.fx.push({ type: E, t: 0, life: 4 });
         else if (E === 'PIERCE') d.pierceT = 4;
         else if (E === 'MISSILE') { d.missileT = 4; d.msT = 0; }
         else if (E === 'ALLY') {
@@ -1283,6 +1336,7 @@ class Game {
             else if (f.type === 'LASER_BEAM') { const w = 30 + Math.sin(f.t * 40) * 6; ctx.globalAlpha = Math.min(1, (1 - k) * 2); const g = ctx.createLinearGradient(pp.x - w, 0, pp.x + w, 0); g.addColorStop(0, 'rgba(255,234,0,0)'); g.addColorStop(0.5, '#ffffff'); g.addColorStop(1, 'rgba(255,234,0,0)'); ctx.fillStyle = g; ctx.fillRect(pp.x - w, 0, w * 2, pp.y - 20); }
             else if (f.type === 'SHIELD') { ctx.globalAlpha = k > 0.8 ? (1 - k) * 5 : 1; ctx.strokeStyle = '#4dd2ff'; ctx.lineWidth = 3; ctx.fillStyle = 'rgba(77,210,255,0.18)'; ctx.beginPath(); ctx.arc(pp.x, pp.y, 58 + Math.sin(f.t * 8) * 3, 0, 7); ctx.fill(); ctx.stroke(); }
             else if (f.type === 'INVINCIBLE') { ctx.globalAlpha = k > 0.8 ? (1 - k) * 5 : 0.5 + 0.4 * Math.sin(f.t * 14); ctx.strokeStyle = '#7dffb0'; ctx.lineWidth = 4; ctx.shadowColor = '#7dffb0'; ctx.shadowBlur = 16; ctx.beginPath(); ctx.arc(pp.x, pp.y, 52, 0, 7); ctx.stroke(); }
+            else if (f.type === 'LIFESTEAL') { ctx.globalAlpha = k > 0.8 ? (1 - k) * 5 : 1; ctx.fillStyle = '#ff5c8a'; ctx.shadowColor = '#ff5c8a'; ctx.shadowBlur = 12; for (let i = 0; i < 8; i++) { const a = i * 0.785 + f.t * 1.6, r = 110 - ((f.t * 1.4 + i / 8) % 1) * 90; ctx.beginPath(); ctx.arc(pp.x + Math.cos(a) * r, pp.y + Math.sin(a) * r, 4, 0, 7); ctx.fill(); } ctx.globalAlpha *= 0.5 + 0.3 * Math.sin(f.t * 8); ctx.strokeStyle = '#ff5c8a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pp.x, pp.y, 46, 0, 7); ctx.stroke(); }
             else if (f.type === 'HEAL') { ctx.globalAlpha = 1 - k; ctx.strokeStyle = '#6bff9a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pp.x, pp.y, 20 + k * 70, 0, 7); ctx.stroke(); }
             else if (f.type === 'SLOW_TIME') { ctx.globalAlpha = (k > 0.8 ? (1 - k) * 5 : 1) * 0.16; ctx.fillStyle = '#7f8cff'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = Math.max(0, 0.7 - (f.t % 1.3) / 1.3); ctx.strokeStyle = '#b9c2ff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pp.x, pp.y, (f.t % 1.3) / 1.3 * 260, 0, 7); ctx.stroke(); }
             ctx.restore();
@@ -1521,7 +1575,7 @@ class Game {
     updateBuffs() {
         if (this.coopMode && window.coop && coop.order && coop.order.length) return coop.paintBuffs();   // 多人闖關：左上角列出全隊的成語效果，並註明是誰發動的
         const L = [['穿甲彈', this.pierceTimer, 30, '#ffb347'], ['追蹤導彈', this.missileTimer, 10, '#ff6b6b'], ['雷射貫穿', this.laserTimer, 3, '#ffea00'],
-                   ['無敵', this.invincibleTimer > 1.05 ? this.invincibleTimer : 0, 10, '#7dffb0'], ['敵彈減速', this.slowTimer, 6, '#9aa8ff'], ['呼叫友軍', this.allyTimer, 15, '#7ad7ff']];
+                   ['無敵', this.invincibleTimer > 1.05 ? this.invincibleTimer : 0, 10, '#7dffb0'], ['敵彈減速', this.slowTimer, 6, '#9aa8ff'], ['吸血', this.lifestealTimer, LIFESTEAL_T, '#ff5c8a'], ['呼叫友軍', this.allyTimer, 15, '#7ad7ff']];
         const html = L.filter(x => x[1] > 0).map(([n, t, m, c]) => `<div class="buff" style="--c:${c}">${n} ${Math.ceil(t)}s<i style="width:${Math.min(100, t / m * 100)}%"></i></div>`).join('');
         if (html !== this._buffHtml) { this._buffHtml = html; document.getElementById('buff-bar').innerHTML = html; }
     }
@@ -1611,7 +1665,8 @@ class Game {
         const ex = t.x - this.player.pos.x, ey = t.y - this.player.pos.y, d = Math.hypot(ex, ey), L = 120;
         if (d > L) { t.x = this.player.pos.x + ex / d * L; t.y = this.player.pos.y + ey / d * L; }
     }
-    hurt(n) { if (this.shield > 0) { const a = Math.min(this.shield, n); this.shield -= a; n -= a; } this.hp -= n; }
+    clearSafe() { return this.clearT > 0 || this.gameState === 'TRANSITION' || !!(this.boss && this.boss.hp <= 0); }   // 區塊／關卡已清除（含 Boss 倒下的那一幀）：不會再受到任何傷害，避免「通關卻陣亡」
+    hurt(n) { if (this.clearSafe()) return; if (this.shield > 0) { const a = Math.min(this.shield, n); this.shield -= a; n -= a; } this.hp -= n; }
     shieldOf(e) {
         if (e.maxShield === undefined) {
             const k = e === this.boss ? bossMods(e.stage, e.type).shield : (e.type === 'TANK' ? 0.4 : e.type === 'GUARD' ? 0.6 : (e.type === 'FIGHTER' && this.currentStage >= 4 ? 0.25 : 0));
@@ -1695,9 +1750,10 @@ class Game {
         if (iron || ((this.pierceTimer > 0 || pf) && e.shield > 0)) { pierce = 2 + Math.random(); n *= pierce; if (hit && e.shield > 0) n += (e.maxHp || 0) * 0.01; }   // 2~3 倍傷害（已先扣掉防禦力；鐵甲＋護盾只乘一次）   // 穿甲彈：對有護盾的目標造成 2~3 倍傷害，另外損失目標總血量 1%
         if (hit && src && src.sid && e === this.boss) { const tm = typeMul(src.sid, e.type); n *= tm; e._adv = tm; }   // 機種對 Boss 的屬性相剋（見 TYPE_MUL）
         if (hit && this.coopHost && e === this.boss && e.aff && coop.gate(e, n, src)) { if (this.bgClock - (e._zl === undefined ? -9 : e._zl) >= 0.12) { e._zl = this.bgClock; coop.zeroText(e); } return; }   // 多人闖關 Boss 詞綴：這一發被擋下，傷害 0
-        const dealt = n;
+        const dealt = n, ls = (hit && src && src.isPlayer && !this.coopMode && this.lifestealTimer > 0) ? Math.min(n, Math.max(0, e.hp) + Math.max(0, e.shield || 0)) : 0;   // 吸血：以實際扣掉的血量＋護盾為準（不算溢殺）
         if (e.shield > 0) { const a = Math.min(e.shield, n); e.shield -= a; n -= a; }
         e.hp -= n;
+        if (ls) this.lifesteal(ls);
         e._acc = (e._acc || 0) + dealt; if (pierce) e._pierce = pierce; if (crit) e._crit = crit;
         if (e.hp <= 0 || this.bgClock - (e._last === undefined ? -1 : e._last) >= 0.12) { this.showDamage(e, e._acc, e._pierce, e._crit); e._acc = 0; e._pierce = 0; e._crit = 0; e._last = this.bgClock; }
     }
@@ -1916,7 +1972,7 @@ class Game {
     }
 
     startNewGame() {
-        sfx.init(); this.tryFullscreen(); this.applyUpgrades(); this.shield = 0; this.pierceTimer = 0; this.missileTimer = 0; this.allies = []; this.allyTimer = 0; this.runDM = 0; this.runKills = 0; this.runCasts = 0; this.clearT = 0; this.snipe = { c: 0, t: [], fx: [] }; this.idleT = 0; this.idleGain = 0; this.idleAnchor = null; this.currentStage = Math.min(this.startStage, this.bestStage); this.currentSub = 1; this.score = 0; 
+        sfx.init(); this.tryFullscreen(); this.applyUpgrades(); this.shield = 0; this.waves = []; this.pierceTimer = 0; this.lifestealTimer = 0; this.missileTimer = 0; this.allies = []; this.allyTimer = 0; this.runDM = 0; this.runKills = 0; this.runCasts = 0; this.clearT = 0; this.snipe = { c: 0, t: [], fx: [] }; this.idleT = 0; this.idleGain = 0; this.idleAnchor = null; this.currentStage = Math.min(this.startStage, this.bestStage); this.currentSub = 1; this.score = 0; 
         this.hp = this.maxHp; this.slots = []; 
         this.fillEmptySlots(); // 遊戲開始時塞滿隨機成語任務
         this.resetStage(); this.setState('PLAYING');
@@ -2017,6 +2073,7 @@ class Game {
         if (idiom.effect === 'SHIELD') { this.shield = Math.min(this.maxHp, this.shield + 50); this.showFloatText('護盾 +' + 50 * SHOW, this.player.pos.x, this.player.pos.y - 70, '#4dd2ff'); }
         if (idiom.effect === 'ALLY') this.summonAllies();
         if (idiom.effect === 'PIERCE') this.pierceTimer = 30;
+        if (idiom.effect === 'LIFESTEAL') { this.lifestealTimer = LIFESTEAL_T; this._lsAcc = 0; this.showFloatText('吸血 ' + LIFESTEAL_T + ' 秒', this.player.pos.x, this.player.pos.y - 70, '#ff5c8a'); }
         if (idiom.effect === 'MISSILE') { this.missileTimer = 10; this.missileCd = 0; }
         if (idiom.effect === 'HEAL') { this.hp = Math.min(this.maxHp, this.hp + 30); this.updateHUD(); }
         if (idiom.effect === 'SLOW_TIME') this.slowTimer = 6;
@@ -2031,6 +2088,33 @@ class Game {
         this.enemies = []; this.showFloatText("全螢幕爆破!", WORLD.w/2, WORLD.h/2, "#ff00ff");
     }
     triggerLaser() { this.laserTimer = 3.0; }
+    pushWave(x, y, r, a) {   // 震波動畫（單機、主控端與客戶端共用）
+        if (this.waves.length > 14) this.waves.shift();
+        this.waves.push({ x, y, r, a, t: 0, life: BLAZE_WAVE_T });
+        if (sfx.ctx && sfx._gate('wave', 0.1)) { sfx.playNoise(0.22, 0.08 + 0.08 * a); sfx.sweep('sine', 260, 50, 0.3, 0.1 + 0.06 * a); }
+    }
+    updWaves(dt) { if (this.waves && this.waves.length) this.waves = this.waves.filter(w => (w.t += dt) < w.life); }
+    blazeShock(b, h) {   // 烈焰號震波：命中處爆炸。準度 a（0＝打在邊緣、1＝正中彈心）決定半徑；範圍內小型機種直接摧毀，其他敵機受震波傷害；Boss、字卡與敵彈不受影響
+        const a = Math.max(0, Math.min(1, (h.mul - BLAZE_EDGE) / (BLAZE_CENTER - BLAZE_EDGE))), R = BLAZE_SHOCK_R0 + (BLAZE_SHOCK_R1 - BLAZE_SHOCK_R0) * a;
+        this.pushWave(h.x, h.y, R, a);
+        if (this.coopHost && window.coop && coop.evq.length < 80) coop.evq.push(['bw', Math.round(h.x), Math.round(h.y), Math.round(R), Math.round(a * 100) / 100]);
+        this.burst(h.x, h.y, 4 + Math.round(8 * a));
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+            const e = this.enemies[i]; if (e === h.skip || e.type === 'BOSS') continue;
+            const d = Math.hypot(e.pos.x - h.x, e.pos.y - h.y); if (d > R + e.radius) continue;
+            let n;
+            if (BLAZE_SMALL[e.type]) n = Math.max(0, e.hp) + Math.max(0, this.shieldOf(e) || 0) + 1;   // 小型機種：血量＋護盾一次吃滿
+            else { n = b.damage * BLAZE_SHOCK_K * (0.5 + a) * (1 - 0.5 * Math.min(1, d / (R + e.radius))); n = Math.max(n * MIN_DMG_K, n - this.armorLv(e) * DEF_PER_LV); }   // 大型機種：越準、越靠近爆心傷害越高，仍會被裝甲減傷
+            this.dmgEnt(e, n, false, false, b);
+            if (e.hp <= 0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); this.runKills = (this.runKills || 0) + 1; this.enemyDrop(e); sfx.playExplosion(); this.enemies.splice(i, 1); }
+        }
+    }
+    lifesteal(dealt) {   // 吸血：我方子彈命中時回血＝傷害×LIFESTEAL_RATE，每發最多回自身最大血量的 LIFESTEAL_CAP；雷射與爆破不走這裡
+        if (!(this.lifestealTimer > 0) || !(dealt > 0) || this.hp <= 0 || this.hp >= this.maxHp) return;
+        const h = Math.min(this.maxHp - this.hp, dealt * LIFESTEAL_RATE, this.maxHp * LIFESTEAL_CAP);
+        this.hp += h; this._lsAcc = (this._lsAcc || 0) + h;
+        if (this.bgClock - (this._lsT === undefined ? -9 : this._lsT) >= 0.5) { this._lsT = this.bgClock; this.showFloatText('+' + Math.max(1, Math.round(this._lsAcc * SHOW)), this.player.pos.x, this.player.pos.y - 52, '#7dff9a'); this._lsAcc = 0; this.updateHUD(); }
+    }
 
     showFloatText(text, x, y, color = "#fff") { const t = this.texts.get(); t.pos = new Vec2(x, y); t.text = text; t.color = color; t.life = 1.5; }
     dropDarkMatter(x, y, amount) { amount = Math.max(1, Math.round(amount * (1 + 0.2 * this.dmLvl) * (1 + 0.25 * (this.currentStage - 1)) * DM_RATE)); this.runDM = (this.runDM || 0) + amount; this.idleGain = (this.idleGain || 0) + amount; this.burst(x, y, amount >= 20 ? 18 : 4); this.darkMatter += amount; this.showFloatText(`+${amount} DM`, x, y, "#b026ff"); this.updateHUD(); }
@@ -2280,7 +2364,7 @@ class Game {
 
             this.enemyFire(e, dt);
 
-            if (Math.hypot(e.pos.x - this.player.pos.x, e.pos.y - this.player.pos.y) < e.radius + this.player.radius && this.invincibleTimer <= 0) {
+            if (Math.hypot(e.pos.x - this.player.pos.x, e.pos.y - this.player.pos.y) < e.radius + this.player.radius && this.invincibleTimer <= 0 && !this.clearSafe()) {
                 this.hurt(e.type === 'TANK' ? 25 : 15); this.invincibleTimer = 1.0; sfx.playPlayerHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER');
             }
         });
@@ -2293,6 +2377,7 @@ class Game {
                 if (b.pos.y < -50 || b.pos.y > WORLD.h + 50 || b.pos.x < -50 || b.pos.x > WORLD.w+50) b.active = false;
                 
                 if (b.isPlayer) {
+                    let sk = null;   // 烈焰號：這發命中的位置與準度（迴圈跑完才引爆震波，避免邊迭代邊刪敵機）
                     if (b.sid === 'nova' && !this.pkMode) {   // 環陣號：子彈碰到敵方子彈會抵銷，敵彈傷害越高要越多發（1～5 發，見 cancelNeed）
                         const hitB = this.bullets.pool.find(o => o.active && !o.isPlayer && !o.pk && Math.hypot(b.pos.x - o.pos.x, b.pos.y - o.pos.y) < b.radius + o.radius);
                         if (hitB) { b.active = false; hitB.hits = (hitB.hits || 0) + 1; if (hitB.hits >= cancelNeed(hitB.damage)) hitB.active = false; this.burst(b.pos.x, b.pos.y, 1); return; }   // 敵彈越強要越多發才抵銷得掉
@@ -2302,29 +2387,31 @@ class Game {
                         if (segDist(ox, oy, b.pos.x, b.pos.y, g.x, g.y) < R) { b.active = false; this.burst(b.pos.x, b.pos.y, 2); return; }
                     }
                     if (this.boss) { const d = bdist(b, this.boss.pos.x, this.boss.pos.y), R = bigHitR(b, this.boss.radius);
-                        if (d < R) { this.dmgEnt(this.boss, b.damage * bigMul(b, d, R), b.pierce, true, b); b.active = false; sfx.playHit(); } }
+                        if (d < R) { this.dmgEnt(this.boss, b.damage * bigMul(b, d, R), b.pierce, true, b); b.active = false; sfx.playHit(); if (b.big) sk = { x: b.pos.x, y: b.pos.y, mul: bigMul(b, d, R), skip: null }; } }
                     this.enemies.forEach((e, i) => {
                         const d = bdist(b, e.pos.x, e.pos.y), R = bigHitR(b, e.radius);
                         if (b.active && d < R) {
-                            this.dmgEnt(e, b.damage * bigMul(b, d, R), b.pierce, true, b); b.active = false; sfx.playHit();
+                            this.dmgEnt(e, b.damage * bigMul(b, d, R), b.pierce, true, b); b.active = false; sfx.playHit(); if (b.big) sk = { x: b.pos.x, y: b.pos.y, mul: bigMul(b, d, R), skip: e };
                             if(e.hp<=0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); this.runKills = (this.runKills || 0) + 1; this.enemyDrop(e); sfx.playExplosion(); this.enemies.splice(i, 1); }
                         }
                     });
                     this.idiomBlocks.forEach((m, i) => {
                         const d = bdist(b, m.pos.x, m.pos.y), R = bigHitR(b, m.radius);
                         if (b.active && d < R) {
-                            m.hp -= b.damage * bigMul(b, d, R); b.active = false; sfx.playHit();
+                            m.hp -= b.damage * bigMul(b, d, R); b.active = false; sfx.playHit(); if (b.big) sk = { x: b.pos.x, y: b.pos.y, mul: bigMul(b, d, R), skip: null };
                             if(m.hp<=0) {
                                 this.blockBreak(m);
                                 sfx.playExplosion(); this.idiomBlocks.splice(i, 1);
                             }
                         }
                     });
+                    if (sk) this.blazeShock(b, sk);
                 } else {
+                    if (!b.dud && !b.pk && this.clearSafe()) b.dud = true;   // 倒數期間新射出的敵彈也一律失效
                     const sd = b.pk ? segDist(ox, oy, b.pos.x, b.pos.y, this.player.pos.x, this.player.pos.y) : 0, pR = this.player.radius + (b.big ? b.radius : 0);
                     if (b.pk && sd < pR && this.invincibleTimer <= 0) {   // 對手的子彈（烈焰巨彈判定較大，越靠近中心傷害越高）
                         this.hurt(online.pkDmg(b, bigMul(b, sd, pR))); b.active = false; sfx.playPlayerHit(); this.updateHUD(); if (this.hp <= 0) this.setState('GAMEOVER');
-                    } else if (!b.pk && Math.hypot(b.pos.x - this.player.pos.x, b.pos.y - this.player.pos.y) < this.player.radius) {
+                    } else if (!b.pk && !b.dud && Math.hypot(b.pos.x - this.player.pos.x, b.pos.y - this.player.pos.y) < this.player.radius) {
                         const blk = this.shipId === 'bastion' && bastionBlocks(this.maxHp, b.damage);   // 堡壘號：低傷害子彈被裝甲擋下，只造成 1 點（不觸發無敵時間，每顆子彈各算 1 點）
                         if (blk || this.invincibleTimer <= 0) { this.hurt(blk ? 1 : b.damage * 10); b.active = false; if (!blk) this.invincibleTimer = 0.5; if (blk) sfx.playHit(); else sfx.playPlayerHit(); this.updateHUD(); if(this.hp<=0) this.setState('GAMEOVER'); }
                     }
@@ -2379,12 +2466,14 @@ class Game {
         if (this.invincibleTimer > 0) this.invincibleTimer -= dt;
         if (this.slowTimer > 0) this.slowTimer -= dt;
         if (this.shock) { this.shock.t += dt; if (this.shock.t > 1.2) this.shock = null; }
+        this.updWaves(dt);
         this.particles = this.particles.filter(p => (p.life -= dt) > 0);
         this.particles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; });
         if (this.player.rapidFire > 0) this.player.rapidFire -= dt;
         if (this.player.spreadFire > 0) this.player.spreadFire -= dt;
         if (this.laserTimer > 0) this.laserTimer -= dt;
         if (this.pierceTimer > 0) this.pierceTimer -= dt;
+        if (this.lifestealTimer > 0) this.lifestealTimer -= dt;
         if (this.missileTimer > 0) this.missileTimer -= dt;
         this.updateAllies(dt);
         this.updateDmgTexts(dt);
@@ -2432,6 +2521,7 @@ class Game {
     }
 
     burst(x, y, n) {
+        n = Math.min(n, 360 - this.particles.length);   // 粒子總數上限：爆炸再多也不會越堆越多
         for (let i = 0; i < n; i++) {
             const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 200;
             this.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.6 + Math.random() * 0.4, color: ['#ffea00','#ffaa00','#ff3366','#ffffff'][i % 4] });
@@ -2447,6 +2537,7 @@ class Game {
         if (this.pkMode) { this.startTransition(next); return; }
         if (this.clearT > 0 || this.gameState !== 'PLAYING') return;   // 轉場中不可重啟倒數
         this.clearT = 5; this.clearNext = next; document.getElementById('boss-bar').style.display = 'none'; sfx.playReady();
+        this.bullets.pool.forEach(b => { if (b.active && !b.isPlayer) b.dud = true; });   // 通關瞬間：場上敵彈全部失效（半透明、不傷人）
     }
     noteStageClear(st, ms) {   // 擊敗 Boss：先記在「本次出擊」的暫存清單，等結束出擊（退出／結束／陣亡／全破）時才與紀錄榜核對
         if (!(ms > 0)) return; const rc = this.runStageClears = this.runStageClears || {}, lg = this.runClearLog = this.runClearLog || {};
@@ -2753,6 +2844,16 @@ class Game {
                 ctx.globalAlpha = Math.max(0, 0.7 - k * 2.5); ctx.fillStyle = '#fff3c4'; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
                 ctx.globalAlpha = 1; ctx.shadowBlur = 0;
             }
+            this.waves.forEach(w => {   // 烈焰號震波：由內向外擴散的火球與雙層衝擊環，越準越大、環越粗
+                const k = w.t / w.life, ez = 1 - Math.pow(1 - k, 3), r = Math.max(6, w.r * (0.2 + 0.8 * ez)), al = Math.max(0, 1 - k);
+                const gr = ctx.createRadialGradient(w.x, w.y, r * 0.1, w.x, w.y, r);
+                gr.addColorStop(0, `rgba(255,244,205,${0.6 * al})`); gr.addColorStop(0.55, `rgba(255,140,40,${0.3 * al})`); gr.addColorStop(1, 'rgba(255,51,102,0)');
+                ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(w.x, w.y, r, 0, 7); ctx.fill();
+                ctx.globalAlpha = al; ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 2 + 7 * w.a * (1 - k); ctx.shadowBlur = 16; ctx.shadowColor = '#ff6a2a';
+                ctx.beginPath(); ctx.arc(w.x, w.y, r, 0, 7); ctx.stroke();
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(w.x, w.y, r * 0.72, 0, 7); ctx.stroke();
+                ctx.globalAlpha = 1;
+            });
             if (this.keys['ShiftLeft'] || this.keys['ShiftRight']) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.player.pos.x, this.player.pos.y, 4, 0, 7); ctx.fill(); }
             if (this.casting) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, WORLD.w, WORLD.h); }
             if (this.paused) {
@@ -3442,9 +3543,10 @@ const online = window.online = {
     },
     stopWatch() { Object.values(this.watch || {}).forEach(w => { try { w.unsub(); } catch (e) {} }); this.watch = {}; this.readAt = null; this.unr = {}; },
     paintBadge() { const b = $('chat-badge'); if (!b) return; const n = (this._unrTotal || 0) + this.liveInvites().length; b.textContent = n > 99 ? '99+' : String(n); b.style.display = n ? 'block' : 'none'; },
+    chatShown() { const p = $('chat-panel'); return !!p && p.style.display !== 'none' && !document.hidden; },   // 聊天視窗真的攤開、而且你正在看這個分頁才算「正在閱讀」
     recount() {
         if (!this.user || !this.readAt) return; const c = this.chat, me = this.user.uid, W = this.watch || {};
-        if (c.open && c.th) { const key = this.thKey(c.th), w = W[key], latest = w && w.msgs[0] ? (w.msgs[0].ts || 0) : 0; this.readAt[key] = Math.max(this.readAt[key] || 0, latest || Date.now()); this.saveRead(); }   // 正在看的對話＝已讀
+        if (c.open && c.th && this.chatShown()) { const key = this.thKey(c.th), w = W[key], latest = w && w.msgs[0] ? (w.msgs[0].ts || 0) : 0; this.readAt[key] = Math.max(this.readAt[key] || 0, latest || Date.now()); this.saveRead(); }   // 正在看的對話＝已讀
         const per = { lobby: 0, dm: 0, group: 0 }, unr = {}; let total = 0;
         Object.keys(W).forEach(key => { const r = this.readAt[key] || 0, n = W[key].msgs.filter(m => m.uid !== me && (m.ts || 0) > r).length; if (n) { unr[key] = n; total += n; per[key.split(':')[0]] += n; } });
         const changed = JSON.stringify(unr) !== JSON.stringify(this.unr || {}); this.unr = unr;
@@ -3466,8 +3568,9 @@ const online = window.online = {
         $('ch-send').onclick = () => this.sendChat(); $('ch-input').onkeydown = e => { if (e.key === 'Enter') this.sendChat(); };
         $('ch-msgs').onscroll = () => this.paintNew(); $('ch-new').onclick = () => this.jumpUnread();
         this.updateChatVis(); this.renderInvites();
+        if (!this._visL) { this._visL = 1; document.addEventListener('visibilitychange', () => { if (!document.hidden) this.recount(); }); }   // 切回這個分頁：正在看的對話視為已讀
     },
-    updateChatVis() { const f = $('chat-fab'); if (!f) return; const bt = ['PLAYING', 'TRANSITION'].includes(G.gameState), show = this.user && !['INIT', 'LOGIN'].includes(G.gameState) && (!bt || (G.battleChatOn() && !G.pkMode)); f.classList.toggle('bt', bt); $('chat-panel').classList.toggle('bt', bt); f.style.display = show ? 'block' : 'none'; if (!show) { $('chat-panel').style.display = 'none'; } else if (this.chat.open) $('chat-panel').style.display = 'flex'; },
+    updateChatVis() { const f = $('chat-fab'); if (!f) return; const bt = ['PLAYING', 'TRANSITION'].includes(G.gameState), show = this.user && !['INIT', 'LOGIN'].includes(G.gameState) && (!bt || (G.battleChatOn() && !G.pkMode)); f.classList.toggle('bt', bt); $('chat-panel').classList.toggle('bt', bt); f.style.display = show ? 'block' : 'none'; if (!show) { $('chat-panel').style.display = 'none'; } else if (this.chat.open) { $('chat-panel').style.display = 'flex'; this.recount(); } },
     toggleChat(v) {
         const c = this.chat; c.open = v === undefined ? !c.open : v; $('chat-panel').style.display = c.open ? 'flex' : 'none';
         if (c.open) { if (!c.th) this.openChat(c.tab); this.recount(); this.scrollBottom(); }
@@ -3476,7 +3579,7 @@ const online = window.online = {
     openChat(tab, peer) {
         const c = this.chat; c.tab = tab; c.open = true; $('chat-panel').style.display = 'flex';
         document.querySelectorAll('#chat-panel .ch-tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
-        this.chatSel(peer); this.scrollBottom();
+        this.chatSel(peer); this.scrollBottom(); this.recount();
     },
     dmId(peer) { return [this.user.uid, peer].sort().join('_'); },
     chatSel(peer) {
@@ -3489,14 +3592,16 @@ const online = window.online = {
             $('ch-friend').onchange = e => this.chatSel(e.target.value); this.subChat({ k: 'dm', peer: cur });
         } else {
             const cur = (c.th && c.th.k === 'group' && this.groups.some(g => g.id === c.th.id)) ? c.th.id : (this.groups[0] && this.groups[0].id);
-            sel.innerHTML = `${this.groups.length ? `<select id="ch-group">${this.groups.map(g => `<option value="${g.id}" ${g.id === cur ? 'selected' : ''}>${esc(g.name)}${(this.unr || {})['group:' + g.id] ? '（' + Math.min(99, this.unr['group:' + g.id]) + '）' : ''}</option>`).join('')}</select>` : '<span class="muted">還沒有群組</span>'}<button class="sm" id="ch-new">＋建立群組</button>`;
-            if ($('ch-group')) $('ch-group').onchange = e => this.subChat({ k: 'group', id: e.target.value });
+            sel.innerHTML = `${this.groups.length ? `<select id="ch-group">${this.groups.map(g => `<option value="${g.id}" ${g.id === cur ? 'selected' : ''}>${esc(g.name)}${(this.unr || {})['group:' + g.id] ? '（' + Math.min(99, this.unr['group:' + g.id]) + '）' : ''}</option>`).join('')}</select>` : '<span class="muted">還沒有群組</span>'}${cur ? '<button class="sm" id="ch-mg">⚙ 管理</button>' : ''}<button class="sm" id="ch-new">＋建立群組</button>`;
+            if ($('ch-group')) $('ch-group').onchange = e => { this.groupBack(true); this.subChat({ k: 'group', id: e.target.value }); };
+            if ($('ch-mg')) $('ch-mg').onclick = () => this.groupManage(cur);
             $('ch-new').onclick = () => this.groupForm(); this.subChat(cur ? { k: 'group', id: cur } : null);
         }
     },
     groupForm() {
         if (!this.friends.length) return toast('先加好友才能建立群組');
-        $('ch-msgs').innerHTML = `<input class="inp" id="gp-name" maxlength="12" placeholder="群組名稱">${this.friends.map(f => `<label style="display:block"><input type="checkbox" class="gp-f" value="${f.uid}" data-n="${esc(f.name)}"> ${esc(f.name)}</label>`).join('')}<button class="sm" id="gp-ok">建立</button>`;
+        $('ch-msgs').innerHTML = `<input class="inp" id="gp-name" maxlength="12" placeholder="群組名稱">${this.friends.map(f => `<label style="display:block"><input type="checkbox" class="gp-f" value="${f.uid}" data-n="${esc(f.name)}"> ${esc(f.name)}</label>`).join('')}<button class="sm" id="gp-ok">建立</button> <button class="sm" id="gp-cancel">取消</button>`;
+        $('gp-cancel').onclick = () => this.groupBack();
         $('gp-ok').onclick = async () => {
             const name = $('gp-name').value.trim(), sel = [...document.querySelectorAll('.gp-f:checked')];
             if (!name || !sel.length) return toast('請輸入名稱並勾選好友');
@@ -3504,6 +3609,42 @@ const online = window.online = {
             try { const r = await db.collection('groups').add({ name, owner: this.user.uid, members: [this.user.uid, ...sel.map(x => x.value)], memberNames: names, ts: Date.now() }); this.chat.th = { k: 'group', id: r.id }; this.chat.key = ''; $('ch-msgs').innerHTML = ''; toast('群組已建立'); this.chatSel(); }
             catch (e) { toast(errMsg(e)); }
         };
+    },
+    groupBack(quiet) {   // 關掉建立／管理畫面，回到訊息列表
+        const box = $('ch-msgs'); if (box && $('gp-name')) box.innerHTML = ''; this.chat.rKey = null; if (!quiet) this.renderMsgs();
+    },
+    sure(btn, label, fn) {   // 危險操作：第一次按只變成確認字樣，4 秒內再按一次才執行
+        btn.onclick = () => { if (btn.dataset.sure) return fn(); const old = btn.textContent; btn.dataset.sure = 1; btn.textContent = label; setTimeout(() => { if (btn.isConnected) { delete btn.dataset.sure; btn.textContent = old; } }, 4000); };
+    },
+    groupGone(id) { if (this.readAt) { delete this.readAt['group:' + id]; this.saveRead(); } this.groupBack(); },
+    async deleteGroup(id) { await db.collection('groups').doc(id).delete(); },   // 只刪群組本身；群主無權刪除訊息（群組一刪，成員就看不到了）
+    groupManage(id) {   // 群組管理：群主可改名、拉進／移出好友、刪除群組；一般成員可看名單與退出
+        const g = this.groups.find(x => x.id === id), box = $('ch-msgs'); if (!g || !box) return;
+        const me = this.user.uid, own = g.owner === me, nm = g.memberNames || {}, mem = g.members || [];
+        if (!own) {
+            box.innerHTML = `<input type="hidden" id="gp-name"><div style="padding:6px"><b>${esc(g.name)}</b><div class="muted" style="margin:4px 0 6px">群主：${esc(nm[g.owner] || '玩家')}　成員 ${mem.length} 人</div>${mem.map(u => `<div>${u === g.owner ? '👑 ' : '・'}${esc(nm[u] || '玩家')}${u === me ? '（你）' : ''}</div>`).join('')}<div style="margin-top:10px"><button class="sm red" id="gp-leave">退出群組</button> <button class="sm" id="gp-back">返回</button></div></div>`;
+            $('gp-back').onclick = () => this.groupBack();
+            this.sure($('gp-leave'), '再按一次確認退出', async () => {
+                try { await db.collection('groups').doc(id).update({ members: firebase.firestore.FieldValue.arrayRemove(me), ['memberNames.' + me]: firebase.firestore.FieldValue.delete() }); toast('已退出群組'); this.groupGone(id); } catch (e) { toast(errMsg(e)); }
+            });
+            return;
+        }
+        const cand = this.friends.filter(f => !mem.includes(f.uid)), others = mem.filter(u => u !== me);
+        box.innerHTML = `<div style="padding:6px"><input class="inp" id="gp-name" maxlength="12" value="${esc(g.name)}" placeholder="群組名稱"><div class="muted" style="margin:8px 0 4px">成員（${mem.length} 人）</div><div>👑 ${esc(nm[me] || this.profile.name)}（群主）</div>${others.map(u => `<div style="display:flex;justify-content:space-between;align-items:center;margin:3px 0"><span>・${esc(nm[u] || '玩家')}</span><button class="sm red gp-kick" data-u="${u}" data-n="${esc(nm[u] || '玩家')}">踢出</button></div>`).join('')}<div class="muted" style="margin:10px 0 4px">拉進好友（勾選後按「儲存」）</div>${cand.map(f => `<label style="display:block"><input type="checkbox" class="gp-f" value="${f.uid}" data-n="${esc(f.name)}"> ${esc(f.name)}</label>`).join('') || '<div class="muted">沒有其他好友可以拉進來了</div>'}<div style="margin-top:10px"><button class="sm" id="gp-save">儲存</button> <button class="sm" id="gp-back">返回</button> <button class="sm red" id="gp-del">刪除群組</button></div></div>`;
+        $('gp-back').onclick = () => this.groupBack();
+        document.querySelectorAll('.gp-kick').forEach(btn => this.sure(btn, '再按一次確認踢出', async () => {   // 群主踢出成員：立刻生效，被踢的人就看不到這個群組了
+            const u = btn.dataset.u, typed = $('gp-name').value;
+            try { await db.collection('groups').doc(id).update({ members: firebase.firestore.FieldValue.arrayRemove(u), ['memberNames.' + u]: firebase.firestore.FieldValue.delete() }); g.members = (g.members || []).filter(x => x !== u); if (g.memberNames) delete g.memberNames[u]; toast('已將 ' + btn.dataset.n + ' 踢出群組'); this.groupManage(id); const nb = $('gp-name'); if (nb) nb.value = typed; } catch (e) { toast(errMsg(e)); }
+        }));
+        $('gp-save').onclick = async () => {
+            const name = $('gp-name').value.trim(), add = [...document.querySelectorAll('.gp-f:checked')];
+            if (!name) return toast('請輸入群組名稱');
+            const names = Object.assign({}, nm, { [me]: this.profile.name }); add.forEach(x => { names[x.value] = x.dataset.n; });
+            try { await db.collection('groups').doc(id).update({ name, members: [...mem, ...add.map(x => x.value)], memberNames: names }); toast(add.length ? '群組已更新，已拉進 ' + add.length + ' 位好友' : '群組已更新'); this.groupBack(); } catch (e) { toast(errMsg(e)); }
+        };
+        this.sure($('gp-del'), '再按一次確認刪除（無法復原）', async () => {
+            try { await this.deleteGroup(id); toast('群組已刪除'); this.groupGone(id); } catch (e) { toast(errMsg(e)); }
+        });
     },
     chatRef(th) {
         if (th.k === 'lobby') return db.collection('lobbyChat');
@@ -3516,8 +3657,9 @@ const online = window.online = {
         if (!th) return;
         c.unsub = this.chatRef(th).orderBy('ts', 'desc').limit(60).onSnapshot(s => {
             const list = s.docs.map(d => d.data()).reverse();
-            c.first = false; c.msgs = list; this.renderMsgs();
+            c.first = false; c.msgs = list; this.renderMsgs(); this.recount();   // 正在看的對話有新訊息：立刻標成已讀
         }, e => { $('ch-msgs').textContent = errMsg(e); });
+        this.recount();   // 剛切換到這個對話（好友／群組下拉、好友頁按「聊天」）：舊的未讀數馬上清掉
     },
     msgsHtml(list, meUid) {   // 訊息列表：換日時插入日期分隔線；每則訊息帶上序號，供「跳到未讀」定位
         let day = '', out = '';
@@ -3746,7 +3888,7 @@ const online = window.online = {
     renderDex(tab, a, b) {
         tab = tab || 'idiom';
         const top = tab === 'idiom' ? 'idiom' : tab === 'music' ? 'music' : 'data';   // 三大分類
-        const TOP = [['idiom', '成語資料', '📖', `${CONFIG.IDIOMS.length} 個成語・9 種招式`, 'idiom', '#ffd400'],
+        const TOP = [['idiom', '成語資料', '📖', `${CONFIG.IDIOMS.length} 個成語・${new Set(CONFIG.IDIOMS.map(i => i.effect)).size} 種招式`, 'idiom', '#ffd400'],
             ['data', '戰鬥資料', '🛸', `${SHIPS.length} 戰機・8 敵機・9+9 Boss`, 'ship', '#00f2ff'],
             ['music', '音樂庫', '🎵', `${trackList().length} 首曲目`, 'music', '#ff3bd4']];
         const SUB = [['ship', '我方戰機', '🚀'], ['enemy', '敵方戰機', '👾'], ['boss', 'Boss', '👹'], ['cboss', 'Boss（多人闖關）', '🛰']];
@@ -3759,10 +3901,11 @@ const online = window.online = {
     },
     dexIdiom(eff, word) {
         const DOC = { BOMB_BOOST: ['全螢幕爆破', '清空畫面敵彈與小型敵機並有爆炸動畫；對 Boss 傷害最高為其滿血的 1/4。'], INVINCIBLE: ['無敵', '10 秒內不會受到傷害。'],
-            SHIELD: ['護盾', '獲得 50 點護盾（可累積），會一直存在直到把傷害抵掉。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
+            SHIELD: ['護盾', '獲得 5000 點護盾（可累積，上限為最大血量），受到傷害時先扣護盾，會一直存在直到被打光；PK 對戰中被穿甲彈命中會損失一半護盾。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
             MISSILE: ['追蹤導彈', '10 秒內主炮子彈會自動追蹤：先打血量少的敵機，沒有敵機才打字卡。'], LASER_BEAM: ['貫穿雷射', '3 秒的直線雷射，持續貫穿傷害。'],
-            HEAL: ['治療', '立刻回復 3000 點血量。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。'] };
-        const COL = { BOMB_BOOST: '#ff5a36', INVINCIBLE: '#ffd400', SHIELD: '#4aa3ff', PIERCE: '#c0c8d8', MISSILE: '#ff8c1a', LASER_BEAM: '#ff3bd4', HEAL: '#35e08a', SLOW_TIME: '#8f7bff', ALLY: '#00e5ff' };
+            HEAL: ['治療', '立刻回復 3000 點血量。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。'],
+            LIFESTEAL: ['吸血', '10 秒內，我方子彈（含友軍）每次命中敵人就回血：回復量為該發傷害的 15%，且每發最多只回自身最大血量的 1%。雷射與全螢幕爆破不算；傷害被 Boss 護盾或護甲擋成 0 時不回血，血量已滿也不會回。'] };
+        const COL = { BOMB_BOOST: '#ff5a36', INVINCIBLE: '#ffd400', SHIELD: '#4aa3ff', PIERCE: '#c0c8d8', MISSILE: '#ff8c1a', LASER_BEAM: '#ff3bd4', HEAL: '#35e08a', SLOW_TIME: '#8f7bff', ALLY: '#00e5ff', LIFESTEAL: '#ff5c8a' };
         eff = eff || 'BOMB_BOOST'; const list = CONFIG.IDIOMS.filter(i => i.effect === eff), info = word && IDIOM_INFO[word], c = COL[eff] || '#fff', n = list.length, k = list.findIndex(i => i.word === word);
         const go = d => `online.renderDex('idiom','${eff}','${list[(k + d + n) % n].word}')`;
         return `<div class="ef-tabs">${Object.keys(DOC).map(e => `<button class="${e === eff ? 'on' : ''}" style="--c:${COL[e]}" onclick="online.renderDex('idiom','${e}')">${DOC[e][0]}<em>${CONFIG.IDIOMS.filter(i => i.effect === e).length}</em></button>`).join('')}</div>
@@ -3775,7 +3918,7 @@ const online = window.online = {
     },
     dexShips() {
         const TRAIT = { star: '均衡型：各項能力上限接近，適合新手。', wind: '機動靈巧：體型小、移動速度上限最高，但火力與裝甲上限低。所有子彈自帶追蹤（優先追血量少的敵機／Boss）。適合對付彈幕型 Boss。', bastion: '重裝厚皮：血量與裝甲上限最高，移動較慢。裝甲會直接擋掉低傷害的子彈，被擋下的子彈每顆只造成 1 點傷害；裝甲等級越高，能擋的子彈傷害越高（基礎可擋一般彈與強化彈，升到 5 級可擋重砲彈，約 12 級連狙擊彈也擋得住）。最適合對付彈幕型 Boss。',
-            blaze: '高輸出：單發傷害上限最高，但射速較慢。子彈是一般子彈的 2 倍大（面積 4 倍），彈心打中目標正中心傷害最高（×2.0），越往外圈傷害越低（最低 ×0.4）。最適合對付鐵甲型 Boss。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。PK 對戰中狙擊跟一般關卡一樣蓄滿即瞬間命中（傷害降低，對手看得到預警線）。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：一半的子彈會自動追蹤（優先追鐵甲類目標），另一半直線射出，無視敵人的裝甲（防禦視為 0），打到鐵甲類（坦克、護衛機、鐵甲型 Boss）去掉防禦後再造成 2～3 倍傷害，對有護盾的目標同樣是 2～3 倍（不重複疊加）。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。子彈平均分配在圓周各方向，火力覆蓋等級＝發射方向數（2 級＝前後、4 級＝上下左右……滿級 16 方向），不怕被包夾；子彈碰到敵方子彈時會抵銷：敵彈威力越高需要越多發（一般彈 1 發、強化彈 2 發、重砲彈 3 發、狙擊彈 5 發），能幫自己清出安全空間；代價是單發威力低於其他戰機。對 Boss 沒有相剋（×1.0），靠抵銷敵彈應付彈幕與成群的小怪。' };
+            blaze: '高輸出：單發傷害上限最高，但射速較慢。子彈是一般子彈的 2 倍大（面積 4 倍），彈心打中目標正中心傷害最高（×2.0），越往外圈傷害越低（最低 ×0.4）。最適合對付鐵甲型 Boss。命中目標時還會在命中點引發區域爆炸震波：打得越準（越接近彈心），震波範圍越大；範圍內的小型機種（偵察機、俯衝機、蜂群、戰鬥機、狙擊機）會被直接摧毀，轟炸機、護衛機、坦克等大型機種則受到震波傷害；Boss 與字卡不受震波影響，PK 對戰中也不會觸發。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。PK 對戰中狙擊跟一般關卡一樣蓄滿即瞬間命中（傷害降低，對手看得到預警線）。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：一半的子彈會自動追蹤（優先追鐵甲類目標），另一半直線射出，無視敵人的裝甲（防禦視為 0），打到鐵甲類（坦克、護衛機、鐵甲型 Boss）去掉防禦後再造成 2～3 倍傷害，對有護盾的目標同樣是 2～3 倍（不重複疊加）。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。子彈平均分配在圓周各方向，火力覆蓋等級＝發射方向數（2 級＝前後、4 級＝上下左右……滿級 16 方向），不怕被包夾；子彈碰到敵方子彈時會抵銷：敵彈威力越高需要越多發（一般彈 1 發、強化彈 2 發、重砲彈 3 發、狙擊彈 5 發），能幫自己清出安全空間；代價是單發威力低於其他戰機。對 Boss 沒有相剋（×1.0），靠抵銷敵彈應付彈幕與成群的小怪。' };
         const STAT = [['火力', 'dmg'], ['射速', 'rate'], ['裝甲', 'hp'], ['機動', 'spd'], ['穿甲', 'pen'], ['爆擊', 'crit'], ['覆蓋', 'cov']];
         return SHIPS.map(S => { const own = G.fleet && G.fleet[S.id] && G.fleet[S.id].own, c = S.cap, parts = TRAIT[S.id].split('。').filter(Boolean), first = parts.shift() + '。', rest = parts.join('。') + (parts.length ? '。' : '');
             return `<div class="cx-card" style="--c:${S.c}"><div class="pic"><img src="${S.id === 'star' ? 'assets/player.png' : 'assets/ship_' + S.id + '.png'}" onerror="this.style.visibility='hidden'"></div>
@@ -3840,15 +3983,38 @@ const online = window.online = {
     renderTutorial(i) {
         const im = (src, st) => `<img src="${src}" ${st ? `style="${st}"` : ''} onerror="this.style.display='none'">`;
         const slotMock = `<div style="display:flex;gap:4px;font-size:1.3rem;border:2px solid var(--neon-gold);border-radius:8px;padding:6px 10px;box-shadow:0 0 14px var(--neon-gold)"><span class="char collected" style="color:var(--neon-gold)">破</span><span class="char collected" style="color:var(--neon-gold)">釜</span><span class="char collected" style="color:var(--neon-gold)">沉</span><span class="char collected" style="color:var(--neon-gold)">舟</span></div>`;
+        const chip = (t, c = '#9ff') => `<span style="display:inline-block;padding:4px 10px;border:1px solid ${c};border-radius:999px;color:${c};font-size:.85rem;background:rgba(0,0,0,.35)">${t}</span>`;
+        const box = (inner, c = '#334', st = '') => `<div style="border:1px solid ${c};border-radius:8px;padding:6px 10px;background:rgba(10,14,40,.7);${st}">${inner}</div>`;
+        const stg = (n, on, lock) => `<div style="width:74px;height:44px;border-radius:6px;border:2px solid ${on ? 'var(--neon-gold)' : '#334'};${lock ? 'background:#0b0b22' : `background:linear-gradient(rgba(0,0,10,.35),rgba(0,0,10,.35)),url(assets/bg/stage${n}.jpg) center/cover`};font-size:.78rem;display:flex;align-items:flex-end;justify-content:center;text-shadow:0 0 4px #000,0 0 4px #000;padding-bottom:2px">${lock ? '🔒' : '第 ' + n + ' 關'}</div>`;
+        const hpbar = (w, c) => `<div style="width:90px;height:7px;background:#222;border-radius:4px;overflow:hidden"><i style="display:block;height:7px;width:${w}%;background:${c}"></i></div>`;
         const S = [
             ['移動與射擊', `${im('assets/player.png')}<div><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或 <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></div><div><kbd>Shift</kbd> 精準微調</div><div>手機：手指拖曳</div></div>`, '戰機會自動射擊。鍵盤與觸控拖曳的移動速度一樣，升級「機動」可以變快。'],
             ['打字卡、撿字元', `${im('assets/idiom_block.png', 'max-height:90px')}<span style="font-size:2rem">➜</span><span style="font-size:2.4rem;color:var(--neon-blue)">破</span>`, '射擊天上掉下來的字卡，會掉出一個字，飛過去撿起來。字卡只是機關，碰到不會受傷。'],
             ['湊成語、發動招式', `${slotMock}<span style="font-size:1.6rem">➜</span><span><kbd>1</kbd>~<kbd>6</kbd> 或 <kbd>Space</kbd></span>`, '字元集滿四字就會發光，按對應數字鍵（手機直接點）發動。每個招式都有 10 個以上的相關成語。'],
             ['時間凍結與成語演示', `<div style="border:2px solid var(--neon-gold);border-radius:10px;padding:10px 16px;text-align:center"><div style="font-size:1.8rem;color:var(--neon-gold);letter-spacing:.2em">破釜沉舟</div><div class="muted">解釋或造句 5 秒</div></div>`, '發動後全場凍結 5 秒（敵機、子彈、背景都不會動），畫面會逐字浮現該成語的解釋或造句，結束後才發動招式。'],
-            ['九種招式', `<div style="text-align:left;line-height:1.7;font-size:.9rem">爆破・無敵・護盾<br>穿甲彈・追蹤導彈・貫穿雷射<br>治療・時緩・呼叫友軍</div>`, '到大廳的「圖鑑」可以查成語、我方與敵方戰機、Boss，點成語還能看解釋與造句，音樂庫可以重聽所有關卡音樂。'],
+            ['十種招式', `<div style="text-align:left;line-height:1.7;font-size:.9rem">爆破・無敵・護盾<br>穿甲彈・追蹤導彈・貫穿雷射<br>治療・時緩・呼叫友軍・<span style="color:#ff5c8a">吸血</span></div>`, '到大廳的「圖鑑」可以查成語、我方與敵方戰機、Boss，點成語還能看解釋與造句，音樂庫可以重聽所有關卡音樂。'],
             ['血條與護盾', `${im('assets/player.png', 'max-height:80px')}<div style="width:90px"><div style="height:8px;background:#33ff88"></div><div style="height:6px;margin-top:3px;background:#4dd2ff;width:60%"></div></div>`, '血條在戰機後方，護盾在血條下方；受到傷害時護盾先抵掉。敵機的血條在它上方。'],
             ['敵機與 Boss', `${im('assets/enemy_scout.png', 'max-height:70px')}${im('assets/enemy_bomber.png', 'max-height:70px')}${im('assets/boss_1.png', 'max-height:110px')}`, `小關有多種敵機（俯衝、蜂群、狙擊、轟炸、護衛…）。Boss 各有名字與類型：${bossLabel(1)}皮薄但傷害高、${bossLabel(2)}血厚、${bossLabel(3)}彈幕密集。`],
             ['暗物質、軍械商店與戰機', `${im('assets/ship_wind.png', 'max-height:80px')}${im('assets/ship_bastion.png', 'max-height:80px')}${im('assets/ship_blaze.png', 'max-height:80px')}`, '打敗敵人得到暗物質，可到「軍械商店」買戰機，到「戰機管理」升級；每種戰機能力上限不同。出戰前大廳會推薦適合的戰機。'],
+            ['闖關流程（單人）', `<div style="width:100%;text-align:center"><div style="display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap">${chip('區塊 1-1')}<span>➜</span>${chip('區塊 1-2')}<span>➜</span>${chip('WARNING', '#ff5a5a')}${im('assets/boss_1.png', 'max-height:60px;max-width:60px')}</div>
+                <div style="display:flex;justify-content:center;gap:6px;margin-top:10px;flex-wrap:wrap">${stg(1)}${stg(2)}${stg(3, 1)}${stg(4, 0, 1)}</div><div class="muted" style="margin-top:6px;font-size:.8rem">◀ ▶（或鍵盤 ← →）選擇出發關卡，最高只能選到已解鎖的關卡</div></div>`,
+                `每一關分成 3 個區塊：前兩個區塊（例如 1-1、1-2）會不斷出現敵機與字卡，邊打邊湊成語；第 3 個區塊 Boss 登場。擊敗 Boss 就解鎖下一關，共 9 關，第 9 關是最終 Boss「${bossLabel(9)}」。出擊前可以在大廳換戰機、按 <kbd>R</kbd> 套用推薦戰機，戰機的屬性相剋會顯示在關卡卡片上。血量歸零就結束本次出擊。`],
+            ['多人闖關：組隊', `<div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:8px"><div style="display:flex;gap:8px;align-items:center;justify-content:center">${im('assets/ship_wind.png', 'max-height:64px')}${im('assets/ship_bastion.png', 'max-height:64px')}${im('assets/ship_storm.png', 'max-height:64px')}</div>
+                ${box(`<span class="muted">房間密碼</span> <b style="color:var(--neon-gold);letter-spacing:.3em;font-size:1.3rem">4827</b>　${chip('邀請好友', '#7dffb0')}`, '#00b09b')}</div>`,
+                `2～3 人協力（禁止單人）。有兩種玩法：①「連線對戰 → 闖關對戰」遠端組隊，房主建立房間後，可從好友列表直接邀請，或把 4 位數房間密碼告訴隊友輸入加入；②「同機多人闖關」2～3 人共用同一個鍵盤，玩家 1 是主控端，其他人可再登入自己的帳號用自己的戰機，沒登入的是訪客（不領獎勵）。同機模式全程不連線，結束才把銀河幣寫入各帳號。`],
+            ['多人闖關：規則', `<div style="width:100%;text-align:center"><div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">${chip('🛡 連擊護盾', '#ff6b6b')}${chip('🪨 重擊護甲', '#ffb347')}${chip('🔱 破甲彈', '#7ad7ff')}${chip('✚ 四機同體', '#c792ff')}${chip('🚢 巨艦', '#7dffb0')}</div><div class="muted" style="margin-top:8px;font-size:.85rem">Boss 專屬能力，需要隊友分工</div></div>`,
+                `關卡是第 10～18 關，小怪與 Boss 血量、攻擊都是 5 倍。成語列全隊共用，誰發動，效果就落在誰身上；任何人發動時<b>所有玩家暫停 5 秒</b>，等成語顯示完畢才發動。倒下的隊友要等 Boss 被打倒、進入下一關才會以半血復活。掉落的是「銀河幣」，結算時依貢獻（承受傷害＞輸出＞蒐集字卡）分配，可在機庫突破戰機的等級上限。`],
+            ['PK 對戰：開房間', `<div style="width:100%;max-width:360px">${box(`<div style="display:flex;justify-content:space-between"><span>房間</span><b style="color:var(--neon-gold);letter-spacing:.3em">4827</b></div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px"><span>主控端：小明　星藍號</span><b style="color:#7dffb0">已準備</b></div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px"><span>客戶端：小華　烈焰號</span><b style="color:#7dffb0">已準備</b></div>
+                <div style="margin-top:8px;text-align:center"><span class="btn btn-start" style="display:inline-block;padding:4px 24px">開戰</span></div>`, '#cb2d3e')}</div>`,
+                `大廳「連線對戰 → PK 對戰」（需要登入並連線）。主控端按「建立房間」取得 4 位數密碼，也可以直接從好友列表邀請；對方輸入密碼加入。房間裡可以選場地（第 1～9 關背景或隨機）和戰機，雙方都按「準備」後，主控端按「開戰」。`],
+            ['PK 對戰：戰場規則', `<div style="width:100%;text-align:center"><div style="display:flex;justify-content:space-around;align-items:center"><div>${im('assets/ship_storm.png', 'max-height:70px')}${hpbar(70, '#33ff88')}</div><div style="font-size:1.1rem;color:var(--neon-gold)">⚔<br><small>剩餘 180 秒</small></div><div>${im('assets/ship_blaze.png', 'max-height:70px;transform:rotate(180deg)')}${hpbar(45, '#ff5566')}</div></div></div>`,
+                `雙方面對面互射，沒有 NPC 戰機和 Boss；所有戰機的各項能力一律為同一等級（3～8 級由主控端設定，不使用你的升級），磁吸 ${PK_MAGNET} 級、成語列 ${PK_SLOTS} 格。場中央飄過兩倍數量的字塊：誰打爆，字就飄向誰，集滿成語就能發動。<b>攻擊型招式</b>會直接傷害對手：全螢幕爆破 30、貫穿雷射 35、追蹤導彈 25、穿甲彈 25（並讓對手護盾減半）；無敵、護盾、治療等只強化自己，對手無敵中會免疫攻擊。限時 180 秒，血量先歸零者落敗；時間到則比剩餘血量，相同就是平手。吸血在 PK 中無效（對手的傷害由對手自己結算）。`],
+            ['離線遊玩（免登入）', `<div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:8px"><span class="btn" style="display:inline-block;padding:6px 20px;border-color:var(--neon-gold);color:var(--neon-gold)">離線遊玩（免登入）</span><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">${chip('全戰機開放', '#7dffb0')}${chip('裝備固定 3 級', '#9ff')}${chip('不累積貨幣', '#ffb347')}</div></div>`,
+                `在登入畫面按「離線遊玩（免登入）」，不用帳號也能玩單人闖關：所有戰機開放、裝備固定 3 級，但不累積任何貨幣，也沒有排行榜、好友、聊天、PK 與多人闖關。離開時會把進入前的本機存檔原樣還回去，不會影響你原本的進度。`],
+            ['離線資料包與斷網續玩', `<div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:8px">${box(`⚙ 設定 <kbd>O</kbd> ➜ <b>離線資料包</b><br><span class="muted" style="font-size:.8rem">下載後可完全離線遊玩（約 51 MB）</span>`, '#4b5b8f')}${chip('續玩離線進度（你的名稱）', '#7dffb0')}</div>`,
+                `大廳「設定」裡的<b>離線資料包</b>會把網頁、圖片與音樂存到這台裝置（需要 https 網址，且瀏覽器支援 Service Worker），下載完成後沒有網路也能開啟遊戲；有新版本時，要連網更新完才能進遊戲。登入過的帳號在斷網時，登入畫面會出現「續玩離線進度」，進度先存在裝置，連網重新登入後自動同步。排行榜、好友、聊天、PK 與多人闖關仍然需要網路。`],
             ['線上功能', `<div style="line-height:1.8;text-align:left">排行榜：分數、暗物質、花費、全關破關時間、各關卡單獨排行<br>好友與聊天（右下角對話框）<br>PK：主控端建房，給 4 位數密碼</div>`, '全部關卡破關時間越短排名越高；時間相同則先達成的排前面。PK 時成語演示雙方畫面都會凍結演示。']
         ];
         this.tut = Math.max(0, Math.min(S.length - 1, i)); const t = S[this.tut], last = this.tut === S.length - 1;
@@ -4218,7 +4384,7 @@ wrap('handleKey', function (o, e) {
 //  主控端：模擬整個戰場（敵機／Boss／子彈／字塊／所有隊員），約每 0.125 秒把畫面存進 rooms/{code}/pos/world
 //  客戶端：不模擬戰場，只把主控端的畫面「映射」出來；自己的機體在本機移動，位置回報給主控端，成語由主控端裁決
 // ===================================================================
-const COOP_FIELDS = ['hp', 'maxHp', 'shield', 'st', 'skin', 'shipId', 'covLv', 'weaponLvl', 'invincibleTimer', 'laserTimer', 'pierceTimer', 'missileTimer', 'missileCd', 'allies', 'allyTimer', 'snipe', 'magnetLvl', '_lanceN', 'player'];
+const COOP_FIELDS = ['hp', 'maxHp', 'shield', 'st', 'skin', 'shipId', 'covLv', 'weaponLvl', 'invincibleTimer', 'laserTimer', 'pierceTimer', 'lifestealTimer', 'missileTimer', 'missileCd', 'allies', 'allyTimer', 'snipe', 'magnetLvl', '_lanceN', 'player'];
 // ===== 多人闖關專屬：Boss 詞綴（單機關卡沒有；同機多人與連線闖關都適用）=====
 // combo 連擊護盾：Boss 帶一面計數護盾，護盾在時對 Boss 傷害 0；COMBO_WIN 秒內全隊累計命中（同一人同一輪齊射算 1 次）達標才破盾，破盾後 COMBO_CD 秒重生 → 連射號
 // wide  巨艦：船體寬度等於螢幕寬、不能移動、彈幕極密；每擊中我方一次回復 WIDE_HEAL 最大血量 → 疾風號靠閃躲
@@ -4227,7 +4393,7 @@ const COOP_FIELDS = ['hp', 'maxHp', 'shield', 'st', 'skin', 'shipId', 'covLv', '
 // quad  四機同體：Boss 分成上下左右四台，共用同一條血條 → 環陣號全向火網
 const COOP_AFFIX = { 1: 'combo', 2: 'heavy', 3: 'quad', 4: 'aegis', 5: 'heavy', 6: 'combo', 7: 'aegis', 8: 'wide', 9: 'final' };   // 想換關卡就改這張表（final＝終焉：輪流切換各種詞綴的閹割版）
 window.COOP_AFFIX = COOP_AFFIX;   // Game.draw（第一個 script）也要讀這張表；這裡在 IIFE 裡，不公開的話 Boss 一出現畫面迴圈就會因 ReferenceError 中斷而卡死
-const COMBO_WIN = 1.0, COMBO_DEDUP = 0.08, COMBO_NEED = { 1: 10, 6: 20 }, COMBO_CD = 5, HEAVY_MIN = { 2: 6, 5: 10 }, AEGIS_MUL = 3, WIDE_HEAL = 0.05, WIDE_DMG = 0.6;   // COMBO_CD：護盾破裂後幾秒重生；WIDE_HEAL：巨艦每擊中我方一次回復的最大血量比例
+const COMBO_WIN = 1.0, COMBO_DEDUP = 0.08, COMBO_NEED = { 1: 5, 6: 10 }, COMBO_CD = 5, HEAVY_MIN = { 2: 6, 5: 10 }, AEGIS_MUL = 3, WIDE_HEAL = 0.05, WIDE_DMG = 0.6;   // COMBO_CD：護盾破裂後幾秒重生；WIDE_HEAL：巨艦每擊中我方一次回復的最大血量比例
 // 終焉（第 9 關）：每 FINAL_FORM_T 秒換一種形態，各詞綴的閹割版，沒有「四機同體」
 const FINAL_FORMS = ['combo', 'heavy', 'aegis', 'leech'], FINAL_FORM_T = 18, FINAL_NEED = 4, FINAL_CD = 8, FINAL_HEAVY = 5, FINAL_AEGIS = 1.5, FINAL_HEAL = 0.01;
 const FORM_TXT = {
@@ -4384,7 +4550,7 @@ const coop = {
     // ================= 開戰 =================
     freshState(st) {   // 主控端用來模擬「隊員」的狀態（欄位與 Game 上的同名欄位一一對應）
         return { hp: st.hp, maxHp: st.hp, shield: 0, st: { dmg: st.dmg, interval: st.iv, pen: st.pen, crit: st.crit, len: st.len || 0 }, skin: Math.max(0, SHIPS.findIndex(x => x.id === st.sid)), shipId: st.sid, covLv: st.cov, weaponLvl: st.wl,
-            invincibleTimer: 0, laserTimer: 0, pierceTimer: 0, missileTimer: 0, missileCd: 0, allies: [], allyTimer: 0, snipe: { c: 0, t: [], fx: [] }, magnetLvl: st.mg, _lanceN: 0,
+            invincibleTimer: 0, laserTimer: 0, pierceTimer: 0, lifestealTimer: 0, missileTimer: 0, missileCd: 0, allies: [], allyTimer: 0, snipe: { c: 0, t: [], fx: [] }, magnetLvl: st.mg, _lanceN: 0,
             player: { pos: new Vec2(WORLD.w / 2, WORLD.h - 150), radius: st.r, speed: st.spd, lastShoot: 0, rapidFire: 0, spreadFire: 0 } };
     },
     begin(d) {
@@ -4396,7 +4562,7 @@ const coop = {
         const mySid = mem[me] && mem[me].sid; if (mySid && G.fleet[mySid] && G.fleet[mySid].own) G.shipId = mySid;
         G.applyUpgrades();
         G.maxSlots = Math.max(1, ...this.order.map(id => (mem[id] && mem[id].st && mem[id].st.sl) || 1));   // 成語列數量＝隊員中最多的那位
-        G.shield = 0; G.pierceTimer = 0; G.missileTimer = 0; G.allies = []; G.allyTimer = 0; G.laserTimer = 0; G.invincibleTimer = 0; G.snipe = { c: 0, t: [], fx: [] };
+        G.shield = 0; G.waves = []; G.pierceTimer = 0; G.lifestealTimer = 0; G.missileTimer = 0; G.allies = []; G.allyTimer = 0; G.laserTimer = 0; G.invincibleTimer = 0; G.snipe = { c: 0, t: [], fx: [] };
         G.hp = G.maxHp; G.slots = []; G.runClock = 0; G.runDM = 0; G.score = 0; G.runKills = 0; G.runCasts = 0; G.currentStage = this.startStage = Math.max(1, Math.min(COOP_ST, (d.stage | 0) || 1)); G.currentSub = 1; G.runSeq = (G.runSeq || 0) + 1; G.clearT = 0; G.runClearLog = {}; G.runStageClears = {};
         const el = document.querySelector('.hud-dm'); if (el && el.firstChild) el.firstChild.nodeValue = '銀河幣: ';
         const ref = online.roomRef(r.code);
@@ -4617,22 +4783,24 @@ const coop = {
                 const hitB = g.bullets.pool.find(o => o.active && !o.isPlayer && Math.hypot(b.pos.x - o.pos.x, b.pos.y - o.pos.y) < b.radius + o.radius);
                 if (hitB) { b.active = false; hitB.hits = (hitB.hits || 0) + 1; if (hitB.hits >= cancelNeed(hitB.damage)) hitB.active = false; g.burst(b.pos.x, b.pos.y, 1); return; }
             }
+            let sk = null;   // 烈焰號震波（見 Game.blazeShock）
             if (g.boss) {   // Boss 本體或分身（四機同體）：打到誰都算在同一條血條上
                 const hitU = q => q.wide ? (Math.abs(b.pos.x - q.pos.x) < q.hw && Math.abs(b.pos.y - q.pos.y) < q.hh + (b.big ? b.radius : 0)) : bdist(b, q.pos.x, q.pos.y) < bigHitR(b, q.radius);
                 const us = [g.boss, ...(g.bossClones || [])], u = us.find(hitU);
-                if (u) { const d = u.wide ? 0 : bdist(b, u.pos.x, u.pos.y), R = u.wide ? 1 : bigHitR(b, u.radius), sp = g.boss.pos; g.boss.pos = u.pos; try { g.dmgEnt(g.boss, b.damage * bigMul(b, d, R), b.pierce, true, b); } finally { g.boss.pos = sp; } b.active = false; sfx.playHit(); }
+                if (u) { const d = u.wide ? 0 : bdist(b, u.pos.x, u.pos.y), R = u.wide ? 1 : bigHitR(b, u.radius), sp = g.boss.pos; g.boss.pos = u.pos; try { g.dmgEnt(g.boss, b.damage * bigMul(b, d, R), b.pierce, true, b); } finally { g.boss.pos = sp; } b.active = false; sfx.playHit(); if (b.big) sk = { x: b.pos.x, y: b.pos.y, mul: bigMul(b, d, R), skip: null }; }
             }
             g.enemies.forEach((e, i) => {
                 const d = bdist(b, e.pos.x, e.pos.y), R = bigHitR(b, e.radius);
                 if (b.active && d < R) {
-                    g.dmgEnt(e, b.damage * bigMul(b, d, R), b.pierce, true, b); b.active = false; sfx.playHit();
+                    g.dmgEnt(e, b.damage * bigMul(b, d, R), b.pierce, true, b); b.active = false; sfx.playHit(); if (b.big) sk = { x: b.pos.x, y: b.pos.y, mul: bigMul(b, d, R), skip: e };
                     if (e.hp <= 0) { g.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); g.runKills = (g.runKills || 0) + 1; g.enemyDrop(e); sfx.playExplosion(); g.enemies.splice(i, 1); }
                 }
             });
             g.idiomBlocks.forEach((m, i) => {
                 const d = bdist(b, m.pos.x, m.pos.y), R = bigHitR(b, m.radius);
-                if (b.active && d < R) { m.hp -= b.damage * bigMul(b, d, R); b.active = false; sfx.playHit(); if (m.hp <= 0) { g.blockBreak(m); sfx.playExplosion(); g.idiomBlocks.splice(i, 1); } }
+                if (b.active && d < R) { m.hp -= b.damage * bigMul(b, d, R); b.active = false; sfx.playHit(); if (b.big) sk = { x: b.pos.x, y: b.pos.y, mul: bigMul(b, d, R), skip: null }; if (m.hp <= 0) { g.blockBreak(m); sfx.playExplosion(); g.idiomBlocks.splice(i, 1); } }
             });
+            if (sk) g.blazeShock(b, sk);
         });
         // 7) 敵彈／碰撞打到隊員：誰先碰到就打誰（所以前排的「坦」能替後排擋子彈）
         this.hitPlayers();
@@ -4657,27 +4825,28 @@ const coop = {
                 g.idiomBlocks.forEach((m, i) => { if (Math.abs(m.pos.x - g.player.pos.x) < 25 && m.pos.y < g.player.pos.y) { m.hp -= 100 * dt; if (m.hp <= 0) { g.blockBreak(m); sfx.playExplosion(); g.idiomBlocks.splice(i, 1); } } });
             }
             if (g.invincibleTimer > 0) g.invincibleTimer -= dt; if (g.player.rapidFire > 0) g.player.rapidFire -= dt; if (g.player.spreadFire > 0) g.player.spreadFire -= dt;
-            if (g.laserTimer > 0) g.laserTimer -= dt; if (g.pierceTimer > 0) g.pierceTimer -= dt; if (g.missileTimer > 0) g.missileTimer -= dt;
+            if (g.laserTimer > 0) g.laserTimer -= dt; if (g.pierceTimer > 0) g.pierceTimer -= dt; if (g.lifestealTimer > 0) g.lifestealTimer -= dt; if (g.missileTimer > 0) g.missileTimer -= dt;
             g.updateAllies(dt);
         }));
         g.texts.pool.forEach(t => { if (t.active) t.update(dt); });
         if (g.slowTimer > 0) g.slowTimer -= dt;
-        if (g.shock) { g.shock.t += dt; if (g.shock.t > 1.2) g.shock = null; }
+        if (g.shock) { g.shock.t += dt; if (g.shock.t > 1.2) g.shock = null; } g.updWaves(dt);
         g.particles = g.particles.filter(p => (p.life -= dt) > 0); g.particles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; });
         g.updateDmgTexts(dt); g.updateBuffs();
         if (!this.aliveIds().length) { this.end(false); return; }
         this.tick(dt);
     },
     hitPlayers() {
-        const g = G;
+        const g = G, safe = g.clearSafe();   // 通關倒數中：敵彈與敵機碰撞都不再傷人
         g.bullets.pool.forEach(b => {
             if (!b.active || b.isPlayer) return;
+            if (safe || b.dud) { b.dud = true; return; }
             for (const id of this.aliveIds()) {
                 const P = this.P[id], pos = this.posOf(id), r = P.host ? g.player.radius : P.s.player.radius;
                 if (Math.hypot(b.pos.x - pos.x, b.pos.y - pos.y) < r) { b.active = false; this.ctx(id, () => { const AG = b.fromBoss && g.boss && g.boss.aff === 'aegis', HL = b.fromBoss && g.boss && (g.boss.aff === 'wide' || g.boss.aff === 'leech'); if (AG && g.shipId === 'bastion') { this.dmgP(id, g.boss.aegisBastion); g.showFloatText(String(g.boss.aegisBastion), pos.x, pos.y - 34, '#9ff'); } else if (g.shipId === 'bastion' && bastionBlocks(g.maxHp, b.damage)) this.dmgP(id, COOP_ATK); else if (g.invincibleTimer <= 0) { this.dmgP(id, b.damage * 10 * COOP_ATK * (AG ? g.boss.aegisMul : 1)); g.invincibleTimer = 0.5; if (HL) this.bossHeal(); } }); break; }
             }
         });
-        g.enemies.forEach(e => {
+        if (!safe) g.enemies.forEach(e => {
             for (const id of this.aliveIds()) {
                 const P = this.P[id], pos = this.posOf(id), r = P.host ? g.player.radius : P.s.player.radius;
                 if (Math.hypot(e.pos.x - pos.x, e.pos.y - pos.y) < e.radius + r) this.ctx(id, () => { if (g.invincibleTimer <= 0) { this.dmgP(id, (e.type === 'TANK' ? 25 : 15) * COOP_ATK); g.invincibleTimer = 1.0; } });
@@ -4685,6 +4854,7 @@ const coop = {
         });
     },
     dmgP(id, raw) {   // 在該隊員的狀態下承受傷害：計入「承受傷害」貢獻
+        if (G.clearSafe()) return;
         const g = G, had = g.hp + g.shield; g.hurt(raw); this.credit(id, 'tank', Math.min(had, raw));
         if (!g._silent) sfx.playPlayerHit();
         if (g.hp <= 0) this.kill(id);
@@ -4738,10 +4908,14 @@ const coop = {
         const src = id => this.P[id].host ? g : this.P[id].s;
         const S = { q: ++this.seq, gs: g.gameState, st: g.currentStage, sb: g.currentSub, ct: r1(g.clearT || 0), cn: g.clearNext ? 1 : 0, nx: g.isNextStage ? 1 : 0, rs: this.resetSeq, pool: ri(this.pool), ms: g.maxSlots, sw: g.slowTimer > 0 ? Math.max(0.1, r1(g.slowTimer)) : 0, sn: g.slowTimer > 0 ? (this.slowBy || '') : '' };
         S.sl = g.slots.map(s => [s.type === 'READY' ? 1 : 0, s.word, s.chars.join(''), s.effect, s.effectDesc]);
-        S.P = ids.map(id => { const P = this.P[id], s = src(id), pos = P.host ? g.player.pos : s.player.pos; return [id, ri(pos.x), ri(pos.y), r1(s.hp), ri(s.maxHp), r1(s.shield), r1(Math.max(0, s.invincibleTimer)), s.laserTimer > 0 ? Math.max(0.1, r1(s.laserTimer)) : 0, s.skin, P.alive ? 1 : 0, r1(Math.max(0, s.pierceTimer)), r1(Math.max(0, s.missileTimer)), r1(Math.max(0, s.allyTimer || 0))]; });
+        S.P = ids.map(id => { const P = this.P[id], s = src(id), pos = P.host ? g.player.pos : s.player.pos; return [id, ri(pos.x), ri(pos.y), r1(s.hp), ri(s.maxHp), r1(s.shield), r1(Math.max(0, s.invincibleTimer)), s.laserTimer > 0 ? Math.max(0.1, r1(s.laserTimer)) : 0, s.skin, P.alive ? 1 : 0, r1(Math.max(0, s.pierceTimer)), r1(Math.max(0, s.missileTimer)), r1(Math.max(0, s.allyTimer || 0)), r1(Math.max(0, s.lifestealTimer || 0))]; });
         S.E = g.enemies.map(e => { if (!e._id) e._id = ++this.nid; return [e._id, COOP_TYPES.indexOf(e.type), ri(e.pos.x), ri(e.pos.y), r1(e.hp), r1(e.maxHp), ri(e.radius), ri(g.shieldOf(e)), ri(e.maxShield || 0), e.charge > 0 ? r1(e.charge) : 0, r1(e.lockA || 0), r1(e.snipeP || 0)]; });
         const b = g.boss; S.B = b ? [ri(b.pos.x), ri(b.pos.y), r1(b.hp), r1(b.maxHp), ri(g.shieldOf(b)), ri(b.maxShield || 0), b.stage, b.cmb || 0, b.csUp === false ? 0 : 1, r1(b.csT || 0), b.fm | 0, r1(b.formT || 0)] : 0; S.BC = (g.bossClones || []).map(c => [ri(c.pos.x), ri(c.pos.y), c.side]);
-        S.U = []; const sl = g.slowTimer > 0; g.bullets.pool.forEach(x => { if (x.active && S.U.length < 420) { const k = (!x.isPlayer && sl) ? 0.4 : 1; S.U.push([ri(x.pos.x), ri(x.pos.y), ri(x.vel.x * k), ri(x.vel.y * k), ri(x.radius * 10), pi(x.color), x.isPlayer ? 1 : 0, ri(x.len || 0)]); } }); S.pal = pal;
+        S.U = []; const sl = g.slowTimer > 0, MAXB = 300, BP = g.bullets.pool;   // 子彈過多時：敵彈（會傷人）全送，我方子彈只送一半（依編號奇偶固定挑選，畫面不閃爍），總數上限 300，大幅縮小封包
+        const enc = x => { const k = (!x.isPlayer && sl) ? 0.4 : 1, a = [ri(x.pos.x), ri(x.pos.y), ri(x.vel.x * k), ri(x.vel.y * k), ri(x.radius * 10), pi(x.color), x.isPlayer ? 1 : 0]; if (x.len) a.push(ri(x.len)); S.U.push(a); };
+        let nOwn = 0; BP.forEach(x => { if (x.active) { if (x.isPlayer) nOwn++; else if (S.U.length < MAXB) enc(x); } });
+        const thin = S.U.length + nOwn > MAXB;
+        BP.forEach((x, i) => { if (x.active && x.isPlayer && (!thin || i % 2 === 0) && S.U.length < MAXB) enc(x); }); S.pal = pal;
         S.M = g.idiomBlocks.map(m => { if (!m._id) m._id = ++this.nid; return [m._id, ri(m.pos.x), ri(m.pos.y), m.radius, r1(m.hp), r1(m.maxHp), m.char]; });
         S.C = g.charItems.map(c => { if (!c._id) c._id = ++this.nid; return [c._id, ri(c.pos.x), ri(c.pos.y), c.char]; });
         S.A = []; ids.forEach(id => { if (this.P[id].alive) src(id).allies.forEach(a => S.A.push([a.sid, ri(a.pos.x), ri(a.pos.y), ri(a.hp), ri(a.maxHp), a.leaving ? 1 : 0])); });
@@ -4781,13 +4955,13 @@ const coop = {
             const id = a[0];
             if (id === me) {
                 const wasDead = this.view[me] && this.view[me].alive === 0;   // 倒下→復活：把自己的戰機對齊主控端算好的復活位置
-                g.hp = a[3]; g.maxHp = a[4]; g.shield = a[5]; g.invincibleTimer = a[6]; g.laserTimer = a[7] ? 1 : 0; g.pierceTimer = a[10]; g.missileTimer = a[11];
+                g.hp = a[3]; g.maxHp = a[4]; g.shield = a[5]; g.invincibleTimer = a[6]; g.laserTimer = a[7] ? 1 : 0; g.pierceTimer = a[10]; g.missileTimer = a[11]; g.lifestealTimer = a[13] || 0;
                 if (wasDead && a[9]) g.player.pos = new Vec2(a[1], a[2]);
-                this.view[me] = { alive: a[9], hp: a[3], maxHp: a[4], shield: a[5], inv: a[6], laser: a[7], pierce: a[10], missile: a[11], ally: a[12] || 0 };
+                this.view[me] = { alive: a[9], hp: a[3], maxHp: a[4], shield: a[5], inv: a[6], laser: a[7], pierce: a[10], missile: a[11], ally: a[12] || 0, lifesteal: a[13] || 0 };
                 if (S.rs !== this.rsSeen) { this.rsSeen = S.rs; if (a[9]) g.player.pos = new Vec2(a[1], a[2]); }
             } else {
                 let o = this.view[id]; if (!o) o = this.view[id] = { x: a[1], y: a[2] };
-                o.tx = a[1]; o.ty = a[2]; o.hp = a[3]; o.maxHp = a[4]; o.shield = a[5]; o.inv = a[6]; o.laser = a[7]; o.skin = a[8]; o.alive = a[9]; o.pierce = a[10]; o.missile = a[11]; o.ally = a[12] || 0;
+                o.tx = a[1]; o.ty = a[2]; o.hp = a[3]; o.maxHp = a[4]; o.shield = a[5]; o.inv = a[6]; o.laser = a[7]; o.skin = a[8]; o.alive = a[9]; o.pierce = a[10]; o.missile = a[11]; o.ally = a[12] || 0; o.lifesteal = a[13] || 0;
             }
         });
         // 敵機
@@ -4818,6 +4992,7 @@ const coop = {
             else if (ev[0] === 'b') { g.burst(ev[1], ev[2], ev[3]); if (ev[3] >= 8) sfx.playExplosion(); }
             else if (ev[0] === 'd') { g.dmgTexts.push({ x: ev[1], y: ev[2], t: 0, text: ev[3], kind: ev[4], big: ev[5], rot: (Math.random() - 0.5) * 0.36, seed: Math.random() * 100 }); if (g.dmgTexts.length > 40) g.dmgTexts.shift(); }
             else if (ev[0] === 'sh') g.shock = { t: 0, x: ev[1], y: ev[2] };
+            else if (ev[0] === 'bw') g.pushWave(ev[1], ev[2], ev[3], ev[4]);
             else if (ev[0] === 'c') { sfx.playIdiomCast && sfx.playIdiomCast(); this.showCast(ev[1], ev[2], ev[3], ev[4], ev[5]); }
         });
     },
@@ -4829,10 +5004,10 @@ const coop = {
         Object.keys(this.view).forEach(id => { const o = this.view[id]; if (id === me || o.tx === undefined) return; if (Math.abs(o.tx - o.x) > 200 || Math.abs(o.ty - o.y) > 200) { o.x = o.tx; o.y = o.ty; } else { o.x += (o.tx - o.x) * k; o.y += (o.ty - o.y) * k; } });
         const el = Math.min(0.4, (performance.now() - (this.snapAt || 0)) / 1000), pool = g.bullets;   // 子彈用最後一張畫面的速度往前推算
         pool.pool.forEach(b => { b.active = false; });
-        (this.vb || []).forEach(a => { const b = pool.get(); b.pos.x = a[0] + a[2] * el; b.pos.y = a[1] + a[3] * el; b.radius = a[4] / 10; b.color = this.pal[a[5]] || '#fff'; b.isPlayer = !!a[6]; b.vel.x = a[2]; b.vel.y = a[3]; b.len = a[7] || 0; });
+        (this.vb || []).forEach(a => { const b = pool.get(); b.pos.x = a[0] + a[2] * el; b.pos.y = a[1] + a[3] * el; b.radius = a[4] / 10; b.color = this.pal[a[5]] || '#fff'; b.isPlayer = !!a[6]; b.vel.x = a[2]; b.vel.y = a[3]; b.len = a[7] || 0; b.dud = !a[6] && g.clearT > 0; });
         g.texts.pool.forEach(t => { if (t.active) t.update(dt); });
         if (g.invincibleTimer > 0) g.invincibleTimer -= dt; if (g.laserTimer > 0) g.laserTimer = 1;
-        if (g.shock) { g.shock.t += dt; if (g.shock.t > 1.2) g.shock = null; }
+        if (g.shock) { g.shock.t += dt; if (g.shock.t > 1.2) g.shock = null; } g.updWaves(dt);
         g.particles = g.particles.filter(p => (p.life -= dt) > 0); g.particles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; });
         g.updateDmgTexts(dt); g.updateBuffs();
         this.hudT += dt; if (this.hudT >= 0.3) { this.hudT = 0; this.paintHud(); g.updateHUD(); }
@@ -4863,10 +5038,10 @@ const coop = {
     },
     paintBuffs() {   // 左上角：全隊的成語效果，每一條都註明是誰發動的（效果落在發動者身上；減速為全場效果）
         const g = G, me = this.me(), host = G.coopHost, rows = [];
-        const T = [['穿甲彈', 'pierce', 30, '#ffb347'], ['追蹤導彈', 'missile', 10, '#ff6b6b'], ['雷射貫穿', 'laser', 3, '#ffea00'], ['無敵', 'inv', 10, '#7dffb0'], ['呼叫友軍', 'ally', 15, '#7ad7ff']];
+        const T = [['穿甲彈', 'pierce', 30, '#ffb347'], ['追蹤導彈', 'missile', 10, '#ff6b6b'], ['雷射貫穿', 'laser', 3, '#ffea00'], ['無敵', 'inv', 10, '#7dffb0'], ['吸血', 'lifesteal', LIFESTEAL_T, '#ff5c8a'], ['呼叫友軍', 'ally', 15, '#7ad7ff']];
         this.order.forEach((id, idx) => {
             let v;
-            if (host) { const P = this.P[id]; if (!P || P.left || !P.alive) return; const s = P.host ? g : P.s; v = { pierce: s.pierceTimer, missile: s.missileTimer, laser: s.laserTimer, inv: s.invincibleTimer, ally: s.allyTimer }; }
+            if (host) { const P = this.P[id]; if (!P || P.left || !P.alive) return; const s = P.host ? g : P.s; v = { pierce: s.pierceTimer, missile: s.missileTimer, laser: s.laserTimer, inv: s.invincibleTimer, ally: s.allyTimer, lifesteal: s.lifestealTimer }; }
             else { v = this.view[id]; if (!v || v.alive === 0) return; }
             const pc = this.local ? (LC_COL[idx] || '#9ff') : (id === me ? '#ffea00' : '#9ff');
             T.forEach(([n, k, m, c]) => { let t = +v[k] || 0; if (k === 'inv' && t <= 1.05) t = 0; if (t > 0) rows.push([this.nm[id] || '', pc, n, t, m, c]); });
@@ -5002,7 +5177,8 @@ Object.assign(coop, {
     rtcWorld(str) {   // 房主：把畫面送給已直連的隊員；全部隊員都直連時回傳 true（可略過 Firestore）
         const R = this.rtc; if (!R || !R.host) return false; const msg = JSON.stringify({ k: 'w', s: str }); let all = true, any = false;
         this.order.forEach(id => { if (id === this.me()) return; const P = this.P[id]; if (!P || P.left) return; const pe = R.peers[id];
-            if (pe && pe.open && pe.ch.w.readyState === 'open') { try { pe.ch.w.send(msg); any = true; return; } catch (e) {} } all = false; });
+            if (pe && pe.open && pe.ch.w.readyState === 'open') { if (pe.ch.w.bufferedAmount > 60000) { any = true; return; }   // 這位隊員的連線還塞著舊畫面：這一幀不送，避免越積越多造成延遲
+                try { pe.ch.w.send(msg); any = true; return; } catch (e) {} } all = false; });
         return any && all;
     },
     rtcToHost(obj) {   // 隊員：送給房主；直連可用時回傳 true
@@ -5025,7 +5201,9 @@ wrap('dropDarkMatter', function (o, ...a) { if (this.coopMode) { if (this.coopHo
 wrap('dmgEnt', function (o, e, n, pf, hit, src) {   // 輸出傷害貢獻：記在發射者（或發動成語者）身上，溢出的不算
     if (!this.coopHost) return o.call(this, e, n, pf, hit, src);
     this.shieldOf(e); const b = Math.max(0, e.hp) + Math.max(0, e.shield || 0); const r = o.call(this, e, n, pf, hit, src); const a = Math.max(0, e.hp) + Math.max(0, e.shield || 0);
-    if (b - a > 0) coop.credit((src && src.owner) || coop.cur, 'dmg', b - a); return r;
+    if (b - a > 0) coop.credit((src && src.owner) || coop.cur, 'dmg', b - a);
+    if (b - a > 0 && hit && src && src.isPlayer && src.owner) coop.ctx(src.owner, () => G.lifesteal(b - a));   // 吸血：回復算在發射者身上
+    return r;
 });
 wrap('showFloatText', function (o, text, x, y, color) { o.call(this, text, x, y, color); if (this.coopHost && coop.evq.length < 80) coop.evq.push(['f', String(text), Math.round(x), Math.round(y), color || '#fff']); });
 wrap('burst', function (o, x, y, n) { o.call(this, x, y, n); if (this.coopHost && coop.evq.length < 80) coop.evq.push(['b', Math.round(x), Math.round(y), n]); });
@@ -5213,7 +5391,7 @@ Object.assign(coop, {
         G.coopMode = true; G.coopHost = true; G.coopLocal = true; G.pkMode = false; G._keepSlots = G.maxSlots;
         const p1 = players[0]; G.fleet = p1.fleet; G.shipId = p1.sid; G.magnetLvl = p1.mg; G.applyUpgrades();
         G.maxSlots = Math.max(1, ...players.map(p => p.sl));   // 成語列數量＝玩家中最多的那位
-        G.shield = 0; G.pierceTimer = 0; G.missileTimer = 0; G.allies = []; G.allyTimer = 0; G.laserTimer = 0; G.invincibleTimer = 0; G.snipe = { c: 0, t: [], fx: [] };
+        G.shield = 0; G.waves = []; G.pierceTimer = 0; G.lifestealTimer = 0; G.missileTimer = 0; G.allies = []; G.allyTimer = 0; G.laserTimer = 0; G.invincibleTimer = 0; G.snipe = { c: 0, t: [], fx: [] };
         G.hp = G.maxHp; G.slots = []; G.runClock = 0; G.runDM = 0; G.score = 0; G.runKills = 0; G.runCasts = 0; G.currentStage = this.startStage = Math.max(1, Math.min(COOP_ST, (stage | 0) || 1)); G.currentSub = 1; G.runSeq = (G.runSeq || 0) + 1; G.clearT = 0; G.runClearLog = {}; G.runStageClears = {};
         const el = document.querySelector('.hud-dm'); if (el && el.firstChild) el.firstChild.nodeValue = '銀河幣: ';
         this.P = {};
