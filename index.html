@@ -240,10 +240,11 @@
         @media (max-height:520px) and (orientation:landscape) { .slot { height:46px; } #stage-info { top:44px; } }
         .res-stages { margin:6px 0; text-align:left; background:rgba(0,0,0,.28); border:1px solid #334; border-radius:10px; padding:6px 10px; } .res-stages summary { cursor:pointer; color:var(--neon-blue); font-size:.9rem; user-select:none; } .res-st-list { margin-top:6px; max-height:34vh; overflow-y:auto; } .res-st-list .rst { display:grid; grid-template-columns:3.6em 4.2em 1fr; gap:6px; align-items:baseline; padding:4px 0; border-bottom:1px solid #223; font-size:.88rem; } .res-st-list .rst b { color:var(--neon-gold); } .res-st-list .rst em { font-style:normal; text-align:right; } .res-st-list small { color:#9ab; }
         .res-rows { margin:8px 0; } .res-rows .rrow { display:flex; justify-content:space-between; padding:6px 10px; border-bottom:1px solid #223; text-align:left; } .res-rows b { color:var(--neon-gold); }
-        .idiom-slots { bottom:calc(env(safe-area-inset-bottom, 0px) + 10px); gap:4px; width:auto; max-width:100%; }
-        .slot { flex:0 0 var(--sw, 80px); width:var(--sw, 80px); max-width:none; min-width:0; box-sizing:border-box; height:calc(var(--sw, 80px) * 0.95); min-height:50px; max-height:84px; padding:0 1px; }
-        .slot-title { font-size:min(1.2rem, calc(var(--sw, 80px) / 4.9)); }
-        .slot-subtitle { font-size:clamp(.5rem, calc(var(--sw, 80px) / 8.5), .75rem); }
+        .idiom-slots { --swe:min(var(--sw, 80px), 15vh); bottom:calc(env(safe-area-inset-bottom, 0px) + 10px); gap:4px; width:auto; max-width:100%; }   /* --swe：格子寬度另外受螢幕高度限制（橫放的手機只有約 400px 高，成語列要等比例縮小，不然會擋住戰場） */
+        .slot { flex:0 0 var(--swe); width:var(--swe); max-width:none; min-width:0; box-sizing:border-box; height:calc(var(--swe) * 0.95); min-height:min(50px, calc(var(--swe) * 0.95)); max-height:84px; padding:0 1px; }
+        .slot-title { font-size:min(1.2rem, calc(var(--swe) / 4.9)); }
+        .slot-subtitle { font-size:clamp(.5rem, calc(var(--swe) / 8.5), .75rem); }
+        @media (max-height:520px) { .idiom-slots { bottom:calc(env(safe-area-inset-bottom, 0px) + 4px); gap:3px; } .slot-key { transform:scale(.8); transform-origin:top left; } }
         .ip-line { min-height:3.4em; } .ip-cur { color:var(--neon-gold); animation:spBlink .8s infinite; } .muted { color:#8aa; font-size:.85rem; }
     </style>
 </head>
@@ -410,7 +411,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261119i', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261119k', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -648,7 +649,7 @@ function fitDraw(ctx, img, box) {
 }
 
 // ===== 音樂檔案（依序嘗試 music/ 與 assets/music/；找不到時，大廳／關卡退回合成音樂）=====
-const MUSIC_DIRS = ['music/', 'assets/music/'];
+const MUSIC_DIRS = ['assets/music/', 'music/'];   // 先讀 assets/music/（第 1～18 關、大廳、結算都放這裡），找不到才試 music/
 // 離線資料包裡有這個音檔時，直接從 Cache API 取出轉成 blob 網址播放（不經網路、也不依賴 Service Worker 對 Range 請求的支援；iOS Safari 需要）
 const _blobMusic = {};
 async function offlineAudioSrc(url) {
@@ -3110,7 +3111,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .cx-h{display:flex;align-items:baseline;justify-content:center;gap:10px}.cx-h h2{margin:0 0 6px}.cx-h small{color:#8aa;letter-spacing:.35em;font-size:.7rem}
 .cx-top{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 8px}
 .cx-top button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:9px 4px 7px;border-radius:12px;border:1px solid color-mix(in srgb,var(--c) 45%,#223);background:linear-gradient(160deg,color-mix(in srgb,var(--c) 14%,#0a0a1a),#0a0a1a);color:#cde;cursor:pointer;font-family:inherit;transition:transform .15s,box-shadow .15s}
-.cx-top button:hover{transform:translateY(-2px)}.cx-top button .ic{font-size:1.5rem;line-height:1.2}.cx-top button b{font-size:1.02rem}.cx-top button small{font-size:.66rem;color:#8aa}
+.cx-top button:hover{transform:translateY(-2px)}.cx-top button .ic{font-size:1.5rem;line-height:1.2}.cx-top button b{font-size:1.02rem}.cx-top button small{font-size:.72rem;color:#8aa}
 .cx-top button.on{background:linear-gradient(160deg,color-mix(in srgb,var(--c) 42%,#0a0a1a),color-mix(in srgb,var(--c) 14%,#0a0a1a));border-color:var(--c);color:#fff;box-shadow:0 0 16px color-mix(in srgb,var(--c) 60%,transparent),inset 0 0 12px color-mix(in srgb,var(--c) 25%,transparent)}.cx-top button.on small{color:#fff}
 .cx-sub{display:flex;justify-content:center;gap:6px;margin:0 0 8px}.cx-sub button{padding:5px 16px;border-radius:999px;border:1px solid #445;background:rgba(255,255,255,.05);color:#bcd;cursor:pointer;font-family:inherit}.cx-sub button.on{background:var(--c);border-color:var(--c);color:#000;font-weight:bold}
 .cx-body{flex:1;min-height:0;overflow-y:auto;text-align:left;padding:2px 4px 2px 2px;scrollbar-width:thin;scrollbar-color:var(--c) transparent}
@@ -3123,7 +3124,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .sb{display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;margin:2px 0 8px}.sb div{display:flex;align-items:center;gap:5px;font-size:.72rem;color:#9ab}.sb span{width:2.4em;flex:none}.sb i{flex:1;height:6px;border-radius:3px;background:#1a2038;overflow:hidden}.sb u{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 40%,#000),var(--c))}.sb b{width:1.7em;text-align:right;color:#fff;font-weight:normal}
 .cx-card details{margin-top:6px}.cx-card summary{cursor:pointer;font-size:.76rem;color:var(--c)}.cx-card details .t{margin-top:4px;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.3)}
 .chips2{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}.chips2 span{padding:1px 9px;border-radius:8px;background:rgba(255,255,255,.07);font-size:.74rem;color:#9ab}.chips2 b{color:#fff;font-weight:normal;margin-left:2px}
-.ef-tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:2px 0 8px}.ef-tabs button{padding:4px 11px;border-radius:999px;border:1px solid color-mix(in srgb,var(--c) 60%,#223);background:rgba(255,255,255,.04);color:#dde;cursor:pointer;font-family:inherit;font-size:.86rem}.ef-tabs button em{font-style:normal;font-size:.68rem;margin-left:4px;opacity:.7}.ef-tabs button.on{background:var(--c);border-color:var(--c);color:#000;font-weight:bold}
+.ef-tabs{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:2px 0 8px}.ef-tabs button{padding:4px 11px;border-radius:999px;border:1px solid color-mix(in srgb,var(--c) 60%,#223);background:rgba(255,255,255,.04);color:#dde;cursor:pointer;font-family:inherit;font-size:.86rem}.ef-tabs button em{font-style:normal;font-size:.72rem;margin-left:4px;opacity:.7}.ef-tabs button.on{background:var(--c);border-color:var(--c);color:#000;font-weight:bold}
 .ef-desc{padding:8px 12px;border-radius:10px;border-left:4px solid var(--c);background:color-mix(in srgb,var(--c) 10%,#080a1c)}.ef-desc h3{margin:0 0 2px;color:var(--c);font-size:1.02rem}.ef-desc p{margin:0;font-size:.85rem;line-height:1.55;color:#d4dcef}
 .idm-det{margin:8px 0;padding:10px 14px;min-height:96px;text-align:center;border-radius:12px;border:1px solid color-mix(in srgb,var(--c) 55%,#223);background:radial-gradient(ellipse at 50% 0,color-mix(in srgb,var(--c) 22%,transparent),rgba(5,5,16,.7) 75%)}
 .idm-det .dw{font-size:2rem;font-weight:bold;letter-spacing:.25em;color:var(--c);margin-bottom:4px;text-shadow:0 0 14px var(--c)!important}.idm-det p{margin:6px 0;text-align:left;font-size:.88rem;line-height:1.6;color:#e4e9f8}.idm-det p b{color:var(--neon-blue);margin-right:10px}
@@ -3143,7 +3144,24 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .tk{display:flex;align-items:center;gap:10px;margin:4px 0;padding:6px 10px;border-radius:10px;border:1px solid #2a3350;background:rgba(8,10,28,.8);cursor:pointer;transition:background .15s,border-color .15s}.tk:hover{background:rgba(255,59,212,.1)}
 .tk .th{flex:none;width:62px;height:40px;border-radius:7px;background:#15122a center/cover;display:flex;align-items:center;justify-content:center;font-size:1.3rem}.tk .tn{flex:1;min-width:0}.tk .tn b{display:block;font-size:.95rem;color:#fff}.tk .tn small{color:#8aa;font-size:.72rem}.tk .pl{color:#ff3bd4;opacity:.4}
 .tk.on{border-color:#ff3bd4;background:rgba(255,59,212,.16);box-shadow:0 0 10px rgba(255,59,212,.35)}.tk.on .pl{opacity:1}.tk.bad .tn small::after{content:'（找不到音檔）';color:#ff8a8a}
+@media (max-height:520px){.cx{padding:6px 12px;max-height:96vh}.cx-h h2{font-size:1.1rem;margin:0}.cx-h small{display:none}.cx-top{margin:2px 0 4px;gap:4px}.cx-top button{flex-direction:row;justify-content:center;gap:6px;padding:3px 4px}.cx-top button .ic{font-size:1rem}.cx-top button b{font-size:.85rem}.cx-top button small{display:none}.cx-sub{margin:0 0 4px}.cx-sub button{padding:2px 12px;font-size:.8rem}.cx .btn-start{padding:5px;margin-top:4px}
+.jb-top{display:grid;grid-template-columns:1fr auto;grid-template-areas:"now ctl" "bar bar";align-items:center;column-gap:8px;padding:2px 0 4px}.jb-now{grid-area:now;padding:4px 8px;gap:8px}.jb-cover{width:34px;height:34px;font-size:1.1rem}.jb-eq,.jb-t,#jb-sub{display:none}.jb-mid h3{font-size:.95rem;margin:0}.jb-msg{font-size:.7rem;min-height:0}.jb-ctl{grid-area:ctl;margin:0;gap:4px}.jb-ctl button{padding:3px 8px}.jb-ctl button.big{padding:3px 14px}.jb-vol input{width:56px}.jb-bar{grid-area:bar;margin:4px 0 0}.jb-g{margin:6px 0 2px}.tk{padding:3px 8px;margin:3px 0}.tk .th{width:46px;height:30px}}
 @media (max-width:520px){.cx{padding:12px 10px 10px}.cx-card .pic{width:64px;height:64px}.cx-card .pic img{max-width:58px;max-height:58px}.sb{grid-template-columns:1fr}.cx-top button small{display:none}.jb-cover{width:62px;height:62px}}
+/* ===== 通盤檢查後的尺寸修正 ===== */
+@media (max-height:520px){   /* 手機橫放（高度只有約 360～420px）：對話框、按鈕、列表整體壓縮，重要按鈕不要被推到畫面外 */
+ .menu-overlay{padding:10px 16px;max-height:94vh;min-width:0}
+ h1,h2{margin-bottom:8px}h2{font-size:1.25rem}h3{font-size:1.05rem;margin:4px 0}
+ .btn{padding:6px 14px;margin:5px auto;font-size:.95rem}
+ .btn-shop.shop-row{padding:6px 10px}.shop-ic{width:44px;height:44px}.shop-ic img{max-width:38px;max-height:38px}.shop-ic svg{width:36px;height:36px}
+ .res-rows{margin:4px 0}.res-rows .rrow{padding:2px 10px;font-size:.9rem}
+ .sp-title{font-size:2.4rem}.sp-sub{margin:2px 0 12px}.sp-rot{margin:8px 0 0;padding:5px 10px;font-size:.72rem;line-height:1.45}.splash .btn-start{padding:8px 14px;margin:6px auto}.sp-hint{margin:4px 0}
+ .tile.start .f1{min-height:120px}
+}
+@media (pointer:coarse){   /* 觸控裝置：可點的小按鈕至少 34px，避免點不到 */
+ .sm,.chip,.hbtn,.stg button,.mx-nav button,.sm2,.cx-sub button,.ef-tabs button,.jb-ctl button,.dnav button{min-height:34px;min-width:34px}
+ .st button,.upg button,.card button{min-height:30px;min-width:44px}
+ .hbtn{padding-top:5px;padding-bottom:5px}
+}
 </style>`);
 
 // ---------- Firebase ----------
