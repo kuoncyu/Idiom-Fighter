@@ -403,7 +403,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261119e', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261119f', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -5304,15 +5304,19 @@ const lcKeys = window.lcKeys = {
     set(i, a, c) { if (a === 'sw') LC_SW[i] = c; else if (a === 'use') LC_USE[i] = c; else LC_KEYS[i][a] = c; },
     all() { const r = []; for (let i = 0; i < 3; i++) this.ACT.forEach(([a, n]) => r.push({ i, a, n, c: this.get(i, a) })); return r; },
     bound(c) { return this.all().some(x => x.c === c); },
-    save() { try { localStorage.setItem('idiomLcKeys', JSON.stringify(this.all().map(x => [x.i, x.a, x.c]))); } catch (e) {} },
+    def(i, a) { return a === 'sw' ? LC_DEF.sw[i] : a === 'use' ? LC_DEF.use[i] : LC_DEF.mv[i][a]; },
+    save() { try { const ov = this.all().filter(x => x.c !== this.def(x.i, x.a)).map(x => [x.i, x.a, x.c]); if (ov.length) localStorage.setItem('idiomLcKeys2', JSON.stringify(ov)); else localStorage.removeItem('idiomLcKeys2'); } catch (e) {} },   // 只存「和預設不同」的項目，之後調整預設值時，沒改過的玩家會自動套用新預設
     load() {   // 讀取設定；內容不合法（重複、功能鍵）就整份忽略，改用預設
         try {
-            const arr = JSON.parse(localStorage.getItem('idiomLcKeys') || 'null'); if (!Array.isArray(arr) || arr.length !== 18) return;
-            const seen = new Set(); for (const [i, a, c] of arr) { if (!(i >= 0 && i < 3) || !this.ACT.some(x => x[0] === a) || typeof c !== 'string' || this.reserved(c) || seen.has(c)) return; seen.add(c); }
+            localStorage.removeItem('idiomLcKeys');   // 舊格式（整份存下來，會把舊預設值也固定住）：丟棄
+            const arr = JSON.parse(localStorage.getItem('idiomLcKeys2') || 'null'); if (!Array.isArray(arr) || !arr.length) return;
+            const m = {}; this.all().forEach(x => { m[x.i + x.a] = this.def(x.i, x.a); });
+            for (const [i, a, c] of arr) { if (!(i >= 0 && i < 3) || !this.ACT.some(x => x[0] === a) || typeof c !== 'string' || this.reserved(c)) return; m[i + a] = c; }
+            const vals = Object.values(m); if (new Set(vals).size !== vals.length) return;
             arr.forEach(([i, a, c]) => this.set(i, a, c));
         } catch (e) {}
     },
-    reset() { for (let i = 0; i < 3; i++) { Object.assign(LC_KEYS[i], LC_DEF.mv[i]); LC_SW[i] = LC_DEF.sw[i]; LC_USE[i] = LC_DEF.use[i]; } try { localStorage.removeItem('idiomLcKeys'); } catch (e) {} this.sel = null; this.msg = '已還原為預設按鍵'; this.dialog(); },
+    reset() { for (let i = 0; i < 3; i++) { Object.assign(LC_KEYS[i], LC_DEF.mv[i]); LC_SW[i] = LC_DEF.sw[i]; LC_USE[i] = LC_DEF.use[i]; } try { localStorage.removeItem('idiomLcKeys2'); } catch (e) {} this.sel = null; this.msg = '已還原為預設按鍵'; this.dialog(); },
     hint(i) { const n = a => this.name(this.get(i, a)); return `移動：上${n('u')} 左${n('l')} 下${n('d')} 右${n('r')}・${n('sw')} 切換成語・${n('use')} 使用`; },
     pick(i, a) { this.sel = [i, a]; this.msg = ''; this.dialog(); },
     key(e) {   // 設定畫面等待按鍵時的處理（window 捕獲階段，先於遊戲本身的按鍵處理）
