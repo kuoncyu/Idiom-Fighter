@@ -173,7 +173,7 @@
         .card .st button:disabled { opacity:.35; cursor:default; }
         .hbtn { pointer-events:auto; background:rgba(0,242,255,.12); border:1px solid var(--neon-blue); color:var(--neon-blue); border-radius:8px; padding:4px 10px; margin-right:6px; cursor:pointer; font-size:.9rem; font-family:inherit; }
         .hbtn:hover { background:rgba(0,242,255,.35); }
-        #buff-bar { position:absolute; top:66px; left:12px; display:flex; flex-wrap:wrap; gap:6px; max-width:48%; z-index:6; pointer-events:none; }
+        #buff-bar { position:absolute; top:66px; left:12px; display:flex; flex-direction:column; flex-wrap:nowrap; align-items:flex-start; gap:6px; max-width:48%; z-index:6; pointer-events:none; }
         .buff { position:relative; overflow:hidden; min-width:96px; padding:3px 8px 6px; border-radius:8px; background:rgba(0,0,0,.65); border:1px solid var(--c); color:var(--c); font-size:.75rem; font-weight:bold; }
         .buff i { position:absolute; left:0; bottom:0; height:3px; background:var(--c); }
         .buff .by { display:block; font-size:.85em; line-height:1.15; opacity:.95; text-shadow:0 0 3px #000; white-space:nowrap; }
@@ -251,7 +251,7 @@
             #hud .hud-item { margin:0 4px; }
             .hbtn { font-size:.62rem; padding:1px 7px; margin-right:4px; border-radius:6px; line-height:1.3; }
             #stage-info { top:26px; font-size:.8rem; }
-            #buff-bar { top:28px; gap:3px; }
+            #buff-bar { top:40px; left:max(6px, env(safe-area-inset-left, 0px)); gap:3px; }
             .boss-hp-bar { top:46px; height:8px; }
             .idiom-slots { --fw:min(138px, calc((min(var(--app-w, 100vw), 960px) - 16px - (var(--n, 6) - 1) * 3px) / var(--n, 6))); bottom:calc(env(safe-area-inset-bottom, 0px) + 3px); gap:3px; }
             .slot { flex:0 0 var(--fw); width:var(--fw); height:34px; min-height:0; max-height:none; padding:0 3px; border-width:1px; border-radius:6px; box-sizing:border-box; overflow:visible; }
@@ -259,6 +259,21 @@
             .slot-subtitle { font-size:.56rem; line-height:1.1; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0; }
             .ready .slot-subtitle { font-size:.58rem; }
             .slot-key { width:15px; height:15px; line-height:15px; font-size:.58rem; top:-7px; left:-3px; transform:none; }
+            /* 成語效果（左上）、貢獻度（右上）、發動成語說明卡：等比例縮小，同時發動多個成語時才不會佔滿畫面 */
+            #buff-bar { max-width:36%; gap:2px; }
+            .buff { width:auto; max-width:100%; }
+            .buff { min-width:0; font-size:.54rem; padding:1px 4px 3px; border-radius:5px; line-height:1.15; }
+            .buff .by { display:inline; margin-right:3px; font-size:1em; }
+            .buff i { height:2px; }
+            #coop-hud { top:34px !important; font-size:9px !important; line-height:1.15 !important; }
+            #coop-hud .chr { margin-bottom:1px !important; }
+            #coop-hud .chb { width:54px !important; height:3px !important; }
+            #coop-hud .chb i { height:3px !important; }
+            #coop-casts { top:34px; width:min(58vw,350px); gap:4px; }
+            .cc-card { padding:4px 10px 5px; border-width:1px; border-radius:8px; }
+            .cc-name { font-size:.62rem; } .cc-word { font-size:1.05rem; letter-spacing:.15em; }
+            .cc-eff { font-size:.68rem; margin:0 0 2px; } .cc-line { font-size:.7rem; line-height:1.35; }
+            .cc-bar { height:3px; margin-top:4px; }
         }
         .ip-line { min-height:3.4em; } .ip-cur { color:var(--neon-gold); animation:spBlink .8s infinite; } .muted { color:#8aa; font-size:.85rem; }
     </style>
@@ -426,7 +441,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261119q', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261119s', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -5309,7 +5324,7 @@ const coop = {
     paintHud() {
         const h = $('coop-hud'); if (!h || !this.order.length) return; const me = this.me(), sh = this.shares();
         h.innerHTML = this.order.map(id => { const v = this.vw(id) || {}, hp = v.maxHp ? Math.max(0, Math.min(1, v.hp / v.maxHp)) : 1, dead = v.alive === 0;
-            return `<div style="margin-bottom:4px;opacity:${dead ? .55 : 1}"><b style="color:${this.local ? (LC_COL[this.order.indexOf(id)] || '#9ff') : (id === me ? '#ffea00' : '#9ff')}">${esc(this.nm[id] || '')}</b> ${dead ? '✖' : ''} <span style="color:#ffd700">貢獻 ${Math.round((sh[id] || 0) * 100)}%</span><div style="width:96px;height:5px;background:#222;margin-left:auto"><i style="display:block;height:5px;width:${hp * 100}%;background:${hp > .3 ? '#33ff88' : '#ff3344'}"></i></div></div>`; }).join('');
+            return `<div class="chr" style="margin-bottom:4px;opacity:${dead ? .55 : 1}"><b style="color:${this.local ? (LC_COL[this.order.indexOf(id)] || '#9ff') : (id === me ? '#ffea00' : '#9ff')}">${esc(this.nm[id] || '')}</b> ${dead ? '✖' : ''} <span style="color:#ffd700">貢獻 ${Math.round((sh[id] || 0) * 100)}%</span><div class="chb" style="width:96px;height:5px;background:#222;margin-left:auto"><i style="display:block;height:5px;width:${hp * 100}%;background:${hp > .3 ? '#33ff88' : '#ff3344'}"></i></div></div>`; }).join('');
     },
 
     // ================= 結算：依貢獻比 =================
