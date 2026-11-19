@@ -507,7 +507,7 @@ const BASTION_BLOCK0 = 0.7, BASTION_BLOCK_LV = 0.3;   // 堡壘號：子彈傷�
 function bastionLv(maxHp) { return Math.max(0, Math.round((maxHp - SHIPS.find(x => x.id === 'bastion').hp) / 20)); }   // 由最大血量反推裝甲等級（基礎 170，每級 +20；單機、PK、多人闖關都適用）
 function bastionBlocks(maxHp, dmg) { return dmg <= BASTION_BLOCK0 + BASTION_BLOCK_LV * bastionLv(maxHp); }
 const BLAZE_SCALE = 2, BLAZE_CENTER = 2.0, BLAZE_EDGE = 0.4;   // 烈焰號：子彈半徑 ×2（面積 ×4）；彈心打中目標中心傷害 ×2.0，越往外圈遞減到 ×0.4
-const BLAZE_SHOCK_R0 = 55, BLAZE_SHOCK_R1 = 165, BLAZE_SHOCK_K = 0.5, BLAZE_WAVE_T = 0.55;   // 烈焰號震波：半徑 55（打在邊緣）～165（正中彈心）；對大型敵機的傷害係數；動畫秒數
+const BLAZE_SHOCK_R0 = 100, BLAZE_SHOCK_R1 = 260, BLAZE_SHOCK_K = 0.5, BLAZE_WAVE_T = 0.55;   // 烈焰號震波：半徑 100（打在邊緣）～260（正中彈心；戰場寬 540，幾乎半個畫面）；對大型敵機的傷害係數；動畫秒數
 const BLAZE_SMALL = { SCOUT: 1, DART: 1, SWARM: 1, FIGHTER: 1, SNIPER: 1 };   // 小型機種：被震波波及就直接摧毀（轟炸機、護衛機、坦克屬於大型，只吃震波傷害）
 function bigify(b) { if (b.sid === 'blaze') { b.radius *= BLAZE_SCALE; b.big = true; } }
 function bigHitR(b, r) { return b.big ? r + b.radius : r; }   // 巨彈的判定距離＝目標半徑＋子彈半徑
@@ -523,13 +523,35 @@ function bdist(b, ex, ey) {   // 子彈到目標中心的距離：長子彈（�
 const STORM_LEN = 14;   // 連射號：射速每突破 1 層，子彈變長多少（遊戲內單位）
 function snipeN(lv) { lv = lv || 0; const cap = SHIPS.find(s => s.pat === 'snipe').cap.cov; return lv >= cap ? 3 + Math.min(XMAX, Math.floor(lv - cap)) : lv >= 2 ? 2 : 1; }   // 突破：每層 +1 個同時鎖定目標（最多 6）
 function covLabel(S, lv) { if (S.pat === 'snipe') return snipeN(lv) + ' 目標'; const sh = patternShots(S, lv); return S.pat === 'big' ? '大彈×' + (sh[0].rs * BLAZE_SCALE).toFixed(2) : sh.length + ' 發'; }
-const LIFESTEAL_T = 10, LIFESTEAL_RATE = 0.15, LIFESTEAL_CAP = 0.01;   // 吸血：持續秒數、回復＝傷害的比例、每發最多回復自身最大血量的比例
+const LIFESTEAL_T = 10, LIFESTEAL_RATE = 0.15, LIFESTEAL_CAP = 0.01, PK_LS_TOTAL = 0.3;   // 吸血：持續秒數、回復＝傷害的比例、每發最多回復自身最大血量的比例
 const CRIT_BASE = 0.2, SHOW = 100, DEF_PER_LV = 0.12, MIN_DMG_K = 0.15;   // SHOW：畫面上傷害／血量數字的倍率；每級裝甲＝12（顯示值）防禦；穿甲後最低仍有 15% 傷害
 const ARMOR_LV = { SCOUT: 0, DART: 0, SWARM: 0, FIGHTER: 1, SNIPER: 2, BOMBER: 2, TANK: 5, GUARD: 7 }, BOSS_ARMOR = { GLASS: 2, BARRAGE: 4, TANK: 8, FINAL: 10 };
 // 子彈火力分級：大小 3 種（小中大）× 七彩 7 色（紅最弱 → 紫最強）＝ 21 級；小紅最弱、大紫最強
 const BULLET_COLORS = ['#ff2d2d', '#ff9a1f', '#ffe81f', '#35e05f', '#2aa8ff', '#4a46ff', '#b535ff'], BULLET_SIZES = [4, 6, 8.5];
 function bulletTier(dmg) { const t = Math.log(Math.max(0.8, dmg) / 0.8) / Math.log(10 / 0.8); return Math.max(0, Math.min(20, Math.floor(t * 21))); }
 function styleBullet(b, dmg) { const t = bulletTier(dmg); b.color = BULLET_COLORS[t % 7]; b.radius = BULLET_SIZES[Math.floor(t / 7)]; b.tier = t; }
+// ===== 子彈圖片：assets/bullets/<種類>_<色碼>.png，缺檔時自動退回原本的程式繪製 =====
+// 種類 orb＝圓形彈（玩家 7 色、敵機 7 色、Boss 8 色）；beam＝連射號射速突破後的長彈（玩家 7 色，圖片「頭朝上」，會依長度與飛行方向拉伸）
+// 以色碼（去掉 #、小寫）區分：玩家彈的顏色＝火力等級，所以顏色一定要和攻擊力對應；大小則由遊戲依火力等級／烈焰巨彈縮放同一張圖
+const BULLET_IMG_BLEND = 'lighter';   // 'lighter'＝加亮混合（圖片用純黑底即可，黑色會自動變透明）；若圖片本身已去背、想原樣顯示，改成 'source-over'
+const BULLET_IMG_SCALE = 4;           // 圖片寬度＝子彈半徑 × 此值（圖中央亮核約佔圖寬一半時，亮核大小剛好等於原本的子彈大小）
+const BULLET_IMG_SET = {
+    orb: [...BULLET_COLORS.map(c => c.slice(1)), '00ffcc', 'ffaa00', 'ff3366', 'aaff44', '66ccff', 'ffcc66', '66ffaa', 'ff5577', 'ffcc00', 'ff9900', 'ff6666', 'ff33aa', '00ccff', '00ff66', 'ff66ff'],
+    beam: BULLET_COLORS.map(c => c.slice(1))
+};
+Object.entries(BULLET_IMG_SET).forEach(([k, cs]) => cs.forEach(c => { ASSET_FILES['bl_' + k + '_' + c] = `assets/bullets/${k}_${c}.png`; }));
+// 總表：一張圖放多顆子彈（格子等大、由左到右由上到下）。orb 總表 8 欄×3 行：第 1 行玩家 7 色（紅→紫，第 8 格空）、第 2 行敵機 7 色（第 8 格空）、第 3 行 Boss 8 色；beam 總表 7 欄×1 行（紅→紫）
+const BULLET_SHEET = { orb: { file: 'assets/bullets/sheet_orb.png', cols: 8, order: [...BULLET_COLORS.map(c => c.slice(1)), null, '00ffcc', 'ffaa00', 'ff3366', 'aaff44', '66ccff', 'ffcc66', '66ffaa', null, 'ff5577', 'ffcc00', 'ff9900', 'ff6666', 'ff33aa', '00ccff', '00ff66', 'ff66ff'], rows: 3 },
+                       beam: { file: 'assets/bullets/sheet_beam.png', cols: 7, order: BULLET_COLORS.map(c => c.slice(1)), rows: 1 } };
+Object.entries(BULLET_SHEET).forEach(([k, v]) => { ASSET_FILES['bl_sheet_' + k] = v.file; });
+const BULLET_DIR = new Set(['00ffcc', 'ffaa00', 'aaff44', '66ccff', '66ffaa', 'ffcc00', 'ff9900', 'ff6666', '00ff66', 'ff66ff']);   // 有方向性的圓形彈（箭頭、火焰拖尾）：圖片「前方朝右」，畫的時候會轉到飛行方向
+const _blCache = new Map();
+function bulletImg(color, kind) {   // 回傳 [圖, sx, sy, sw, sh]：優先用單張圖，其次用總表的格子，都沒有就回傳 null（改用程式繪製）
+    const c = String(color || '').slice(1).toLowerCase(), key = kind + c, hit = _blCache.get(key); if (hit) return hit;
+    const one = IMG['bl_' + kind + '_' + c]; if (one) { const r = [one, 0, 0, one.width, one.height, BULLET_DIR.has(c)]; _blCache.set(key, r); return r; }
+    const sh = BULLET_SHEET[kind], im = IMG['bl_sheet_' + kind], i = sh ? sh.order.indexOf(c) : -1; if (!im || i < 0) return null;
+    const cw = im.width / sh.cols, ch = im.height / sh.rows, r = [im, (i % sh.cols) * cw, Math.floor(i / sh.cols) * ch, cw, ch, BULLET_DIR.has(c)]; _blCache.set(key, r); return r;
+}
 const BOSS_NAMES = { 1:'璃光', 2:'鐵幕', 3:'環星', 4:'金矛', 5:'霜牆', 6:'旋蝕', 7:'紫刃', 8:'赤殼', 9:'裂空' };
 const bossLabel = st => `${BOSS_NAMES[st]}（${BOSS_INFO[BOSS_TYPES[st]].name}）`;   // 例：璃光（玻璃砲）
 // 每關 Boss：mv 移動方式、sh 射擊樣式（依序輪替）、r 基礎射擊間隔（秒）
@@ -644,7 +666,7 @@ const music = {
     },
     stopFile() { this.tok++; const a = this.cur; this.cur = null; this.curStage = 0; this.lobbyOn = false; if (a) this.fade(a, 0, () => a.pause()); },
     playFile(name, loop, onFail) {
-        const token = ++this.tok; let urls = MUSIC_DIRS.map(d => d + name); if (this.ok[name]) urls = [this.ok[name]];
+        const token = ++this.tok; this._loadAt = performance.now(); let urls = MUSIC_DIRS.map(d => d + name); if (this.ok[name]) urls = [this.ok[name]];
         const tryAt = async i => {
             if (token !== this.tok) return;
             if (i >= urls.length) { onFail(); return; }
@@ -668,8 +690,19 @@ const music = {
         this.stopFile(); this.lobbyOn = true; sfx.stopSpaceBGM();
         this.playFile(MUSIC_FILES.lobby, true, () => { if (this.lobbyOn) sfx.startSpaceBGM(); });
     },
-    pause(b) { if (!this.cur) return; if (b) this.cur.pause(); else this.cur.play().catch(() => {}); }
+    pause(b) { if (!this.cur) return; if (b) this.cur.pause(); else this.cur.play().catch(() => {}); },
+    ensure() {   // 保險：戰鬥進行中（沒暫停、沒對話框）音樂卻被中斷（被瀏覽器暫停、播放失敗、AudioContext 被掛起…），就自動補回來；同機多人音效多、操作雜時特別容易發生
+        let g; try { g = G; } catch (e) { return; }
+        if (!g || (g.gameState !== 'PLAYING' && g.gameState !== 'TRANSITION') || g.paused || g.dlgOpen || document.hidden) return;
+        if (sfx.ctx && sfx.ctx.state === 'suspended') sfx.ctx.resume().catch(() => {});
+        if (!(this.curStage > 0)) return;
+        const a = this.cur;
+        if (a) { if (a.paused) a.play().catch(() => {}); if (a.volume === 0 && this.vol > 0) this.fade(a, this.vol); return; }
+        if (sfx.bgmInterval || performance.now() - (this._loadAt || 0) < 5000) return;   // 合成音樂備援中、或還在載入：不干擾
+        const st = this.curStage; this.curStage = 0; this.play(st);   // 音樂檔不見了：重新載入這一關的音樂
+    }
 };
+setInterval(() => music.ensure(), 1000);
 
 // ===== 音樂庫（圖鑑）：自己的播放器，播放時暫停大廳音樂；離開圖鑑時由 setState 停止並恢復大廳音樂 =====
 const trackList = () => [
@@ -927,9 +960,22 @@ class Bullet extends Entity {
     _draw(ctx) {   // 外圈白色虛化光暈（任何背景都看得見）＋ 彩色核心
         const x = this.pos.x, y = this.pos.y, r = this.radius;
         if (this.len > 0) {   // 連射號射速突破：子彈變長（光束狀），尾巴在飛行方向的反側
+            const bim = bulletImg(this.color, 'beam');
+            if (bim) {   // 讀圖：圖片頭朝上，轉到飛行方向，高度＝彈長（頭尾各留一點光暈）
+                const w = r * BULLET_IMG_SCALE;
+                ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(this.vel.y, this.vel.x) + Math.PI / 2); ctx.globalCompositeOperation = BULLET_IMG_BLEND;
+                ctx.drawImage(bim[0], bim[1], bim[2], bim[3], bim[4], -w / 2, -r * 1.4, w, this.len + r * 2.4); ctx.restore(); return;
+            }
             const m = Math.hypot(this.vel.x, this.vel.y) || 1, tx = x - this.vel.x / m * this.len, ty = y - this.vel.y / m * this.len, line = (w, c, sb) => { ctx.lineWidth = w; ctx.strokeStyle = c; ctx.shadowBlur = sb; ctx.shadowColor = this.color; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke(); };
             ctx.save(); ctx.lineCap = 'round'; line(r * 2.9, 'rgba(255,255,255,0.3)', 0); line(r * 2, this.color, 3); line(r * 0.76, 'rgba(255,255,255,0.8)', 0); ctx.restore(); return;
         }
+        const oim = bulletImg(this.color, 'orb');
+        if (oim) {
+            const w = r * BULLET_IMG_SCALE; ctx.globalCompositeOperation = BULLET_IMG_BLEND;
+            if (oim[5] && (this.vel.x || this.vel.y)) { ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(this.vel.y, this.vel.x)); ctx.drawImage(oim[0], oim[1], oim[2], oim[3], oim[4], -w / 2, -w / 2, w, w); ctx.restore(); }
+            else ctx.drawImage(oim[0], oim[1], oim[2], oim[3], oim[4], x - w / 2, y - w / 2, w, w);
+            ctx.globalCompositeOperation = 'source-over'; return;
+        }   // 讀圖：不再即時產生貼圖
         const sp = bulletSprite(this.color, r); if (sp) { ctx.drawImage(sp.c, x - sp.h, y - sp.h, sp.h * 2, sp.h * 2); return; }
         ctx.save();
         const g = ctx.createRadialGradient(x, y, r * 0.6, x, y, r * 1.45); g.addColorStop(0, 'rgba(255,255,255,0.55)'); g.addColorStop(0.5, 'rgba(255,255,255,0.18)'); g.addColorStop(1, 'rgba(255,255,255,0)');
@@ -1619,11 +1665,11 @@ class Game {
         this.paused = true; music.pause(true);
     }
     dialog(html, onConfirm) {
-        this.idleDlg = false;
+        this.idleDlg = false; const wasOpen = this.dlgOpen;
         let d = document.getElementById('dlg');
         if (!d) { d = document.createElement('div'); d.id = 'dlg'; d.className = 'dlg'; document.getElementById('game-container').appendChild(d); }
         d.innerHTML = `<div class="box">${html}</div>`; d.style.display = 'flex'; this.dlgOpen = true; this.dlgConfirm = onConfirm || null;
-        if (this.gameState === 'PLAYING' && !this.paused) { this.paused = true; music.pause(true); this.dlgResume = true; } else this.dlgResume = false;
+        if (this.gameState === 'PLAYING' && !this.paused) { this.paused = true; music.pause(true); this.dlgResume = true; } else if (!wasOpen) this.dlgResume = false;   // 已有對話框時再開一個：不要蓋掉前一個對話框留下的「關閉後要恢復」
     }
     closeDlg() {
         const d = document.getElementById('dlg'); if (d) d.style.display = 'none';
@@ -1633,7 +1679,7 @@ class Game {
     }
     goHome() {
         if (this.dlgOpen || this.gameState === 'INIT' || this.gameState === 'LOBBY') return;
-        if (this.gameState !== 'PLAYING') { this.setState('LOBBY'); return; }
+        if (this.gameState !== 'PLAYING' && !(this.coopLocal && this.gameState === 'TRANSITION')) { this.setState('LOBBY'); return; }
         this.dialog('<h3>回到首頁？</h3><p>本次出擊將結束，暗物質會保留。</p><button class="btn" onclick="game.closeDlg()">繼續戰鬥 [Esc]</button><button class="btn btn-start" onclick="game.leave()">回首頁 [Enter]</button>', () => this.leave());
     }
     leave() { this.closeDlg(); this.paused = false; this.leftRun = true; this.setState('GAMEOVER'); }   // 中途離開：先進結算窗口（計算並儲存本次資料），按「返回大廳」才回大廳
@@ -1707,7 +1753,7 @@ class Game {
         sn.t.forEach(t => {
             const o = t.o;
             if (t.k === 'g') {   // PK：跟一般關卡一樣，蓄滿即鎖定、瞬間命中（沒有飛行時間）；傷害由對手畫面結算（對手畫面會同步模擬你的蓄力）
-                sn.fx.push({ x1: P.pos.x, y1: P.pos.y - 20, x2: o.pos.x, y2: o.pos.y, t: 0 }); this.burst(o.pos.x, o.pos.y, 5); return;
+                sn.fx.push({ x1: P.pos.x, y1: P.pos.y - 20, x2: o.pos.x, y2: o.pos.y, t: 0 }); this.burst(o.pos.x, o.pos.y, 5); if (this.lifestealTimer > 0) this.lifesteal(this.st.dmg * SNIPE_K_PK); return;
             }
             sn.fx.push({ x1: P.pos.x, y1: P.pos.y - 20, x2: o.pos.x, y2: o.pos.y, t: 0 }); this.burst(o.pos.x, o.pos.y, 5);
             if (t.k === 'm') { o.hp -= n; if (o.hp <= 0) { const i = this.idiomBlocks.indexOf(o); if (i >= 0) { this.blockBreak(o); sfx.playExplosion(); this.idiomBlocks.splice(i, 1); } } return; }
@@ -1736,13 +1782,13 @@ class Game {
         sn.fx.forEach(f => { const k = 1 - f.t / 0.22; ctx.globalAlpha = k; ctx.shadowColor = '#ff5ec4'; ctx.shadowBlur = 16; ctx.strokeStyle = '#ff5ec4'; ctx.lineWidth = 9 * k + 2; ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 3 * k + 1; ctx.stroke(); });
         ctx.restore();
     }
-    dmgEnt(e, n, pf, hit, src) {
+    dmgEnt(e, n, pf, hit, src, shockCrit) {   // shockCrit：烈焰號震波已擲出的爆擊倍率（只用來顯示爆擊數字；傷害已在呼叫端乘過）
         this.shieldOf(e);
-        let pierce = 0, crit = 0;
+        let pierce = 0, crit = shockCrit || 0;
         if (e === this.boss) e._adv = 1;
         if (hit) {
             n += Math.random() * 0.99;   // 顯示傷害 ×100 後個位、十位隨機（7 → 700~799）
-            if (src && Math.random() < (src.crit || 0)) { crit = 1.5 + Math.random() * 1.5; n *= crit; }   // 爆擊：原傷害 1.5~3 倍
+            if (src && (src.big || Math.random() < (src.crit || 0))) { crit = 1.5 + Math.random() * 1.5; n *= crit; }   // 爆擊：原傷害 1.5~3 倍（烈焰號巨彈直接命中必定爆擊）
             const def = (src && src.pierce) ? 0 : Math.max(0, this.armorLv(e) - ((src && src.pen) || 0)) * DEF_PER_LV;   // 防禦力＝裝甲等級－穿甲等級，最低 0；穿甲號的子彈無視裝甲（防禦視為 0）
             n = Math.max(n * MIN_DMG_K, n - def);
         }
@@ -2073,7 +2119,7 @@ class Game {
         if (idiom.effect === 'SHIELD') { this.shield = Math.min(this.maxHp, this.shield + 50); this.showFloatText('護盾 +' + 50 * SHOW, this.player.pos.x, this.player.pos.y - 70, '#4dd2ff'); }
         if (idiom.effect === 'ALLY') this.summonAllies();
         if (idiom.effect === 'PIERCE') this.pierceTimer = 30;
-        if (idiom.effect === 'LIFESTEAL') { this.lifestealTimer = LIFESTEAL_T; this._lsAcc = 0; this.showFloatText('吸血 ' + LIFESTEAL_T + ' 秒', this.player.pos.x, this.player.pos.y - 70, '#ff5c8a'); }
+        if (idiom.effect === 'LIFESTEAL') { this.lifestealTimer = LIFESTEAL_T; this._lsAcc = 0; this._lsTot = 0; this.showFloatText('吸血 ' + LIFESTEAL_T + ' 秒', this.player.pos.x, this.player.pos.y - 70, '#ff5c8a'); }
         if (idiom.effect === 'MISSILE') { this.missileTimer = 10; this.missileCd = 0; }
         if (idiom.effect === 'HEAL') { this.hp = Math.min(this.maxHp, this.hp + 30); this.updateHUD(); }
         if (idiom.effect === 'SLOW_TIME') this.slowTimer = 6;
@@ -2102,17 +2148,25 @@ class Game {
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const e = this.enemies[i]; if (e === h.skip || e.type === 'BOSS') continue;
             const d = Math.hypot(e.pos.x - h.x, e.pos.y - h.y); if (d > R + e.radius) continue;
-            let n;
+            let n, cr = 0;
             if (BLAZE_SMALL[e.type]) n = Math.max(0, e.hp) + Math.max(0, this.shieldOf(e) || 0) + 1;   // 小型機種：血量＋護盾一次吃滿
-            else { n = b.damage * BLAZE_SHOCK_K * (0.5 + a) * (1 - 0.5 * Math.min(1, d / (R + e.radius))); n = Math.max(n * MIN_DMG_K, n - this.armorLv(e) * DEF_PER_LV); }   // 大型機種：越準、越靠近爆心傷害越高，仍會被裝甲減傷
-            this.dmgEnt(e, n, false, false, b);
+            else { n = b.damage * BLAZE_SHOCK_K * (0.5 + a) * (1 - 0.5 * Math.min(1, d / (R + e.radius))); cr = Math.random() < (b.crit || 0) ? 1.5 + Math.random() * 1.5 : 0; if (cr) n *= cr; n = Math.max(n * MIN_DMG_K, n - this.armorLv(e) * DEF_PER_LV); }   // 大型機種：越準、越靠近爆心傷害越高；震波傷害依爆擊率機率爆擊（1.5~3 倍），仍會被裝甲減傷
+            this.dmgEnt(e, n, false, false, b, cr);
             if (e.hp <= 0) { this.dropDarkMatter(e.pos.x, e.pos.y, e.maxHp * 1.5); this.runKills = (this.runKills || 0) + 1; this.enemyDrop(e); sfx.playExplosion(); this.enemies.splice(i, 1); }
         }
     }
     lifesteal(dealt) {   // 吸血：我方子彈命中時回血＝傷害×LIFESTEAL_RATE，每發最多回自身最大血量的 LIFESTEAL_CAP；雷射與爆破不走這裡
         if (!(this.lifestealTimer > 0) || !(dealt > 0) || this.hp <= 0 || this.hp >= this.maxHp) return;
-        const h = Math.min(this.maxHp - this.hp, dealt * LIFESTEAL_RATE, this.maxHp * LIFESTEAL_CAP);
+        let h = Math.min(this.maxHp - this.hp, dealt * LIFESTEAL_RATE, this.maxHp * LIFESTEAL_CAP);
+        let ended = false;
+        if (this.pkMode) {   // PK：單次吸血最多回復自身最大血量的 30%，回滿額度就提前結束吸血
+            const room = this.maxHp * PK_LS_TOTAL - (this._lsTot || 0);
+            if (room <= 0) { this.lifestealTimer = 0; return; }
+            if (h >= room) { h = room; ended = true; }
+            this._lsTot = (this._lsTot || 0) + h;
+        }
         this.hp += h; this._lsAcc = (this._lsAcc || 0) + h;
+        if (ended) { this.lifestealTimer = 0; this.showFloatText('+' + Math.max(1, Math.round(this._lsAcc * SHOW)) + ' 吸血結束', this.player.pos.x, this.player.pos.y - 52, '#7dff9a'); this._lsAcc = 0; this._lsT = this.bgClock; this.updateHUD(); return; }
         if (this.bgClock - (this._lsT === undefined ? -9 : this._lsT) >= 0.5) { this._lsT = this.bgClock; this.showFloatText('+' + Math.max(1, Math.round(this._lsAcc * SHOW)), this.player.pos.x, this.player.pos.y - 52, '#7dff9a'); this._lsAcc = 0; this.updateHUD(); }
     }
 
@@ -2128,8 +2182,8 @@ class Game {
 
     loop(timestamp) {
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1); this.lastTime = timestamp;
-        if (this.coopMode) { this.paused = false; if (this.casting) this.endCast(); }   // 多人闖關不能暫停，也沒有 5 秒蓄力停格
-        if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); this.tickClear(dt); } else { this.tickClear(dt); this.bgClock += dt; this.runClock += dt; if (this.pkMode) this.pkTime += dt; this.update(dt); } } } else if (this.gameState === 'TRANSITION') { this.bgClock += dt; this.runClock += dt; this.updateTransition(dt); } else if (this.isMenu()) this.updateDemo(dt);
+        if (this.coopMode) { if (!this.coopLocal) this.paused = false; if (this.casting) this.endCast(); }   // 連線多人闖關不能暫停；同機多人（同一台電腦）可以暫停（按 P／Esc、回首頁對話框、視窗失焦）。兩者都沒有 5 秒蓄力停格
+        if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); this.tickClear(dt); } else { this.tickClear(dt); this.bgClock += dt; this.runClock += dt; if (this.pkMode) this.pkTime += dt; this.update(dt); } } } else if (this.gameState === 'TRANSITION') { if (!(this.coopLocal && (this.dlgOpen || this.paused))) { this.bgClock += dt; this.runClock += dt; this.updateTransition(dt); } } else if (this.isMenu()) this.updateDemo(dt);
         this.draw(); requestAnimationFrame((t) => this.loop(t));
     }
 
@@ -2384,7 +2438,7 @@ class Game {
                     }
                     if (this.pkMode && window.online && online.pk && online.pk.ghost) {   // 打到對手：子彈消失（傷害由被打的一方自己結算）
                         const g = online.pk.ghost, R = (online.pk.ghostR || 15) + 9 + (b.big ? b.radius : 0);
-                        if (segDist(ox, oy, b.pos.x, b.pos.y, g.x, g.y) < R) { b.active = false; this.burst(b.pos.x, b.pos.y, 2); return; }
+                        if (segDist(ox, oy, b.pos.x, b.pos.y, g.x, g.y) < R) { b.active = false; this.burst(b.pos.x, b.pos.y, 2); if (this.lifestealTimer > 0) this.lifesteal(b.damage * (PK_NERF[b.sid] || 1)); return; }   // PK 吸血：以預估傷害回血（對手的實際傷害由對手畫面結算）
                     }
                     if (this.boss) { const d = bdist(b, this.boss.pos.x, this.boss.pos.y), R = bigHitR(b, this.boss.radius);
                         if (d < R) { this.dmgEnt(this.boss, b.damage * bigMul(b, d, R), b.pierce, true, b); b.active = false; sfx.playHit(); if (b.big) sk = { x: b.pos.x, y: b.pos.y, mul: bigMul(b, d, R), skip: null }; } }
@@ -3904,7 +3958,7 @@ const online = window.online = {
             SHIELD: ['護盾', '獲得 5000 點護盾（可累積，上限為最大血量），受到傷害時先扣護盾，會一直存在直到被打光；PK 對戰中被穿甲彈命中會損失一半護盾。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
             MISSILE: ['追蹤導彈', '10 秒內主炮子彈會自動追蹤：先打血量少的敵機，沒有敵機才打字卡。'], LASER_BEAM: ['貫穿雷射', '3 秒的直線雷射，持續貫穿傷害。'],
             HEAL: ['治療', '立刻回復 3000 點血量。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。'],
-            LIFESTEAL: ['吸血', '10 秒內，我方子彈（含友軍）每次命中敵人就回血：回復量為該發傷害的 15%，且每發最多只回自身最大血量的 1%。雷射與全螢幕爆破不算；傷害被 Boss 護盾或護甲擋成 0 時不回血，血量已滿也不會回。'] };
+            LIFESTEAL: ['吸血', '10 秒內，我方子彈（含友軍）每次命中敵人就回血：回復量為該發傷害的 15%，且每發最多只回自身最大血量的 1%。雷射與全螢幕爆破不算；傷害被 Boss 護盾或護甲擋成 0 時不回血，血量已滿也不會回。PK 對戰中同樣有效，但每次發動最多回復自身最大血量的 30%，回滿就提前結束吸血。'] };
         const COL = { BOMB_BOOST: '#ff5a36', INVINCIBLE: '#ffd400', SHIELD: '#4aa3ff', PIERCE: '#c0c8d8', MISSILE: '#ff8c1a', LASER_BEAM: '#ff3bd4', HEAL: '#35e08a', SLOW_TIME: '#8f7bff', ALLY: '#00e5ff', LIFESTEAL: '#ff5c8a' };
         eff = eff || 'BOMB_BOOST'; const list = CONFIG.IDIOMS.filter(i => i.effect === eff), info = word && IDIOM_INFO[word], c = COL[eff] || '#fff', n = list.length, k = list.findIndex(i => i.word === word);
         const go = d => `online.renderDex('idiom','${eff}','${list[(k + d + n) % n].word}')`;
@@ -3918,7 +3972,7 @@ const online = window.online = {
     },
     dexShips() {
         const TRAIT = { star: '均衡型：各項能力上限接近，適合新手。', wind: '機動靈巧：體型小、移動速度上限最高，但火力與裝甲上限低。所有子彈自帶追蹤（優先追血量少的敵機／Boss）。適合對付彈幕型 Boss。', bastion: '重裝厚皮：血量與裝甲上限最高，移動較慢。裝甲會直接擋掉低傷害的子彈，被擋下的子彈每顆只造成 1 點傷害；裝甲等級越高，能擋的子彈傷害越高（基礎可擋一般彈與強化彈，升到 5 級可擋重砲彈，約 12 級連狙擊彈也擋得住）。最適合對付彈幕型 Boss。',
-            blaze: '高輸出：單發傷害上限最高，但射速較慢。子彈是一般子彈的 2 倍大（面積 4 倍），彈心打中目標正中心傷害最高（×2.0），越往外圈傷害越低（最低 ×0.4）。最適合對付鐵甲型 Boss。命中目標時還會在命中點引發區域爆炸震波：打得越準（越接近彈心），震波範圍越大；範圍內的小型機種（偵察機、俯衝機、蜂群、戰鬥機、狙擊機）會被直接摧毀，轟炸機、護衛機、坦克等大型機種則受到震波傷害；Boss 與字卡不受震波影響，PK 對戰中也不會觸發。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。PK 對戰中狙擊跟一般關卡一樣蓄滿即瞬間命中（傷害降低，對手看得到預警線）。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：一半的子彈會自動追蹤（優先追鐵甲類目標），另一半直線射出，無視敵人的裝甲（防禦視為 0），打到鐵甲類（坦克、護衛機、鐵甲型 Boss）去掉防禦後再造成 2～3 倍傷害，對有護盾的目標同樣是 2～3 倍（不重複疊加）。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。子彈平均分配在圓周各方向，火力覆蓋等級＝發射方向數（2 級＝前後、4 級＝上下左右……滿級 16 方向），不怕被包夾；子彈碰到敵方子彈時會抵銷：敵彈威力越高需要越多發（一般彈 1 發、強化彈 2 發、重砲彈 3 發、狙擊彈 5 發），能幫自己清出安全空間；代價是單發威力低於其他戰機。對 Boss 沒有相剋（×1.0），靠抵銷敵彈應付彈幕與成群的小怪。' };
+            blaze: '高輸出：單發傷害上限最高，但射速較慢。子彈是一般子彈的 2 倍大（面積 4 倍），彈心打中目標正中心傷害最高（×2.0），越往外圈傷害越低（最低 ×0.4）。最適合對付鐵甲型 Boss。子彈命中目標必定爆擊（傷害 1.5～3 倍）。命中時還會在命中點引發區域爆炸震波：打得越準（越接近彈心），震波範圍越大（最大約半個畫面寬），震波對大型機種的傷害依爆擊率機率爆擊；範圍內的小型機種（偵察機、俯衝機、蜂群、戰鬥機、狙擊機）會被直接摧毀，轟炸機、護衛機、坦克等大型機種則受到震波傷害；Boss 與字卡不受震波影響，PK 對戰中也不會觸發。', storm: '射速快：射速上限最高，但單發傷害較低。適合追擊玻璃砲型 Boss。', assassin: '狙擊刺客：停留不動讓瞄準星蓄滿（基礎 3 秒，射速升到頂只要 1 秒）即鎖定並發射，造成巨大傷害，爆擊率另有加成；移動會讓蓄力退散。火力覆蓋升到頂可同時鎖定 3 個目標（Boss → 敵機 → 字卡）。機身兩側有低威力附炮往前射擊，足以打掉字卡方塊。PK 對戰中狙擊跟一般關卡一樣蓄滿即瞬間命中（傷害降低，對手看得到預警線）。爆擊率上限高達 85%（需把「爆擊」升到 16 級）。', lance: '穿甲型：一半的子彈會自動追蹤（優先追鐵甲類目標），另一半直線射出，無視敵人的裝甲（防禦視為 0），打到鐵甲類（坦克、護衛機、鐵甲型 Boss）去掉防禦後再造成 2～3 倍傷害，對有護盾的目標同樣是 2～3 倍（不重複疊加）。', nova: '全向火網：火力覆蓋上限高達 16 級，是覆蓋面積最大的戰機。子彈平均分配在圓周各方向，火力覆蓋等級＝發射方向數（2 級＝前後、4 級＝上下左右……滿級 16 方向），不怕被包夾；子彈碰到敵方子彈時會抵銷：敵彈威力越高需要越多發（一般彈 1 發、強化彈 2 發、重砲彈 3 發、狙擊彈 5 發），能幫自己清出安全空間；代價是單發威力低於其他戰機。對 Boss 沒有相剋（×1.0），靠抵銷敵彈應付彈幕與成群的小怪。' };
         const STAT = [['火力', 'dmg'], ['射速', 'rate'], ['裝甲', 'hp'], ['機動', 'spd'], ['穿甲', 'pen'], ['爆擊', 'crit'], ['覆蓋', 'cov']];
         return SHIPS.map(S => { const own = G.fleet && G.fleet[S.id] && G.fleet[S.id].own, c = S.cap, parts = TRAIT[S.id].split('。').filter(Boolean), first = parts.shift() + '。', rest = parts.join('。') + (parts.length ? '。' : '');
             return `<div class="cx-card" style="--c:${S.c}"><div class="pic"><img src="${S.id === 'star' ? 'assets/player.png' : 'assets/ship_' + S.id + '.png'}" onerror="this.style.visibility='hidden'"></div>
@@ -4010,7 +4064,7 @@ const online = window.online = {
                 <div style="margin-top:8px;text-align:center"><span class="btn btn-start" style="display:inline-block;padding:4px 24px">開戰</span></div>`, '#cb2d3e')}</div>`,
                 `大廳「連線對戰 → PK 對戰」（需要登入並連線）。主控端按「建立房間」取得 4 位數密碼，也可以直接從好友列表邀請；對方輸入密碼加入。房間裡可以選場地（第 1～9 關背景或隨機）和戰機，雙方都按「準備」後，主控端按「開戰」。`],
             ['PK 對戰：戰場規則', `<div style="width:100%;text-align:center"><div style="display:flex;justify-content:space-around;align-items:center"><div>${im('assets/ship_storm.png', 'max-height:70px')}${hpbar(70, '#33ff88')}</div><div style="font-size:1.1rem;color:var(--neon-gold)">⚔<br><small>剩餘 180 秒</small></div><div>${im('assets/ship_blaze.png', 'max-height:70px;transform:rotate(180deg)')}${hpbar(45, '#ff5566')}</div></div></div>`,
-                `雙方面對面互射，沒有 NPC 戰機和 Boss；所有戰機的各項能力一律為同一等級（3～8 級由主控端設定，不使用你的升級），磁吸 ${PK_MAGNET} 級、成語列 ${PK_SLOTS} 格。場中央飄過兩倍數量的字塊：誰打爆，字就飄向誰，集滿成語就能發動。<b>攻擊型招式</b>會直接傷害對手：全螢幕爆破 30、貫穿雷射 35、追蹤導彈 25、穿甲彈 25（並讓對手護盾減半）；無敵、護盾、治療等只強化自己，對手無敵中會免疫攻擊。限時 180 秒，血量先歸零者落敗；時間到則比剩餘血量，相同就是平手。吸血在 PK 中無效（對手的傷害由對手自己結算）。`],
+                `雙方面對面互射，沒有 NPC 戰機和 Boss；所有戰機的各項能力一律為同一等級（3～8 級由主控端設定，不使用你的升級），磁吸 ${PK_MAGNET} 級、成語列 ${PK_SLOTS} 格。場中央飄過兩倍數量的字塊：誰打爆，字就飄向誰，集滿成語就能發動。<b>攻擊型招式</b>會直接傷害對手：全螢幕爆破 30、貫穿雷射 35、追蹤導彈 25、穿甲彈 25（並讓對手護盾減半）；無敵、護盾、治療等只強化自己，對手無敵中會免疫攻擊。限時 180 秒，血量先歸零者落敗；時間到則比剩餘血量，相同就是平手。吸血在 PK 中有效：每次發動最多回復自身最大血量的 30%，回滿就提前結束吸血。`],
             ['離線遊玩（免登入）', `<div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:8px"><span class="btn" style="display:inline-block;padding:6px 20px;border-color:var(--neon-gold);color:var(--neon-gold)">離線遊玩（免登入）</span><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">${chip('全戰機開放', '#7dffb0')}${chip('裝備固定 3 級', '#9ff')}${chip('不累積貨幣', '#ffb347')}</div></div>`,
                 `在登入畫面按「離線遊玩（免登入）」，不用帳號也能玩單人闖關：所有戰機開放、裝備固定 3 級，但不累積任何貨幣，也沒有排行榜、好友、聊天、PK 與多人闖關。離開時會把進入前的本機存檔原樣還回去，不會影響你原本的進度。`],
             ['離線資料包與斷網續玩', `<div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:8px">${box(`⚙ 設定 <kbd>O</kbd> ➜ <b>離線資料包</b><br><span class="muted" style="font-size:.8rem">下載後可完全離線遊玩（約 51 MB）</span>`, '#4b5b8f')}${chip('續玩離線進度（你的名稱）', '#7dffb0')}</div>`,
@@ -5398,7 +5452,7 @@ Object.assign(coop, {
         players.forEach((p, i) => { const P = { uid: p.id, name: p.name, host: i === 0, alive: true, left: false, in: null, at: performance.now() }; if (i > 0) P.s = this.freshState(this.packWith(p.fleet, p.mg, p.sl, p.sid)); this.P[p.id] = P; });
         G.fillEmptySlots();
         G.bullets.get = function () { const o = ObjectPool.prototype.get.call(this); o.owner = coop.cur; return o; };
-        G.resetStage(); this.placeAll(); this.mountHud(); G.setState('PLAYING'); G.updateHUD();
+        sfx.init(); G.resetStage(); this.placeAll(); this.mountHud(); G.setState('PLAYING'); G.updateHUD();
     }
 });
 {   // 掛接：每位玩家用自己的機庫、關閉戰鬥中的存檔、離開時還原
