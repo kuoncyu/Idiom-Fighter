@@ -1,6 +1,6 @@
 {
- "version": "20261119k",
- "built": "2026-11-19T07:37:25.000Z",
+ "version": "20261119l",
+ "built": "2026-11-19T09:49:51.097Z",
  "files": {
   "assets/bg/stage1.jpg": [
    "4715408cde33603d",
@@ -78,6 +78,122 @@
    "d669f0db8aed5fb3",
    238750
   ],
+  "assets/bullets/beam_2aa8ff.png": [
+   "ad4f69373864c1dc",
+   46583
+  ],
+  "assets/bullets/beam_35e05f.png": [
+   "225bc7aeeaf8ecb7",
+   46119
+  ],
+  "assets/bullets/beam_4a46ff.png": [
+   "200d861dfcaf7bdf",
+   42224
+  ],
+  "assets/bullets/beam_b535ff.png": [
+   "2c5a96b14a5fd4c4",
+   46714
+  ],
+  "assets/bullets/beam_ff2d2d.png": [
+   "0dfef3fd9eeb2ec2",
+   41688
+  ],
+  "assets/bullets/beam_ff9a1f.png": [
+   "ec10c9cbf93ba4c9",
+   46274
+  ],
+  "assets/bullets/beam_ffe81f.png": [
+   "02969ccce1a86eb4",
+   48707
+  ],
+  "assets/bullets/orb_00ccff.png": [
+   "59ecd31ea789f22d",
+   36369
+  ],
+  "assets/bullets/orb_00ff66.png": [
+   "42725136e8cba1b0",
+   35620
+  ],
+  "assets/bullets/orb_00ffcc.png": [
+   "faffbbab6c7acbe4",
+   33202
+  ],
+  "assets/bullets/orb_2aa8ff.png": [
+   "8e3a365eb4ff126c",
+   35483
+  ],
+  "assets/bullets/orb_35e05f.png": [
+   "158bc99afca779a6",
+   36565
+  ],
+  "assets/bullets/orb_4a46ff.png": [
+   "d6bcfbf4dfa6f39d",
+   45103
+  ],
+  "assets/bullets/orb_66ccff.png": [
+   "04b2860a25c3572b",
+   45108
+  ],
+  "assets/bullets/orb_66ffaa.png": [
+   "b1a982fd23ae2a67",
+   31275
+  ],
+  "assets/bullets/orb_aaff44.png": [
+   "5aeb060234b0cd0f",
+   22919
+  ],
+  "assets/bullets/orb_b535ff.png": [
+   "dbebb06f4501ec4c",
+   41785
+  ],
+  "assets/bullets/orb_ff2d2d.png": [
+   "d487b19d67821597",
+   28029
+  ],
+  "assets/bullets/orb_ff3366.png": [
+   "c72f5181b8dcc258",
+   45792
+  ],
+  "assets/bullets/orb_ff33aa.png": [
+   "7811741d1b36898d",
+   36603
+  ],
+  "assets/bullets/orb_ff5577.png": [
+   "690e000ac096faf5",
+   39585
+  ],
+  "assets/bullets/orb_ff6666.png": [
+   "a746e64f47bc91bc",
+   37685
+  ],
+  "assets/bullets/orb_ff66ff.png": [
+   "415041e3f570f39f",
+   45578
+  ],
+  "assets/bullets/orb_ff9900.png": [
+   "12c685d8e2e3a9dd",
+   31340
+  ],
+  "assets/bullets/orb_ff9a1f.png": [
+   "2f37ed46c85809e1",
+   32072
+  ],
+  "assets/bullets/orb_ffaa00.png": [
+   "980915fccf658a54",
+   32169
+  ],
+  "assets/bullets/orb_ffcc00.png": [
+   "e8c7824eff48f7fc",
+   39895
+  ],
+  "assets/bullets/orb_ffcc66.png": [
+   "26513a4f5e5aec0f",
+   42008
+  ],
+  "assets/bullets/orb_ffe81f.png": [
+   "5d5c47c0ebd96f81",
+   36038
+  ],
   "assets/enemy_bomber.png": [
    "87509b9ce61de476",
    71086
@@ -125,6 +241,46 @@
   "assets/music/stage1.mp3": [
    "68eeb4f24c28c03c",
    4319464
+  ],
+  "assets/music/stage10.mp3": [
+   "a381307417bdd352",
+   4304128
+  ],
+  "assets/music/stage11.mp3": [
+   "001d796130803041",
+   4159305
+  ],
+  "assets/music/stage12.mp3": [
+   "4875d3e22bf1b724",
+   4317921
+  ],
+  "assets/music/stage13.mp3": [
+   "4a234f9174acd9a9",
+   4354910
+  ],
+  "assets/music/stage14.mp3": [
+   "a2cd1ace6d12f1ed",
+   4331713
+  ],
+  "assets/music/stage15.mp3": [
+   "8cbf3c07af6f02b6",
+   4395661
+  ],
+  "assets/music/stage16.mp3": [
+   "9141b9a5b104a46e",
+   4356164
+  ],
+  "assets/music/stage17.mp3": [
+   "75e6cd4517295e49",
+   4270900
+  ],
+  "assets/music/stage18.mp3": [
+   "d613fb37a65ff2b1",
+   3677816
+  ],
+  "assets/music/stage19.mp3": [
+   "d7ed6b05811245df",
+   3602584
   ],
   "assets/music/stage2.mp3": [
    "616a85f7a49cba6f",
@@ -199,8 +355,8 @@
    95281
   ],
   "index.html": [
-   "ce107a048028db80",
-   594639
+   "a8a042f2f0882d86",
+   596931
   ],
   "manifest.webmanifest": [
    "9b157f48a270380d",

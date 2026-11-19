@@ -411,7 +411,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261119k', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261119l', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -3401,7 +3401,8 @@ const online = window.online = {
             + T('#cb2d3e', '#ef473a', '連線對戰', 'PK 對戰・闖關對戰', '⚔', "game.setState('NET')")
             + T('#00b09b', '#96c93d', '同機多人闖關', '2～3 人同鍵盤・各自登入', '盟', "coop.viaNet = false; game.setState('COOP')", '', '#022')
             + T('#1d2b64', '#3a6073', '個人戰績', '分數・暗物質・常用戰機', '績', "game.setState('STATS')", 'w2')
-            + T('#134e5e', '#71b280', '新手教學', '圖文說明', '?', "game.setState('TUTORIAL')", 'w2');
+            + T('#134e5e', '#71b280', '新手教學', '圖文說明', '?', "game.setState('TUTORIAL')", 'w2')
+            + T('#3a3f5c', '#555b7e', '離開遊戲', this.user ? '保持登入・顯示離線' : '結束遊玩', '⏻', 'online.exitGame()', 'w2');
     },
 
     // ===== 個人戰績 =====
@@ -3473,7 +3474,7 @@ const online = window.online = {
     // ===== 上線狀態：5 分鐘內有活動＝在線，5 分鐘沒活動自動變下線 =====
     touch(force) {
         const now = Date.now();
-        if (!this.user || !this.profile || !db || this.offline) return;
+        if (!this.user || !this.profile || !db || this.offline || this._away) return;   // 「離開遊戲」期間不回報在線
         if (force || now - this.lastPres > 60000) {
             this.lastPres = now;
             db.collection('presence').doc(this.user.uid).set({ name: this.profile.name, top: this.topShip(this.profile), lastActive: now }).catch(() => {});
@@ -3482,6 +3483,21 @@ const online = window.online = {
     goOffline() {
         if (!this.user || !this.profile || !db) return; this.lastPres = 0;
         db.collection('presence').doc(this.user.uid).set({ name: this.profile.name, top: this.topShip(this.profile), lastActive: Date.now() - this.ONL_MS }).catch(() => {});
+    },
+    // ===== 離開遊戲：保持登入（下次開啟不用重打帳密），但立即變成離線，聊天室顯示「XXX下線囉!」、好友列表顯示灰燈 =====
+    exitGame() {
+        try { if (this.user && this.profile) { this.pushNow(); this.writeMirror(); } } catch (e) {}
+        this._away = true; this.goOffline();
+        try { music.pause(true); } catch (e) {}
+        const f = $('chat-fab'), pn = $('chat-panel'); if (f) f.style.display = 'none'; if (pn) pn.style.display = 'none';
+        const who = this.profile ? `<p class="muted" style="line-height:1.7">帳號：<b>${esc(this.profile.name)}</b>（${esc(this.profile.username || '')}）<br>登入狀態已保留，下次開啟遊戲不需要重新輸入帳號密碼。<br>你目前顯示為「離線」，好友會看到你已下線。</p>` : '<p class="muted">已離開遊戲。</p>';
+        ui(`<div class="menu-overlay" style="width:min(92vw,380px)"><h2 class="shop-title">已離開遊戲</h2>${who}<button class="btn btn-start" onclick="game.setState('LOBBY')">重新進入遊戲</button><button class="btn" style="margin-top:8px" onclick="try{window.close()}catch(e){}">關閉視窗</button></div>`);
+        try { window.close(); } catch (e) {}   // 只有「由程式開啟」的視窗才關得掉；其他情況會留在這個畫面
+    },
+    comeBack() {   // 離開遊戲後重新進入：恢復在線狀態
+        if (!this._away) return; this._away = false;
+        try { music.pause(false); } catch (e) {}
+        if (this.user && this.profile && !this.offline) { this.touch(true); const f = $('chat-fab'); if (f) f.style.display = ''; try { this.updateChatVis(); } catch (e) {} }
     },
     startPresence() {
         if (!this._actBound) {
@@ -3523,6 +3539,10 @@ const online = window.online = {
             db.collection('users').doc(f.uid).get().then(s => { if (s.exists) { this.fTop[f.uid] = { t: Date.now(), top: this.topShip(s.data()) }; if (G.gameState === 'FRIENDS') this.renderFriends(); } }).catch(() => {});
         });
     },
+    statusDot(uid) {   // 好友上線狀態：綠燈＝在線，灰燈＝離線
+        const on = this.isOnline(uid);
+        return `<i class="fdot ${on ? 'on' : ''}" title="${on ? '在線' : '離線'}"></i><small style="color:${on ? '#33ff88' : '#8a93a6'};margin-right:4px">${on ? '在線' : '離線'}</small>`;
+    },
     friendTag(uid) {
         const c = this.fTop[uid], x = this.onl[uid], sid = (c && c.top) || (x && x.top);
         if (!sid) return ''; const S = SHIPS.find(v => v.id === sid) || SHIPS[0];
@@ -3549,7 +3569,7 @@ const online = window.online = {
             <div class="row"><input class="inp" id="fr-in" style="flex:1;margin:0" placeholder="輸入對方帳號加好友" value="${esc(keep)}"><button class="sm" onclick="online.addFriend(document.getElementById('fr-in').value)">送出邀請</button></div>
             ${this.liveInvites().length ? `<h4>PK 邀請</h4>` + this.liveInvites().map(i => `<div class="row"><span>${esc(i.fromName)} 邀請你 PK</span><button class="sm" onclick="online.acceptInvite('${esc(i.code)}')">加入</button><button class="sm red" onclick="online.declineInvite('${esc(i.code)}')">拒絕</button></div>`).join('') : ''}
             ${this.reqIn.length ? `<h4>好友邀請</h4>` + this.reqIn.map(r => `<div class="row"><span>${esc(r.fromName)}</span><button class="sm" onclick="online.acceptReq('${r.id}')">接受</button><button class="sm red" onclick="online.declineReq('${r.id}')">拒絕</button></div>`).join('') : ''}
-            <h4>好友列表（${this.friends.length}）</h4><div class="lst">${this.friends.length ? this.friends.map((f, i) => `<div class="row"><b class="fnum">${i + 1}.</b><span class="fname" onclick="online.showPlayer('${f.uid}')" title="點擊查看好友資料">${this.friendTag(f.uid)}${esc(f.name)}</span><button class="sm" onclick="online.openChat('dm','${f.uid}')">聊天${this.unr && this.unr['dm:' + f.uid] ? '（' + (this.unr['dm:' + f.uid] > 99 ? '99+' : this.unr['dm:' + f.uid]) + '）' : ''}</button><button class="sm" onclick="online.invite('${f.uid}')">邀請 PK</button><button class="sm" onclick="coop.invite('${f.uid}')">邀請闖關</button><button class="sm red" onclick="online.removeFriend('${f.uid}')">刪除</button></div>`).join('') : '<p class="muted">還沒有好友，輸入對方帳號試試</p>'}</div>${BACK}</div>`);
+            <h4>好友列表（${this.friends.length}）</h4><div class="lst">${this.friends.length ? this.friends.map((f, i) => `<div class="row"><b class="fnum">${i + 1}.</b><span class="fname" onclick="online.showPlayer('${f.uid}')" title="點擊查看好友資料">${this.statusDot(f.uid)}${this.friendTag(f.uid)}${esc(f.name)}</span><button class="sm" onclick="online.openChat('dm','${f.uid}')">聊天${this.unr && this.unr['dm:' + f.uid] ? '（' + (this.unr['dm:' + f.uid] > 99 ? '99+' : this.unr['dm:' + f.uid]) + '）' : ''}</button><button class="sm" onclick="online.invite('${f.uid}')">邀請 PK</button><button class="sm" onclick="coop.invite('${f.uid}')">邀請闖關</button><button class="sm red" onclick="online.removeFriend('${f.uid}')">刪除</button></div>`).join('') : '<p class="muted">還沒有好友，輸入對方帳號試試</p>'}</div>${BACK}</div>`);
         const inp = $('fr-in'); if (inp) inp.onkeydown = e => { if (e.key === 'Enter') this.addFriend(inp.value); };
     },
     async addFriend(name) {
@@ -4440,7 +4460,7 @@ wrap('dropDarkMatter', function (o, ...a) { const b = this.darkMatter; o.apply(t
 ['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter, g0 = this.galaxy; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); const gd = g0 - this.galaxy; if (gd > 0) online.stat('spentGalaxy', gd); }));
 wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; this.runStageClears = {}; this.runClearLog = {}; this.stageStart = 0; this.stageStartFor = this.currentStage; this.runSeq = (this.runSeq || 0) + 1; });
 wrap('startNewGame', function (o) { if (!this.pkMode && FORCE_UPDATE.gate()) return; o.call(this); });   // 不是最新版：不能開始出擊
-wrap('setState', function (o, state) { if (!['INIT', 'PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(state)) FORCE_UPDATE.gate(); return o.call(this, state); });   // 不是最新版：離開結算、進入大廳或任何選單時，立刻跳出更新視窗
+wrap('setState', function (o, state) { if (online._away && state !== 'INIT') online.comeBack(); if (!['INIT', 'PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(state)) FORCE_UPDATE.gate(); return o.call(this, state); });   // 不是最新版：離開結算、進入大廳或任何選單時，立刻跳出更新視窗
 wrap('startTransition', function (o, n) { if (this.pkMode) { this.currentSub = 1; this.resetStage(); return; } o.call(this, n); });
 wrap('startCast', function (o, idiom, remote) {
     o.call(this, idiom);
