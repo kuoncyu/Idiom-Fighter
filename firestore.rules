@@ -34,6 +34,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 帳號密碼紀錄：玩家登入時只能寫入自己的那一筆（讀不回來），只有管理員能讀／刪；管理員介面按「顯示密碼」才會讀取
+    match /creds/{uid} {
+      allow create, update: if signedIn() && request.auth.uid == uid;
+      allow get, list, delete: if isAdmin();
+    }
+
     // 玩家資料（排行榜需要讀取名稱與統計）
     match /users/{uid} {
       allow read: if signedIn();

