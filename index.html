@@ -411,7 +411,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261119o', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261119p', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -427,8 +427,9 @@ const SLOT_COST = [150, 500, 1500, 4500, 12000], MAGNET_COST = [300, 900, 2800, 
 const MAGNET_MAX = 10, MAGNET_RANGE = [0, 90, 150, 220, 300, 390, 490, 610, 750, 900, Infinity];
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
+const LITE = { on: false, manual: false };   // 省電畫質：連線對戰畫面卡頓時自動開啟（關掉陰影光暈、解析度降為 1 倍、畫面更新減半、粒子減量）
 function updateWorld() {
-    const dpr = Math.min(2, window.devicePixelRatio || 1), rw = window.innerWidth, rh = window.innerHeight;
+    const dpr = LITE.on ? 1 : Math.min(2, window.devicePixelRatio || 1), rw = window.innerWidth, rh = window.innerHeight;
     document.documentElement.style.setProperty('--app-w', rw + 'px'); document.documentElement.style.setProperty('--app-h', rh + 'px');
     WORLD.rw = rw; WORLD.rh = rh; WORLD.dpr = dpr; WORLD.s = Math.min(rw / 540, rh / 900); WORLD.k = WORLD.s * dpr; WORLD.w = rw / WORLD.s; WORLD.h = rh / WORLD.s;
 }
@@ -440,6 +441,7 @@ const ASSET_FILES = { player:'assets/player.png', scout:'assets/enemy_scout.png'
     ship_wind:'assets/ship_wind.png', ship_bastion:'assets/ship_bastion.png', ship_blaze:'assets/ship_blaze.png', ship_storm:'assets/ship_storm.png', ship_lance:'assets/ship_lance.png', ship_assassin:'assets/ship_assassin.png', ship_nova:'assets/ship_nova.png' };
 for (let i = 1; i <= 9; i++) ASSET_FILES['boss_' + i] = `assets/boss_${i}.png`;   // 每關各自的 Boss 圖，缺檔用 boss.png 或向量圖
 // 所有文字都不加光暈：畫布文字繪製時暫時關閉 shadow
+{ const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'shadowBlur'); if (d && d.set) Object.defineProperty(CanvasRenderingContext2D.prototype, 'shadowBlur', { configurable: true, enumerable: d.enumerable, get: d.get, set(v) { d.set.call(this, LITE.on ? 0 : v); } }); }   // 省電畫質：光暈（shadowBlur）是最吃效能的繪圖項目，直接停用
 ['fillText', 'strokeText'].forEach(n => { const o = CanvasRenderingContext2D.prototype[n]; CanvasRenderingContext2D.prototype[n] = function (...a) { const b = this.shadowBlur; this.shadowBlur = 0; try { return o.apply(this, a); } finally { this.shadowBlur = b; } }; });
 const IMG = {};
 // 機種：hp/spd/dmg/int 為基礎值，base 為初始等級，cap 為該機種各能力的等級上限，fit 為對各類 Boss 的適性
@@ -2199,11 +2201,21 @@ class Game {
         document.getElementById('lvl-val').innerText = this.currentStage === 9 ? "FINAL BOSS" : `${this.currentStage}-${this.currentSub}`;
     }
 
+    setLite(on, manual) {   // 切換省電畫質（解析度也跟著變，要重設畫布）
+        if (LITE.on === !!on) return; LITE.on = !!on; if (manual !== undefined) LITE.manual = manual; this._fe = 16.7; this._slow = 0; this.resize();
+        try { toast(on ? '已切換為省電畫質（30 FPS・低解析度・無光暈）' : '已恢復標準畫質', 2600); } catch (e) {} if (window.coop && coop.rtcLabel) coop.rtcLabel();
+    }
+    perfWatch(ms) {   // 連線對戰中偵測卡頓：畫面更新間隔平均超過約 26ms（低於 38 FPS）並持續 2 秒 → 自動降低畫質
+        if (!(this.coopMode || this.pkMode) || this.gameState !== 'PLAYING' || LITE.on || LITE.manual || ms > 250 || document.hidden) { this._slow = 0; return; }
+        this._fe = (this._fe || 16.7) * 0.94 + ms * 0.06; this._slow = this._fe > 26 ? (this._slow || 0) + ms / 1000 : 0;
+        if (this._slow > 2) this.setLite(true, false);
+    }
     loop(timestamp) {
+        this.perfWatch(timestamp - (this._pt || timestamp)); this._pt = timestamp;
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1); this.lastTime = timestamp;
         if (this.coopMode) { if (!this.coopLocal) this.paused = false; if (this.casting) this.endCast(); }   // 連線多人闖關不能暫停；同機多人（同一台電腦）可以暫停（按 Esc、回首頁對話框、視窗失焦）。兩者都沒有 5 秒蓄力停格
         if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); this.tickClear(dt); } else { this.tickClear(dt); this.bgClock += dt; this.runClock += dt; if (this.pkMode) this.pkTime += dt; this.update(dt); } } } else if (this.gameState === 'TRANSITION') { if (!(this.coopLocal && (this.dlgOpen || this.paused))) { this.bgClock += dt; this.runClock += dt; this.updateTransition(dt); } } else if (this.isMenu()) this.updateDemo(dt);
-        this.draw(); requestAnimationFrame((t) => this.loop(t));
+        if (!(LITE.on && (this._lf = !this._lf))) this.draw(); requestAnimationFrame((t) => this.loop(t));   // 省電畫質：畫面每兩個 frame 才畫一次（約 30 FPS），遊戲邏輯照常跑
     }
 
     updateTransition(dt) {
@@ -2591,7 +2603,7 @@ class Game {
     }
 
     burst(x, y, n) {
-        n = Math.min(n, 360 - this.particles.length);   // 粒子總數上限：爆炸再多也不會越堆越多
+        n = Math.min(n, (LITE.on ? 110 : 360) - this.particles.length);   // 粒子總數上限：爆炸再多也不會越堆越多
         for (let i = 0; i < n; i++) {
             const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 200;
             this.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.6 + Math.random() * 0.4, color: ['#ffea00','#ffaa00','#ff3366','#ffffff'][i % 4] });
@@ -4511,7 +4523,7 @@ wrap('dropDarkMatter', function (o, ...a) { const b = this.darkMatter; o.apply(t
 ['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter, g0 = this.galaxy; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); const gd = g0 - this.galaxy; if (gd > 0) online.stat('spentGalaxy', gd); }));
 wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; this.runStageClears = {}; this.runClearLog = {}; this.stageStart = 0; this.stageStartFor = this.currentStage; this.runSeq = (this.runSeq || 0) + 1; });
 wrap('startNewGame', function (o) { if (!this.pkMode && FORCE_UPDATE.gate()) return; o.call(this); });   // 不是最新版：不能開始出擊
-wrap('setState', function (o, state) { if (online._away && state !== 'INIT') online.comeBack(); if (!['INIT', 'PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(state)) FORCE_UPDATE.gate(); return o.call(this, state); });   // 不是最新版：離開結算、進入大廳或任何選單時，立刻跳出更新視窗
+wrap('setState', function (o, state) { if (online._away && state !== 'INIT') online.comeBack(); if (state === 'LOBBY' && LITE.on) { LITE.manual = false; this.setLite(false); } if (!['INIT', 'PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(state)) FORCE_UPDATE.gate(); return o.call(this, state); });   // 不是最新版：離開結算、進入大廳或任何選單時，立刻跳出更新視窗
 wrap('startTransition', function (o, n) { if (this.pkMode) { this.currentSub = 1; this.resetStage(); return; } o.call(this, n); });
 wrap('startCast', function (o, idiom, remote) {
     o.call(this, idiom);
@@ -4734,7 +4746,7 @@ const coop = {
     },
     begin(d) {
         const r = this.room; r.started = true; this.ended = false; this.finished = 0; this.mid = d.startAt; this.hostUid = d.host; this.order = (d.order || []).slice(); this.pool = 0; this.stats = {}; this.view = {}; this.ge = new Map(); this.res = null;
-        this.seq = 0; this.resetSeq = 0; this.rsSeen = -1; this.lastQ = 0; this.cur = d.host; this.evq = []; this.sendT = 0; this.hudT = 0; this.nid = 0; this.slk = ''; this.vb = []; this.pal = []; this.lastSnapMs = Date.now(); this.inSent = 0; this.inX = -1; this.inY = -1;
+        this.castN = 0; this.castSeen = 0; this._useSeen = {}; this.sx = 1; this.sy = 1; this._lagT = 0; this._rw = 0; this._rtAck = 0; this._rtMir = 0; this.seq = 0; this.resetSeq = 0; this.rsSeen = -1; this.lastQ = 0; this.cur = d.host; this.evq = []; this.sendT = 0; this.hudT = 0; this.nid = 0; this.slk = ''; this.vb = []; this.pal = []; this.lastSnapMs = Date.now(); this.inSent = 0; this.inX = -1; this.inY = -1;
         const me = this.me(), host = r.role === 'host', mem = d.members || {};
         this.nm = {}; this.order.forEach(id => { this.nm[id] = (mem[id] && mem[id].name) || '玩家'; });
         G.coopMode = true; G.coopHost = host; G.pkMode = false; G._keepSlots = G.maxSlots;
@@ -4916,7 +4928,7 @@ const coop = {
     hostUpdate(dt) {
         const g = G, W = WORLD.w, H = WORLD.h, me = this.hostUid, ids = this.order, N = ids.length;
         if (this.cast) {   // 有人發動成語：所有玩家一起等 5 秒（戰場凍結），顯示完畢後才套用效果
-            const c = this.cast; c.t -= dt; if (c.t > 0) return;
+            const c = this.cast; c.t -= dt; if (c.t > 0) { this.tick(dt); return; }   // 暫停期間也要持續把畫面（含成語內容）傳給隊員，不然隊員會先卡住、等 5 秒後才看到成語
             this.cast = null; const cp = this.P[c.id];
             if (cp && cp.alive && c.idiom.effect === 'ALLY' && this.downIds(c.id).length) this.allyRevive(c.id, c.idiom);   // 呼叫友軍：有隊友倒下時改為救人（不派友軍）
             else if (cp && cp.alive) { this.ctx(c.id, () => { g.applyIdiom(c.idiom); }); if (c.idiom.effect === 'SLOW_TIME') this.slowBy = this.nm[c.id] || ''; }
@@ -5067,13 +5079,18 @@ const coop = {
         if (!P.alive && s.effect !== 'HEAL') { const now = performance.now(); if (now - (P._dn || 0) > 1200) { P._dn = now; g.showFloatText(`${P.name} 已倒下：只能用補血成語復活`, WORLD.w / 2, WORLD.h * 0.4, '#ff9aa8'); } return; }   // 倒下時只有補血成語能用，其他成語不消耗
         const idiom = { word: s.word, effect: s.effect, desc: s.effectDesc }, r = g.pickIdiom();
         g.slots[i] = { type: 'COLLECTING', word: r.word, chars: [], effect: r.effect, effectDesc: r.desc };
-        this.cast = { id, idiom, t: 5 }; sfx.playIdiomCast && sfx.playIdiomCast();   // 全場暫停 5 秒，成語顯示完畢才發動（hostUpdate 裡倒數）
+        this.cast = { id, idiom, t: 5, n: (this.castN = (this.castN | 0) + 1), nm: P.name }; sfx.playIdiomCast && sfx.playIdiomCast();   // 全場暫停 5 秒，成語顯示完畢才發動（hostUpdate 裡倒數）
         const info = IDIOM_INFO[idiom.word] || ['', ''], um = Math.random() < 0.5, label = um ? '解釋' : '造句', text = info[um ? 0 : 1] || '';
-        this.evq.push(['c', P.name, idiom.word, idiom.desc, label, text]); this.showCast(P.name, idiom.word, idiom.desc, label, text); g.renderIdiomSlots();
+        this.cast.label = label; this.cast.text = text; this.showCast(P.name, idiom.word, idiom.desc, label, text); g.renderIdiomSlots();
+        this.sendT = 0; this.sendWorld(true);   // 成語內容放在畫面狀態裡（掉包也會在下一張補上），並立刻送出、不等下一次排程
     },
     useSlot(i) {
         if (G.gameState !== 'PLAYING' || this.ended || performance.now() < (G._swallowUntil || 0)) return;
-        if (G.coopHost) this.doUse(this.me(), i); else if (!this.rtcToHost({ k: 'use', slot: i })) online.roomRef(this.room.code).collection('events').add({ matchId: this.mid, type: 'use', by: this.me(), slot: i, ts: Date.now() }).catch(() => {});
+        if (G.coopHost) this.doUse(this.me(), i); else {
+            const id = this.me() + '_' + Date.now() + '_' + ((this._un = (this._un | 0) + 1)), R = this.rtc, d1 = this.rtcToHost({ k: 'use', slot: i, id });   // 雙通道同時送：直連＋Realtime Database
+            let d2 = false; if (R && R.rt && !R.host) { try { R.base.child('use').push({ by: this.me(), slot: i, id, ts: Date.now() }).catch(() => {}); d2 = true; } catch (e) {} }
+            if (!d1 && !d2) online.roomRef(this.room.code).collection('events').add({ matchId: this.mid, type: 'use', by: this.me(), slot: i, ts: Date.now() }).catch(() => {});
+        }
     },
     tick(dt) {
         this.sendT += dt; if (this.sendT >= 0.125) { this.sendT = 0; this.sendWorld(); }
@@ -5094,11 +5111,11 @@ const coop = {
     },
 
     // ================= 傳送畫面（主控端 → 客戶端） =================
-    sendWorld() {
-        if ((this._wr || 0) >= 2 || !this.room) return;
+    sendWorld(force) {
+        if (!this.room) return;
         const g = G, ids = this.order, ri = x => Math.round(x), r1 = x => Math.round(x * 10) / 10, pal = [], pi = c => { let i = pal.indexOf(c); if (i < 0) { pal.push(c); i = pal.length - 1; } return i; };
         const src = id => this.P[id].host ? g : this.P[id].s;
-        const S = { q: ++this.seq, gs: g.gameState, st: g.currentStage, sb: g.currentSub, ct: r1(g.clearT || 0), cn: g.clearNext ? 1 : 0, nx: g.isNextStage ? 1 : 0, rs: this.resetSeq, pool: ri(this.pool), ms: g.maxSlots, sw: g.slowTimer > 0 ? Math.max(0.1, r1(g.slowTimer)) : 0, sn: g.slowTimer > 0 ? (this.slowBy || '') : '' };
+        const S = { q: ++this.seq, W: ri(WORLD.w), H: ri(WORLD.h), gs: g.gameState, st: g.currentStage, sb: g.currentSub, ct: r1(g.clearT || 0), cn: g.clearNext ? 1 : 0, nx: g.isNextStage ? 1 : 0, rs: this.resetSeq, pool: ri(this.pool), ms: g.maxSlots, sw: g.slowTimer > 0 ? Math.max(0.1, r1(g.slowTimer)) : 0, sn: g.slowTimer > 0 ? (this.slowBy || '') : '' };
         S.sl = g.slots.map(s => [s.type === 'READY' ? 1 : 0, s.word, s.chars.join(''), s.effect, s.effectDesc]);
         S.P = ids.map(id => { const P = this.P[id], s = src(id), pos = P.host ? g.player.pos : s.player.pos; return [id, ri(pos.x), ri(pos.y), r1(s.hp), ri(s.maxHp), r1(s.shield), r1(Math.max(0, s.invincibleTimer)), s.laserTimer > 0 ? Math.max(0.1, r1(s.laserTimer)) : 0, s.skin, P.alive ? 1 : 0, r1(Math.max(0, s.pierceTimer)), r1(Math.max(0, s.missileTimer)), r1(Math.max(0, s.allyTimer || 0)), r1(Math.max(0, s.lifestealTimer || 0))]; });
         S.E = g.enemies.map(e => { if (!e._id) e._id = ++this.nid; return [e._id, COOP_TYPES.indexOf(e.type), ri(e.pos.x), ri(e.pos.y), r1(e.hp), r1(e.maxHp), ri(e.radius), ri(g.shieldOf(e)), ri(e.maxShield || 0), e.charge > 0 ? r1(e.charge) : 0, r1(e.lockA || 0), r1(e.snipeP || 0)]; });
@@ -5114,7 +5131,16 @@ const coop = {
         S.ST = {}; ids.forEach(id => { const s = this.stats[id] || {}; S.ST[id] = [ri(s.dmg || 0), ri(s.tank || 0), ri(s.chr || 0)]; });
         if (g.shock && g.shock !== this._shk) { this._shk = g.shock; this.evq.push(['sh', ri(g.shock.x), ri(g.shock.y)]); }
         S.V = this.evq.splice(0, 40); this.evq.length = 0;
-        const str = JSON.stringify(S); if (this.rtcWorld(str)) return;   // 每位隊員都已 web 直連：不必再寫 Firestore
+        const ca = this.cast; S.cs = ca && ca.label ? [ca.n, ca.nm, ca.idiom.word, ca.idiom.desc, ca.label, ca.text, r1(ca.t)] : 0;
+        // 雙通道：① web 直連（WebRTC，最快）　② Realtime Database（比 Firestore 快很多，直連不通或塞車時自動接手）。隊員用畫面序號去重，兩條路同時到也沒關係
+        const str = JSON.stringify(S), direct = this.rtcWorld(str), R = this.rtc, now = performance.now(), lag = now - (this._lagT || -1e9) < 3000;
+        if (direct && !force && !lag && now - (this._rtMir || 0) < 500) return;   // 直連順暢：Realtime Database 只每 0.5 秒備份一次（直連突然斷線時隊員還有畫面）
+        if (R && R.rt) {
+            if (!this._rtAck) this._rtAck = now;
+            const stuck = (this._rw || 0) >= 2 && now - this._rtAck > 3000;   // Realtime Database 3 秒都沒回應：這一幀改走 Firestore
+            if (!stuck) { if ((this._rw || 0) < 2 || force) { this._rw = (this._rw || 0) + 1; this._rtMir = now; R.base.child('world').set({ s: str, q: S.q }).catch(() => {}).then(() => { this._rw = Math.max(0, (this._rw || 1) - 1); this._rtAck = performance.now(); }); } return; }
+        }
+        if ((this._wr || 0) >= 2 && !force) return;
         this._wr = (this._wr || 0) + 1;
         online.roomRef(this.room.code).collection('pos').doc('world').set({ s: str, q: S.q, t: Date.now() }).catch(() => {}).then(() => { this._wr--; });
     },
@@ -5125,12 +5151,23 @@ const coop = {
         const p = G.player.pos, moved = Math.hypot(p.x - this.inX, p.y - this.inY) > 2;
         if (!moved && Date.now() - this.inSent < 1500) return;
         this.inX = p.x; this.inY = p.y; this.inSent = Date.now();
-        if (this.rtcToHost({ k: 'in', x: Math.round(p.x), y: Math.round(p.y) })) return;
-        online.roomRef(this.room.code).collection('pos').doc(this.me()).set({ x: Math.round(p.x), y: Math.round(p.y), mid: this.mid, t: Date.now() }).catch(() => {});
+        const hx = Math.round(p.x * (this.sx || 1)), hy = Math.round(p.y * (this.sy || 1));   // 換算回房主的座標
+        if (this.rtcToHost({ k: 'in', x: hx, y: hy })) return;
+        const R = this.rtc; if (R && R.rt && !R.host) { R.base.child('in/' + this.me()).set({ x: hx, y: hy, t: Date.now() }).catch(() => {}); return; }   // 直連不通：改走 Realtime Database
+        online.roomRef(this.room.code).collection('pos').doc(this.me()).set({ x: hx, y: hy, mid: this.mid, t: Date.now() }).catch(() => {});
     },
     onWorld(d) {
         let S; try { S = JSON.parse(d.s); } catch (e) { return; }
         if (!S || S.q <= (this.lastQ || 0) || !this.room || !this.room.started || this.ended) return;
+        if (this._cm !== this.mid) { this._cm = this.mid; this.castSeen = 0; }
+        // 房主與隊員的螢幕比例不同（例如房主電腦 1600 寬、手機 2000 寬）：把房主座標換算成自己的螢幕，Boss 與四台分身才會貼著自己螢幕的上下左右邊界
+        const kx = WORLD.w / (S.W || WORLD.w), ky = WORLD.h / (S.H || WORLD.h); this.sx = 1 / kx; this.sy = 1 / ky;
+        if (Math.abs(kx - 1) > 0.002 || Math.abs(ky - 1) > 0.002) {
+            const mp = (a, i) => { a[i] *= kx; a[i + 1] *= ky; };
+            (S.P || []).forEach(a => mp(a, 1)); (S.E || []).forEach(a => mp(a, 2)); if (S.B) mp(S.B, 0); (S.BC || []).forEach(a => mp(a, 0));
+            (S.U || []).forEach(a => { mp(a, 0); a[2] *= kx; a[3] *= ky; }); (S.M || []).forEach(a => mp(a, 1)); (S.C || []).forEach(a => mp(a, 1)); (S.A || []).forEach(a => mp(a, 1));
+            (S.V || []).forEach(e => { const t = e[0]; if (t === 'f') mp(e, 2); else if (t === 'b' || t === 'sh' || t === 'bw') mp(e, 1); else if (t === 'd') mp(e, 1); });
+        }
         this.lastQ = S.q; this.snapAt = performance.now(); this.lastSnapMs = Date.now();
         const g = G, me = this.me(), T = COOP_TYPES;
         this.pal = S.pal || []; this.vb = S.U || []; this.pool = S.pool || 0; this.stats = {}; Object.keys(S.ST || {}).forEach(id => { const a = S.ST[id]; this.stats[id] = { dmg: a[0], tank: a[1], chr: a[2] }; });
@@ -5185,8 +5222,8 @@ const coop = {
             else if (ev[0] === 'd') { g.dmgTexts.push({ x: ev[1], y: ev[2], t: 0, text: ev[3], kind: ev[4], big: ev[5], rot: (Math.random() - 0.5) * 0.36, seed: Math.random() * 100 }); if (g.dmgTexts.length > 40) g.dmgTexts.shift(); }
             else if (ev[0] === 'sh') g.shock = { t: 0, x: ev[1], y: ev[2] };
             else if (ev[0] === 'bw') g.pushWave(ev[1], ev[2], ev[3], ev[4]);
-            else if (ev[0] === 'c') { sfx.playIdiomCast && sfx.playIdiomCast(); this.showCast(ev[1], ev[2], ev[3], ev[4], ev[5]); }
         });
+        if (S.cs && S.cs[0] !== this.castSeen) { const c = S.cs; this.castSeen = c[0]; sfx.playIdiomCast && sfx.playIdiomCast(); this.showCast(c[1], c[2], c[3], c[4], c[5], Math.max(800, c[6] * 1000)); }
     },
     guestUpdate(dt) {
         const g = G, me = this.me(), v = this.view[me], alive = !(v && v.alive === 0);
@@ -5328,23 +5365,33 @@ const coop = {
 
 // ================= 多人闖關：發動成語時全場暫停 5 秒、顯示解釋／造句、web 直連（WebRTC） =================
 Object.assign(coop, {
-    showCast(name, word, desc, label, text) {
+    showCast(name, word, desc, label, text, life) {
         let box = $('coop-casts'); if (!box) { $('game-container').insertAdjacentHTML('beforeend', '<div id="coop-casts"></div>'); box = $('coop-casts'); }
         const el = document.createElement('div'); el.className = 'cc-card';
         el.innerHTML = `<div class="cc-name">${esc(name)} 發動！</div><div class="cc-word">${esc(word)}</div><div class="cc-eff">大招效果：${esc(desc)}</div><div class="cc-line"><b>${esc(label)}</b>　<span class="cc-tx"></span></div><div class="cc-bar"><i></i></div>`;
         box.appendChild(el); while (box.children.length > 3) box.firstChild.remove();
         const tx = el.querySelector('.cc-tx'), ch = [...String(text || '')], rng = label === '造句' ? idiomRange(text, word) : null, step = Math.max(40, Math.min(110, 2800 / Math.max(1, ch.length))); let n = 0;
         const iv = setInterval(() => { n++; tx.innerHTML = boldSlice(ch, n, rng); if (n >= ch.length) clearInterval(iv); }, step);
-        setTimeout(() => { clearInterval(iv); el.remove(); }, 5000);
+        setTimeout(() => { clearInterval(iv); el.remove(); }, life || 5000);
     },
     // ---- web 直連：Realtime Database 只交換連線資訊，連上後畫面與操作直接在裝置之間傳（星狀：房主 ↔ 每位隊員）----
     rtcStart(d) {
-        this.rtcStop(); if (this.local || !this.room || !window.RTCPeerConnection) return;
+        this.rtcStop(); if (this.local || !this.room) return;
         let rt; try { rt = online.rtOpen(); } catch (e) { return; }
         const r = this.room, me = this.me(), host = r.role === 'host';
         this.rtc = { rt, host, peers: {}, off: [], base: rt.ref('pk/' + r.code + '/' + this.mid + 'c') };
         $('game-container').insertAdjacentHTML('beforeend', '<div id="coop-net" style="position:fixed;left:6px;bottom:6px;font:11px sans-serif;color:#9ab;z-index:5;pointer-events:none"></div>');
-        if (host) this.order.filter(id => id !== me).forEach(id => this.rtcPeer(id, true)); else this.rtcPeer(me, false);
+        const hasRtc = !!window.RTCPeerConnection;
+        if (host) {
+            if (hasRtc) this.order.filter(id => id !== me).forEach(id => this.rtcPeer(id, true));
+            this.order.filter(id => id !== me).forEach(id => {   // Realtime Database 通道：隊員的位置
+                const ref = this.rtc.base.child('in/' + id), f = x => { const v = x.val(), P = this.P && this.P[id]; if (v && P && !P.left && !this.ended) { P.in = { x: +v.x || 0, y: +v.y || 0 }; P.at = performance.now(); } }; ref.on('value', f); this.rtc.off.push(() => ref.off('value', f));
+            });
+            const uref = this.rtc.base.child('use'), uf = x => { const v = x.val(); if (v && v.by && this.P && this.P[v.by]) this.hostUse(v.by, v.slot | 0, v.id); try { x.ref.remove(); } catch (e) {} }; uref.on('child_added', uf); this.rtc.off.push(() => uref.off('child_added', uf));   // 成語操作
+        } else {
+            if (hasRtc) this.rtcPeer(me, false);
+            const wref = this.rtc.base.child('world'), wf = x => { const v = x.val(); if (v && v.s) this.onWorld(v); }; wref.on('value', wf); this.rtc.off.push(() => wref.off('value', wf));   // Realtime Database 通道：房主的畫面
+        }
         this.rtcLabel();
     },
     rtcPeer(gid, isHost) {
@@ -5366,21 +5413,26 @@ Object.assign(coop, {
             offerRef.on('value', onOff); R.off.push(() => offerRef.off('value', onOff));
         }
     },
+    hostUse(gid, slot, id) {   // 成語操作可能同時從直連與 Realtime Database 兩條路到達：用編號去重，只執行一次
+        if (id) { const u = this._useSeen || (this._useSeen = {}); if (u[id]) return; u[id] = 1; const k = Object.keys(u); if (k.length > 60) k.slice(0, 30).forEach(x => delete u[x]); }
+        this.doUse(gid, slot);
+    },
     rtcCheck(gid, dead) { const R = this.rtc, P = R && R.peers[gid]; if (!P) return; const w = P.ch.w, e = P.ch.e; P.open = !dead && !!w && !!e && w.readyState === 'open' && e.readyState === 'open'; this.rtcLabel(); },
     rtcLabel() {
         const el = $('coop-net'), R = this.rtc; if (!el || !R) return; const ids = Object.keys(R.peers), n = ids.filter(id => R.peers[id].open).length;
-        el.textContent = n && n === ids.length ? 'web 直連（P2P）' : n ? `web 直連 ${n}/${ids.length}（其餘走雲端備援）` : '連線：雲端備援';
+        el.style.pointerEvents = 'auto'; el.style.cursor = 'pointer'; el.onclick = () => G.setLite(!LITE.on, true);   // 點一下可手動切換省電畫質
+        el.textContent = (n && n === ids.length ? '雙通道：直連（P2P）＋即時資料庫' : n ? `雙通道：直連 ${n}/${ids.length}＋即時資料庫` : '連線：即時資料庫') + (LITE.on ? '｜省電畫質' : '｜標準畫質') + '（點此切換）';
     },
     rtcMsg(gid, d) {
         if (this.rtc && this.rtc.host) {   // 房主收到：隊員的位置與成語操作
             const P = this.P && this.P[gid]; if (!P || P.left || this.ended) return;
-            if (d.k === 'in') { P.in = { x: +d.x || 0, y: +d.y || 0 }; P.at = performance.now(); } else if (d.k === 'use') this.doUse(gid, d.slot | 0);
+            if (d.k === 'in') { P.in = { x: +d.x || 0, y: +d.y || 0 }; P.at = performance.now(); } else if (d.k === 'use') this.hostUse(gid, d.slot | 0, d.id);
         } else if (d.k === 'w') this.onWorld({ s: d.s });   // 隊員收到：房主的畫面
     },
     rtcWorld(str) {   // 房主：把畫面送給已直連的隊員；全部隊員都直連時回傳 true（可略過 Firestore）
         const R = this.rtc; if (!R || !R.host) return false; const msg = JSON.stringify({ k: 'w', s: str }); let all = true, any = false;
         this.order.forEach(id => { if (id === this.me()) return; const P = this.P[id]; if (!P || P.left) return; const pe = R.peers[id];
-            if (pe && pe.open && pe.ch.w.readyState === 'open') { if (pe.ch.w.bufferedAmount > 60000) { any = true; return; }   // 這位隊員的連線還塞著舊畫面：這一幀不送，避免越積越多造成延遲
+            if (pe && pe.open && pe.ch.w.readyState === 'open') { if (pe.ch.w.bufferedAmount > 60000) { any = true; this._lagT = performance.now(); return; }   // 這位隊員的連線還塞著舊畫面：這一幀不送，避免越積越多造成延遲
                 try { pe.ch.w.send(msg); any = true; return; } catch (e) {} } all = false; });
         return any && all;
     },
