@@ -248,7 +248,7 @@
     <canvas id="gameCanvas"></canvas>
     <div id="ui-layer"></div>
     <div id="hud" style="display:none;">
-        <div class="hud-item hud-btns"><button class="hbtn" onclick="game.goHome()" title="回首頁 [H]">⌂ 首頁</button><button class="hbtn" onclick="game.openSettings()" title="設定 [O]">⚙ 設定</button><button class="hbtn" onclick="game.toggleFullscreen()" title="全螢幕">⛶</button><button class="hbtn" id="pause-btn" onclick="game.togglePause();this.blur()" title="暫停 [P]">❚❚</button></div>
+        <div class="hud-item hud-btns"><button class="hbtn" onclick="game.goHome()" title="回首頁">⌂ 首頁</button><button class="hbtn" onclick="game.openSettings()" title="設定">⚙ 設定</button><button class="hbtn" onclick="game.toggleFullscreen()" title="全螢幕">⛶</button><button class="hbtn" id="pause-btn" onclick="game.togglePause();this.blur()" title="暫停 [Esc]">❚❚</button></div>
         <div class="hud-item hud-dm">暗物質: <span id="dm-val">0</span></div>
         <div class="hud-item">LVL: <span id="lvl-val">1-1</span></div>
     </div>
@@ -403,7 +403,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261119b', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261119d', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -1690,7 +1690,8 @@ class Game {
             <label>音效音量（射擊、爆炸、招式聲）<input type="range" min="0" max="100" value="${Math.round(this.volSfx * 100)}" oninput="game.setVol('sfx', this.value)"></label>
             <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" ${localStorage.getItem('idiomFS') !== '0' ? 'checked' : ''} onchange="game.setAutoFS(this.checked)" style="width:auto;"> 開啟遊戲時自動全螢幕</label><button class="btn" onclick="game.toggleFullscreen()">全螢幕 ／ 離開全螢幕</button>
             <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" ${this.battleChatOn() ? 'checked' : ''} onchange="game.setBattleChat(this.checked)" style="width:auto;"> 戰鬥中顯示聊天室（右下角）</label>
-            <small style="color:#8aa;">快捷鍵：O 設定　H 回首頁（戰鬥中）　P／Esc 暫停</small>
+            <small style="color:#8aa;">快捷鍵：Esc 暫停</small>
+            <button class="btn" onclick="lcKeys.dialog()">同機多人按鍵設定</button>
             <button class="btn" onclick="game.offlineDialog()">離線資料包：${this.offlineInfo()}</button><button class="btn" onclick="game.aboutDialog()">關於（版本 ${APP_VERSION}）</button>
             <button class="btn btn-start" onclick="game.closeDlg()">關閉 [Esc]</button>`);
     }
@@ -1933,7 +1934,7 @@ class Game {
                         <div class="f1"><h4>戰機管理 [H]</h4><small>${S.name}｜${S.role}</small><small>傷害 ${Math.round(st.dmg * SHOW)}　${S.pat === 'snipe' ? '鎖定 ' + this.snipeNeedOf(S.id).toFixed(1) + ' 秒' : '射速 ' + (1000 / st.iv).toFixed(1) + '/秒'}</small><small>血量 ${Math.round(st.hp * SHOW)}　移速 ${Math.round(st.spd)}</small><small>穿甲 ${st.pen}　爆擊 ${Math.round(st.crit * 100)}%</small></div>
                     </div>
                     <div class="tile" style="--a:#ffcc00;--b:#ff7a00" onclick="game.setState('SHOP')"><h4>軍械商店</h4><small>[S]</small><small>持有 ${this.darkMatter} DM</small><span class="ico">⚒</span></div>
-                    <div class="tile" style="--a:#2b3a67;--b:#4b5b8f" onclick="game.openSettings()"><h4>設定</h4><small>[O]</small><small>音量・離線・關於</small><span class="ico">⚙</span></div>
+                    <div class="tile" style="--a:#2b3a67;--b:#4b5b8f" onclick="game.openSettings()"><h4>設定</h4><small>音量・離線・關於</small><span class="ico">⚙</span></div>
                 </div>
             </div>`;
     }
@@ -2182,7 +2183,7 @@ class Game {
 
     loop(timestamp) {
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1); this.lastTime = timestamp;
-        if (this.coopMode) { if (!this.coopLocal) this.paused = false; if (this.casting) this.endCast(); }   // 連線多人闖關不能暫停；同機多人（同一台電腦）可以暫停（按 P／Esc、回首頁對話框、視窗失焦）。兩者都沒有 5 秒蓄力停格
+        if (this.coopMode) { if (!this.coopLocal) this.paused = false; if (this.casting) this.endCast(); }   // 連線多人闖關不能暫停；同機多人（同一台電腦）可以暫停（按 Esc、回首頁對話框、視窗失焦）。兩者都沒有 5 秒蓄力停格
         if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); this.tickClear(dt); } else { this.tickClear(dt); this.bgClock += dt; this.runClock += dt; if (this.pkMode) this.pkTime += dt; this.update(dt); } } } else if (this.gameState === 'TRANSITION') { if (!(this.coopLocal && (this.dlgOpen || this.paused))) { this.bgClock += dt; this.runClock += dt; this.updateTransition(dt); } } else if (this.isMenu()) this.updateDemo(dt);
         this.draw(); requestAnimationFrame((t) => this.loop(t));
     }
@@ -2347,7 +2348,7 @@ class Game {
     update(dt) {
         if (this.coopMode) return coop.update(dt);   // 多人闖關：主控端模擬整個戰場，客戶端只負責映射主控端畫面
         this.checkIdle(dt);
-        const spd = this.player.speed * ((this.keys['ShiftLeft'] || this.keys['ShiftRight']) ? 0.45 : 1);
+        const spd = this.player.speed;
         // 鍵盤（斜向也不會變快）與拖曳使用同一個移動速度
         const kx = ((this.keys['KeyD'] || this.keys['ArrowRight']) ? 1 : 0) - ((this.keys['KeyA'] || this.keys['ArrowLeft']) ? 1 : 0);
         const ky = ((this.keys['KeyS'] || this.keys['ArrowDown']) ? 1 : 0) - ((this.keys['KeyW'] || this.keys['ArrowUp']) ? 1 : 0);
@@ -2536,9 +2537,7 @@ class Game {
 
     handleKey(e) {
         const st = this.gameState;
-        if (this.dlgOpen) { if (e.code === 'Escape' || e.code === 'KeyO') this.closeDlg(); else if ((e.code === 'Enter' || e.code === 'NumpadEnter') && this.dlgConfirm) this.dlgConfirm(); return; }
-        if (st !== 'INIT' && e.code === 'KeyO') { this.openSettings(); return; }
-        if (st === 'PLAYING' && e.code === 'KeyH') { this.goHome(); return; }
+        if (this.dlgOpen) { if (e.code === 'Escape') this.closeDlg(); else if ((e.code === 'Enter' || e.code === 'NumpadEnter') && this.dlgConfirm && !this.coopLocal) this.dlgConfirm(); return; }
         const enter = e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space';
         const m = /^(Digit|Numpad)(\d)$/.exec(e.code); const num = m ? parseInt(m[2]) : 0;
         if (st === 'INIT') { if (!/^(Shift|Control|Alt|Meta)/.test(e.code)) document.getElementById('boot-btn').click(); }
@@ -2560,10 +2559,9 @@ class Game {
         else if (st === 'SHOP') { if (num >= 1) this.buyItem(num - 1); else if (e.code === 'Escape' || e.code === 'KeyB' || enter) this.setState('LOBBY'); } else if (st === 'GAMEOVER' || st === 'VICTORY') { if (enter) this.setState('LOBBY'); else if (e.code === 'KeyR') this.startNewGame(); }
         else if (st === 'PLAYING') {
             if (this.casting) return;
-            if (e.code === 'KeyP' || e.code === 'Escape' || (this.paused && enter)) { this.paused = !this.paused; music.pause(this.paused); }
+            if (e.code === 'Escape' || (this.paused && enter)) { this.paused = !this.paused; music.pause(this.paused); }
             else if (!this.paused) {
                 if (num >= 1) this.useIdiom(num - 1);
-                else if (e.code === 'Space') { const i = this.slots.findIndex(x => x.type === 'READY'); if (i >= 0) this.useIdiom(i); }
             }
         }
     }
@@ -2908,7 +2906,6 @@ class Game {
                 ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(w.x, w.y, r * 0.72, 0, 7); ctx.stroke();
                 ctx.globalAlpha = 1;
             });
-            if (this.keys['ShiftLeft'] || this.keys['ShiftRight']) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(this.player.pos.x, this.player.pos.y, 4, 0, 7); ctx.fill(); }
             if (this.casting) { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, WORLD.w, WORLD.h); }
             if (this.paused) {
                 const W = WORLD.w, H = WORLD.h;
@@ -4055,9 +4052,9 @@ const online = window.online = {
         const stg = (n, on, lock) => `<div style="width:74px;height:44px;border-radius:6px;border:2px solid ${on ? 'var(--neon-gold)' : '#334'};${lock ? 'background:#0b0b22' : `background:linear-gradient(rgba(0,0,10,.35),rgba(0,0,10,.35)),url(assets/bg/stage${n}.jpg) center/cover`};font-size:.78rem;display:flex;align-items:flex-end;justify-content:center;text-shadow:0 0 4px #000,0 0 4px #000;padding-bottom:2px">${lock ? '🔒' : '第 ' + n + ' 關'}</div>`;
         const hpbar = (w, c) => `<div style="width:90px;height:7px;background:#222;border-radius:4px;overflow:hidden"><i style="display:block;height:7px;width:${w}%;background:${c}"></i></div>`;
         const S = [
-            ['移動與射擊', `${im('assets/player.png')}<div><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或 <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></div><div><kbd>Shift</kbd> 精準微調</div><div>手機：手指拖曳</div></div>`, '戰機會自動射擊。鍵盤與觸控拖曳的移動速度一樣，升級「機動」可以變快。'],
+            ['移動與射擊', `${im('assets/player.png')}<div><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或 <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></div><div>手機：手指拖曳</div></div>`, '戰機會自動射擊。鍵盤與觸控拖曳的移動速度一樣，升級「機動」可以變快。'],
             ['打字卡、撿字元', `${im('assets/idiom_block.png', 'max-height:90px')}<span style="font-size:2rem">➜</span><span style="font-size:2.4rem;color:var(--neon-blue)">破</span>`, '射擊天上掉下來的字卡，會掉出一個字，飛過去撿起來。字卡只是機關，碰到不會受傷。'],
-            ['湊成語、發動招式', `${slotMock}<span style="font-size:1.6rem">➜</span><span><kbd>1</kbd>~<kbd>6</kbd> 或 <kbd>Space</kbd></span>`, '字元集滿四字就會發光，按對應數字鍵（手機直接點）發動。每個招式都有 10 個以上的相關成語。'],
+            ['湊成語、發動招式', `${slotMock}<span style="font-size:1.6rem">➜</span><span><kbd>1</kbd>~<kbd>6</kbd></span>`, '字元集滿四字就會發光，按對應數字鍵（手機直接點）發動。每個招式都有 10 個以上的相關成語。'],
             ['時間凍結與成語演示', `<div style="border:2px solid var(--neon-gold);border-radius:10px;padding:10px 16px;text-align:center"><div style="font-size:1.8rem;color:var(--neon-gold);letter-spacing:.2em">破釜沉舟</div><div class="muted">解釋或造句 5 秒</div></div>`, '發動後全場凍結 5 秒（敵機、子彈、背景都不會動），畫面會逐字浮現該成語的解釋或造句，結束後才發動招式。'],
             ['十種招式', `<div style="text-align:left;line-height:1.7;font-size:.9rem">爆破・無敵・護盾<br>穿甲彈・追蹤導彈・貫穿雷射<br>治療・時緩・呼叫友軍・<span style="color:#ff5c8a">吸血</span></div>`, '到大廳的「圖鑑」可以查成語、我方與敵方戰機、Boss，點成語還能看解釋與造句，音樂庫可以重聽所有關卡音樂。'],
             ['血條與護盾', `${im('assets/player.png', 'max-height:80px')}<div style="width:90px"><div style="height:8px;background:#33ff88"></div><div style="height:6px;margin-top:3px;background:#4dd2ff;width:60%"></div></div>`, '血條在戰機後方，護盾在血條下方；受到傷害時護盾先抵掉。敵機的血條在它上方。'],
@@ -4780,9 +4777,10 @@ const coop = {
     // ================= 主控端：整個戰場 =================
     update(dt) { if (G.coopHost) this.hostUpdate(dt); else this.guestUpdate(dt); },
     moveSelf(dt) {
-        const g = G, L = this.local, spd = g.player.speed * ((L ? 0 : (g.keys['ShiftLeft'] || g.keys['ShiftRight'])) ? 0.45 : 1);   // 同機模式：玩家 1 只用 WASD
-        const kx = ((g.keys['KeyD'] || (!L && g.keys['ArrowRight'])) ? 1 : 0) - ((g.keys['KeyA'] || (!L && g.keys['ArrowLeft'])) ? 1 : 0);
-        const ky = ((g.keys['KeyS'] || (!L && g.keys['ArrowDown'])) ? 1 : 0) - ((g.keys['KeyW'] || (!L && g.keys['ArrowUp'])) ? 1 : 0), kl = Math.hypot(kx, ky) || 1;
+        const g = G, L = this.local, spd = g.player.speed;   // 同機模式：玩家 1 只用 WASD
+        const K0 = LC_KEYS[0];   // 同機模式：玩家 1 用設定裡的按鍵（預設 WASD）
+        const kx = L ? ((g.keys[K0.r] ? 1 : 0) - (g.keys[K0.l] ? 1 : 0)) : ((g.keys['KeyD'] || g.keys['ArrowRight']) ? 1 : 0) - ((g.keys['KeyA'] || g.keys['ArrowLeft']) ? 1 : 0);
+        const ky = L ? ((g.keys[K0.d] ? 1 : 0) - (g.keys[K0.u] ? 1 : 0)) : ((g.keys['KeyS'] || g.keys['ArrowDown']) ? 1 : 0) - ((g.keys['KeyW'] || g.keys['ArrowUp']) ? 1 : 0), kl = Math.hypot(kx, ky) || 1;
         g.player.pos.x += kx / kl * spd * dt; g.player.pos.y += ky / kl * spd * dt;
         if (!g.pointerActive) g.dragTarget = null;
         if (g.dragTarget) { const ex = g.dragTarget.x - g.player.pos.x, ey = g.dragTarget.y - g.player.pos.y, d = Math.hypot(ex, ey), step = spd * dt;
@@ -5287,8 +5285,62 @@ const LC_KEYS = [   // 移動鍵
     { u: 'KeyW', d: 'KeyS', l: 'KeyA', r: 'KeyD' },
     { u: 'KeyI', d: 'KeyK', l: 'KeyJ', r: 'KeyL' },
     { u: 'Numpad8', d: 'Numpad5', l: 'Numpad4', r: 'Numpad6' }];
-const LC_SW = ['Tab', 'Backspace', 'NumpadSubtract'], LC_USE = ['ShiftLeft', 'Enter', 'NumpadAdd'], LC_COL = ['#ffea00', '#8fe3ff', '#ff3b30'];   // 切換成語鍵、使用成語鍵、各玩家的框框顏色
-const LC_HINT = ['WASD 移動・Tab 切換成語・左 Shift 使用', 'IJKL 移動・倒退鍵 切換成語・Enter 使用', '數字鍵盤 8／4／5／6 上左下右・「−」切換成語・「＋」使用'];
+const LC_SW = ['Backquote', 'Backspace', 'NumpadSubtract'], LC_USE = ['Tab', 'Backslash', 'NumpadAdd'], LC_COL = ['#ffea00', '#8fe3ff', '#ff3b30'];   // 切換成語鍵、使用成語鍵、各玩家的框框顏色
+// ----- 同機多人按鍵設定（設定 → 同機多人按鍵設定）：預設值如上；改過的存在這台電腦的 localStorage -----
+const LC_DEF = { mv: LC_KEYS.map(k => Object.assign({}, k)), sw: LC_SW.slice(), use: LC_USE.slice() };
+const lcKeys = window.lcKeys = {
+    sel: null, msg: '',
+    ACT: [['u', '上'], ['d', '下'], ['l', '左'], ['r', '右'], ['sw', '切換成語'], ['use', '使用成語']],
+    reserved: c => /^(Escape|F\d{1,2}|Meta.*|OS.*|ContextMenu|Control.*|Alt.*|CapsLock|NumLock|ScrollLock|PrintScreen|Pause)$/.test(c),   // 功能鍵：不能拿來設定
+    name(c) {
+        let m;
+        if ((m = /^Key(.)$/.exec(c))) return m[1];
+        if ((m = /^Digit(\d)$/.exec(c))) return m[1];
+        if ((m = /^Numpad(\d)$/.exec(c))) return '小鍵盤' + m[1];
+        return ({ NumpadAdd: '小鍵盤＋', NumpadSubtract: '小鍵盤－', NumpadMultiply: '小鍵盤×', NumpadDivide: '小鍵盤÷', NumpadDecimal: '小鍵盤.', NumpadEnter: '小鍵盤Enter', Backquote: '`', Backslash: '\\', Backspace: '倒退鍵', Tab: 'Tab', Enter: 'Enter', Space: '空白鍵',
+            ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', ShiftLeft: '左Shift', ShiftRight: '右Shift', Insert: 'Insert', Delete: 'Delete', Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown' })[c] || c;
+    },
+    get(i, a) { return a === 'sw' ? LC_SW[i] : a === 'use' ? LC_USE[i] : LC_KEYS[i][a]; },
+    set(i, a, c) { if (a === 'sw') LC_SW[i] = c; else if (a === 'use') LC_USE[i] = c; else LC_KEYS[i][a] = c; },
+    all() { const r = []; for (let i = 0; i < 3; i++) this.ACT.forEach(([a, n]) => r.push({ i, a, n, c: this.get(i, a) })); return r; },
+    bound(c) { return this.all().some(x => x.c === c); },
+    save() { try { localStorage.setItem('idiomLcKeys', JSON.stringify(this.all().map(x => [x.i, x.a, x.c]))); } catch (e) {} },
+    load() {   // 讀取設定；內容不合法（重複、功能鍵）就整份忽略，改用預設
+        try {
+            const arr = JSON.parse(localStorage.getItem('idiomLcKeys') || 'null'); if (!Array.isArray(arr) || arr.length !== 18) return;
+            const seen = new Set(); for (const [i, a, c] of arr) { if (!(i >= 0 && i < 3) || !this.ACT.some(x => x[0] === a) || typeof c !== 'string' || this.reserved(c) || seen.has(c)) return; seen.add(c); }
+            arr.forEach(([i, a, c]) => this.set(i, a, c));
+        } catch (e) {}
+    },
+    reset() { for (let i = 0; i < 3; i++) { Object.assign(LC_KEYS[i], LC_DEF.mv[i]); LC_SW[i] = LC_DEF.sw[i]; LC_USE[i] = LC_DEF.use[i]; } try { localStorage.removeItem('idiomLcKeys'); } catch (e) {} this.sel = null; this.msg = '已還原為預設按鍵'; this.dialog(); },
+    hint(i) { const n = a => this.name(this.get(i, a)); return `移動：上${n('u')} 左${n('l')} 下${n('d')} 右${n('r')}・${n('sw')} 切換成語・${n('use')} 使用`; },
+    pick(i, a) { this.sel = [i, a]; this.msg = ''; this.dialog(); },
+    key(e) {   // 設定畫面等待按鍵時的處理（window 捕獲階段，先於遊戲本身的按鍵處理）
+        const [i, a] = this.sel, c = e.code; if (e.repeat) return;
+        if (c === 'Escape') { this.sel = null; this.msg = '已取消'; return this.dialog(); }
+        if (this.reserved(c)) { this.msg = `「${this.name(c)}」是功能鍵，不能設定，請換一個按鍵`; return this.dialog(); }
+        const dup = this.all().find(x => x.c === c && !(x.i === i && x.a === a));
+        if (dup) { this.msg = `「${this.name(c)}」已經被 P${dup.i + 1} 的「${dup.n}」使用，請換一個按鍵`; return this.dialog(); }
+        this.set(i, a, c); this.save(); this.sel = null; this.msg = `已設定：P${i + 1} ${this.ACT.find(x => x[0] === a)[1]} → ${this.name(c)}`; this.dialog();
+    },
+    dialog() {
+        const cell = (i, a) => { const on = this.sel && this.sel[0] === i && this.sel[1] === a; return `<button class="sm" style="min-width:84px;${on ? 'background:#ffd700;color:#000' : ''}" onclick="lcKeys.pick(${i},'${a}')">${on ? '請按鍵…' : esc(this.name(this.get(i, a)))}</button>`; };
+        G.dialog(`<h3>同機多人按鍵設定</h3>
+            <p class="muted" style="text-align:left;line-height:1.6;margin:4px 0">先用滑鼠點選要變更的格子，再按下想用的按鍵（Esc 取消）。不設定就使用預設按鍵。重複的按鍵、功能鍵（Esc、F1～F12、Ctrl／Alt／Win、CapsLock、NumLock）無法設定。</p>
+            <div style="display:grid;grid-template-columns:auto repeat(3,1fr);gap:6px;align-items:center;margin:8px 0"><span></span>${[0, 1, 2].map(i => `<b style="color:${LC_COL[i]}">P${i + 1} 玩家</b>`).join('')}
+            ${this.ACT.map(([a, n]) => `<span style="text-align:right">${n}</span>${[0, 1, 2].map(i => cell(i, a)).join('')}`).join('')}</div>
+            <div style="min-height:1.6em;color:${/已設定|已還原|已取消/.test(this.msg) ? '#7dffb0' : '#ff8a8a'}">${esc(this.msg)}</div>
+            <button class="btn" onclick="lcKeys.reset()">還原預設按鍵</button>
+            <button class="btn btn-start" onclick="lcKeys.sel=null;lcKeys.msg='';game.closeDlg();game.openSettings()">返回設定</button>`);
+    }
+};
+lcKeys.load();
+window.addEventListener('keydown', e => {
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if (lcKeys.sel && G.dlgOpen) { e.preventDefault(); e.stopImmediatePropagation(); lcKeys.key(e); return; }
+    if (G.coopLocal && G.gameState === 'PLAYING' && !G.dlgOpen && lcKeys.bound(e.code)) e.preventDefault();   // 設定的按鍵不要觸發瀏覽器預設動作（Tab 換焦點、倒退鍵、方向鍵捲動…）
+}, true);
+wrap('closeDlg', function (o) { lcKeys.sel = null; o.call(this); });
 const fleetFromSave = save => {   // 與 Game.load() 相同的規則：把帳號的存檔轉成機庫
     const f = {}; SHIPS.forEach(S => { f[S.id] = { own: S.price === 0, ...S.base }; });
     if (save && save.f) SHIPS.forEach(S => { if (save.f[S.id]) Object.assign(f[S.id], save.f[S.id]); });
@@ -5328,7 +5380,7 @@ const lcoop = window.lcoop = {
             const form = pl.kind === 'guest' && pl.form ? `<div style="margin:6px 0"><input class="inp" id="lc-u${i}" placeholder="帳號" value="${esc(pl.u || '')}" autocomplete="off" style="width:44%"> <input class="inp" id="lc-p${i}" type="password" placeholder="密碼" autocomplete="off" style="width:44%"><br><button class="btn btn-start" id="lc-go${i}" onclick="lcoop.login(${i})">登入</button> <button class="btn" onclick="lcoop.hideLogin(${i})">取消</button><div class="muted" style="color:#ff9aa8" id="lc-m${i}">${esc(this.msg[i] || '')}</div></div>` : '';
             rows.push(`<div style="text-align:left;border:1px solid #334;border-radius:8px;padding:8px 10px;margin:8px 0"><div><span style="color:var(--neon-gold)">玩家 ${i + 1}</span>　${who}</div>${form}
                 <div style="margin-top:4px">${owned.map(S => `<button class="chip ${pl.sid === S.id ? 'on' : ''}" onclick="lcoop.setShip(${i},'${S.id}')">${S.name}</button>`).join('')}</div>
-                <small class="muted">磁吸 Lv.${lo.mg}・成語列 ${lo.sl} 格　｜　${LC_HINT[i]}</small></div>`);
+                <small class="muted">磁吸 Lv.${lo.mg}・成語列 ${lo.sl} 格　｜　${lcKeys.hint(i)}</small></div>`);
         }
         ui(`<div class="menu-overlay" style="width:min(96vw,580px);max-height:94vh;overflow:auto"><h2 class="shop-title">同機多人闖關</h2>
             <p class="muted" style="line-height:1.6;text-align:left">2～3 人共用這個鍵盤協力闖關（難度比一般第 9 關更難）。<b>玩家 1 是主控端</b>（原本登入的帳號）；連線後可再登入另外 1～2 位玩家，用他們自己的戰機與裝備，沒登入的是訪客（不領獎勵）。<br>同機模式每位玩家用「切換」鍵選成語、「使用」鍵發動（不使用數字快捷鍵）；任何玩家發動成語時，<b>所有玩家暫停 5 秒</b>，等成語顯示完畢才發動。Boss 另有專屬能力（連擊護盾／重擊護甲／破甲彈／四機同體／巨艦），需要不同戰機分工。戰鬥中<b>完全不連線</b>，結束時依貢獻度把銀河幣一次寫入各登入帳號。<b>要用銀河幣突破升級，須以該帳號當主控端登入，到「戰機管理」進行。</b>${online.free ? '<br>單機離線模式：全部是訪客，不能登入、不累積任何貨幣。' : ''}</p>
@@ -5381,7 +5433,7 @@ const lcoop = window.lcoop = {
         }
         this.cur = list; this.pl.forEach(p => { p.up = null; p.coins = 0; });
         coop.beginLocal(list, this.stageSel());
-        toast('P1：WASD／Tab 切換／左Shift 使用　P2：IJKL／倒退鍵 切換／Enter 使用　P3：小鍵盤 8456／「−」切換／「＋」使用', 8000);
+        toast([0, 1, 2].slice(0, list.length).map(i => `P${i + 1}　${lcKeys.hint(i)}`).join('\n'), 9000);
     },
     // ---- 結算：遊戲結束才寫入 ----
     payout(res) {
@@ -5484,10 +5536,14 @@ Object.assign(coop, {
 }
 wrap('save', function (o) { if (this.coopLocal && !this._lcPay) return; o.call(this); });   // 同機模式戰鬥中：不寫任何存檔
 wrap('setState', function (o, state) { if (this.gameState === 'COOP' && state === 'LOBBY') lcoop.dispose(); return o.call(this, state); });   // 離開同機大廳：登出各玩家額外登入的帳號
+wrap('setState', function (o, state) {   // 離開戰鬥與結算畫面（回大廳、登入、登出…不管是按鈕、按鍵還是被登出）：一律收掉右上角的貢獻度條並結束多人狀態，避免殘留在其他畫面
+    if (!['PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(state)) { if (this.coopMode) coop.cleanupMatch(); const h = document.getElementById('coop-hud'); if (h) h.remove(); }
+    return o.call(this, state);
+});
 wrap('renderIdiomSlots', function (o) { o.call(this); if (this.coopLocal) lcoop.paintSel(); });
 wrap('handleKey', function (o, e) {   // 同機模式的成語操作：每位玩家各有「切換」與「使用」兩個鍵
     if (this.coopLocal && this.gameState === 'PLAYING' && !this.dlgOpen && !this.paused) {
-        const c = e.code; if (c === 'Tab' || c === 'Backspace') e.preventDefault();
+        const c = e.code;
         let who = LC_SW.indexOf(c), act = 'sw'; if (who < 0) { who = LC_USE.indexOf(c); act = 'use'; }
         if (who >= 0) { const id = coop.order[who]; if (id && !this.casting) { if (act === 'sw') coop.selNext(id); else coop.useSel(id); } return; }
         if (c === 'Space' || /^(Digit|Numpad)\d$/.test(c)) return;   // 空白鍵、數字鍵不再用來發動成語（小鍵盤數字是玩家 3 的移動鍵）
