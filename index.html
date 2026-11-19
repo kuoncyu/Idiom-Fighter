@@ -411,7 +411,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261119n', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261119o', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -3095,6 +3095,18 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 #ch-new{display:none;flex:none;padding:6px;text-align:center;background:#ff3366;color:#fff;cursor:pointer;font-size:.82rem;font-weight:bold}
 #chat-panel .ch-in{display:flex;gap:4px;padding:6px}#chat-panel .ch-in input{flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--neon-blue);background:#0a0a1a;color:#fff;font-family:inherit}
 #chat-panel .ch-in button{padding:0 12px;border-radius:8px;border:1px solid var(--neon-blue);background:rgba(0,242,255,.2);color:#fff;cursor:pointer}
+/* 手機：body 設了 touch-action:none（避免遊戲畫面被拖動），聊天室要明確開放手指上下捲動 */
+#chat-panel,#chat-panel *{touch-action:pan-y}#chat-panel input,#chat-panel button,#chat-panel select{touch-action:manipulation}
+#ch-msgs{-webkit-overflow-scrolling:touch;overscroll-behavior:contain;min-height:0;user-select:text;-webkit-user-select:text}
+/* 手機橫放（高度只有約 320～420px）：聊天室改成靠右的整高側欄，並縮小字體與間距，讓留言區夠大可捲動 */
+@media (max-height:520px){
+ #chat-panel,#chat-panel.bt{right:62px;bottom:6px;height:calc(100% - 12px);max-height:none;width:min(60vw,360px);font-size:.8rem;border-width:1px}
+ #chat-panel .ch-head{padding:2px 8px}#chat-panel .ch-tabs button{padding:3px}
+ #ch-sel{padding:3px 6px;gap:4px}#ch-sel select{padding:2px;font-size:.8rem}#ch-inv{padding:3px 6px}
+ #chat-panel .ch-in{padding:3px}#chat-panel .ch-in input{padding:5px;font-size:16px}#chat-panel .ch-in button{padding:0 10px}
+ #ch-msgs{padding:3px 6px}.msg{margin:2px 0}
+ #chat-fab{width:42px;height:42px;font-size:1.15rem}
+}
 .msg.sys{text-align:center;font-size:.82rem;color:#7dffb0}.msg.sys.s2{color:#8a93a6}
 #ol-box .ol-h{font-weight:bold;color:var(--neon-gold);font-size:.85rem;text-align:left}#ol-box .ol-h small{color:#8aa;font-weight:normal;margin-left:4px}
 #ol-box .ol-l{max-height:74px;overflow-y:auto;text-align:left}.ol-p img{height:18px;vertical-align:middle;margin-right:4px}
