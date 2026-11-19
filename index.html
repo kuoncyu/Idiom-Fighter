@@ -245,6 +245,21 @@
         .slot-title { font-size:min(1.2rem, calc(var(--swe) / 4.9)); }
         .slot-subtitle { font-size:clamp(.5rem, calc(var(--swe) / 8.5), .75rem); }
         @media (max-height:520px) { .idiom-slots { bottom:calc(env(safe-area-inset-bottom, 0px) + 4px); gap:3px; } .slot-key { transform:scale(.8); transform-origin:top left; } }
+        /* 手機橫放：上方標題欄縮薄、字縮小；下方成語列改成「扁長方形」（橫向寬、縱向薄），少擋戰場視線 */
+        @media (max-height:520px) and (orientation:landscape) {
+            #hud { top:max(3px, env(safe-area-inset-top, 0px)); padding:1px 8px; font-size:.68rem; line-height:1.15; border-radius:6px; align-items:center; }
+            #hud .hud-item { margin:0 4px; }
+            .hbtn { font-size:.62rem; padding:1px 7px; margin-right:4px; border-radius:6px; line-height:1.3; }
+            #stage-info { top:26px; font-size:.8rem; }
+            #buff-bar { top:28px; gap:3px; }
+            .boss-hp-bar { top:46px; height:8px; }
+            .idiom-slots { --fw:min(138px, calc((min(var(--app-w, 100vw), 960px) - 16px - (var(--n, 6) - 1) * 3px) / var(--n, 6))); bottom:calc(env(safe-area-inset-bottom, 0px) + 3px); gap:3px; }
+            .slot { flex:0 0 var(--fw); width:var(--fw); height:34px; min-height:0; max-height:none; padding:0 3px; border-width:1px; border-radius:6px; box-sizing:border-box; overflow:visible; }
+            .slot-title { font-size:min(1rem, calc(var(--fw) / 4.9)); margin-bottom:0; line-height:1.05; gap:1px; }
+            .slot-subtitle { font-size:.56rem; line-height:1.1; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0; }
+            .ready .slot-subtitle { font-size:.58rem; }
+            .slot-key { width:15px; height:15px; line-height:15px; font-size:.58rem; top:-7px; left:-3px; transform:none; }
+        }
         .ip-line { min-height:3.4em; } .ip-cur { color:var(--neon-gold); animation:spBlink .8s infinite; } .muted { color:#8aa; font-size:.85rem; }
     </style>
 </head>
@@ -411,7 +426,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261119p', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261119q', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -2091,7 +2106,7 @@ class Game {
 
                 if (slot.type === 'READY') {
                     div.className = 'slot ready'; 
-                    div.innerHTML = `<div class="slot-title">${charsHTML}</div><span class="slot-key">${i + 1}</span><div class="slot-subtitle">按 ${i + 1} 發動<br>(${slot.effectDesc})</div>`;
+                    div.innerHTML = `<div class="slot-title">${charsHTML}</div><span class="slot-key">${i + 1}</span><div class="slot-subtitle">${slot.effectDesc}</div>`;
                     div.onclick = (e) => { e.stopPropagation(); this.useIdiom(i); };
                     div.ontouchstart = (e) => { e.stopPropagation(); e.preventDefault(); this.useIdiom(i); };
                 } else if (slot.type === 'COLLECTING') {
