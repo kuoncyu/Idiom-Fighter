@@ -411,7 +411,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261119l', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261119n', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -3098,7 +3098,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .msg.sys{text-align:center;font-size:.82rem;color:#7dffb0}.msg.sys.s2{color:#8a93a6}
 #ol-box .ol-h{font-weight:bold;color:var(--neon-gold);font-size:.85rem;text-align:left}#ol-box .ol-h small{color:#8aa;font-weight:normal;margin-left:4px}
 #ol-box .ol-l{max-height:74px;overflow-y:auto;text-align:left}.ol-p img{height:18px;vertical-align:middle;margin-right:4px}
-.fshp{height:24px;width:28px;object-fit:contain;vertical-align:middle;margin-right:2px}.fdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#445;margin-right:5px}.fdot.on{background:#33ff88;box-shadow:0 0 6px #33ff88}
+.fshp{height:24px;width:28px;object-fit:contain;vertical-align:middle;margin-right:2px}.bond{color:#ffd166}.bond b{color:#fff3c4}.fdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#445;margin-right:5px}.fdot.on{background:#33ff88;box-shadow:0 0 6px #33ff88}
 .tabs.top button{font-size:1rem;padding:6px 18px}.tabs.sub{margin-top:0}.tabs.sub button{background:rgba(255,255,255,.06);border-color:#667}.tabs.sub button.on{background:#fff;color:#000}
 #pk-hud{position:absolute;top:clamp(92px,24vw,100px);left:50%;transform:translateX(-50%);width:min(80%,340px);z-index:6;text-align:center;font-size:clamp(.7rem,3vw,.9rem);color:#ffb3b3;pointer-events:none;text-shadow:0 0 4px #000}
 #pk-hud .bar{height:8px;background:#333;border:1px solid #fff;margin-top:2px}#pk-hud .bar i{display:block;height:100%;background:linear-gradient(to right,#f33,#fa0)}
@@ -3171,7 +3171,7 @@ try { firebase.initializeApp(CFG); auth = firebase.auth(); db = firebase.firesto
 const online = window.online = {
     fbOk, user: null, profile: null, isAdmin: false, friends: [], reqIn: [], invites: [], groups: [], unsubs: [], pk: null, pending: null,
     chat: { open: false, tab: 'lobby', th: null, unsub: null, msgs: [], unread: 0, first: true, dmReady: {}, notes: [] },
-    ONL_MS: 5 * 60 * 1000, onl: {}, nm: {}, onlSet: null, fTop: {}, lastPres: 0,
+    ONL_MS: 5 * 60 * 1000, onl: {}, nm: {}, onlSet: null, fTop: {}, lastPres: 0, bonds: {},
 
     // ===== 登入 / 帳號 =====
     afterBoot() { Promise.race([this.authReady || Promise.resolve(), new Promise(r => setTimeout(r, 12000))]).then(() => { if ((this.user || this.offline) && this.profile) G.setState(this.profile.tutorialDone ? 'LOBBY' : 'TUTORIAL'); else G.setState('LOGIN'); }); },
@@ -3270,7 +3270,7 @@ const online = window.online = {
     },
     onLogout() {
         if (this.free) return;   // 單機離線模式：不要清存檔、不要重設進度
-        this.unsubs.forEach(f => { try { f(); } catch (e) {} }); this.unsubs = []; this.stopChat(); this.stopWatch(); this.chat.notes = []; this.onl = {}; this.onlSet = null; this.fTop = {};
+        this.unsubs.forEach(f => { try { f(); } catch (e) {} }); this.unsubs = []; this.stopChat(); this.stopWatch(); this.chat.notes = []; this.onl = {}; this.onlSet = null; this.fTop = {}; this.bonds = {};
         this.user = null; this.profile = null; this.isAdmin = false; this.friends = []; this.reqIn = []; this.invites = []; this.groups = [];
         localStorage.removeItem(SAVEKEY); G.resetProgress();
         const f = $('chat-fab'), p = $('chat-panel'); if (f) f.style.display = 'none'; if (p) p.style.display = 'none';
@@ -3561,7 +3561,43 @@ const online = window.online = {
         on(U.collection('invites'), s => { const old = new Set(this.invites.map(i => i.code)); this.invites = s.docs.map(d => d.data());
             const fresh = this.liveInvites().filter(i => !old.has(i.code)); fresh.forEach(i => toast(i.mode === 'coop' ? `${i.fromName} 邀請你一起多人闖關！` : `${i.fromName} 邀請你 PK！`, 5000)); this.refresh(); if (fresh.length) this.popInvite(); });
         on(db.collection('groups').where('members', 'array-contains', uid), s => { this.groups = s.docs.map(d => Object.assign({ id: d.id }, d.data())); this.syncWatch(); this.chatSel(); });
+        on(db.collection('bonds').where('members', 'array-contains', uid), s => { this.bonds = {}; s.docs.forEach(d => { const x = d.data(), peer = (x.members || []).find(m => m !== uid); if (peer) this.bonds[peer] = x; }); if (G.gameState === 'FRIENDS') this.renderFriends(); });   // 羈絆值
         this.startPresence(); this.syncWatch();
+    },
+    // ===== 羈絆值：兩人常聊天或一起組隊就會增加，每天最多 +5 =====
+    //  聊天（每天最多 +2）：私訊中雙方都有發話 +1；雙方合計 20 句（每人至少 3 句）再 +1
+    //  組隊（每天最多 +3）：和好友完成一場多人闖關或 PK，每場 +1（同一場只算一次）
+    BOND_DAY: 5, BOND_CHAT: 2, BOND_TEAM: 3,
+    dayKey() { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); },
+    bondToday(peer) { const b = this.bonds[peer]; return b && b.day === this.dayKey() ? (b.dayPts | 0) : 0; },
+    bondTag(uid) {
+        const b = this.bonds[uid], pts = (b && b.pts) | 0, td = this.bondToday(uid);
+        return `<small class="bond" title="常聊天或一起組隊可增加羈絆值（每天最多 +${this.BOND_DAY}）">⭐ 羈絆 <b>${pts}</b>${td >= this.BOND_DAY ? '（今日已滿）' : td ? `（今日 +${td}/${this.BOND_DAY}）` : ''}</small> `;
+    },
+    async bondAward(peer, kind, key) {   // kind: 'chat'（每則私訊呼叫一次）或 'team'（key＝這一場的唯一代號）
+        try {
+            if (!this.user || !this.profile || this.offline || this.free || !db || !peer || peer === this.user.uid || !this.friends.some(f => f.uid === peer)) return;
+            const c = this.bonds[peer], day = this.dayKey();
+            if (c && c.day === day && ((c.dayPts | 0) >= this.BOND_DAY || (kind === 'chat' && (c.chatPts | 0) >= this.BOND_CHAT))) return;   // 今天已滿：不再寫入
+            const me = this.user.uid, ref = db.collection('bonds').doc(this.dmId(peer));
+            const add = await db.runTransaction(async tx => {
+                const sn = await tx.get(ref), d = sn.exists ? sn.data() : { members: [me, peer].sort(), pts: 0 };
+                let o = { members: d.members, pts: d.pts | 0, day: d.day || 0, dayPts: d.dayPts | 0, chatPts: d.chatPts | 0, teamPts: d.teamPts | 0, msgs: d.msgs || {}, keys: d.keys || [] };
+                if (o.day < day) o = Object.assign(o, { day, dayPts: 0, chatPts: 0, teamPts: 0, msgs: {}, keys: [] });   // 新的一天：今日進度歸零
+                let gain = 0;
+                if (kind === 'chat') {
+                    if (o.msgs[me] > 60) return 0;   // 單日計數上限，避免文件無限變大
+                    o.msgs[me] = (o.msgs[me] | 0) + 1;
+                    const a = o.msgs[me] || 0, b = o.msgs[peer] || 0, want = (a >= 1 && b >= 1 ? 1 : 0) + (a + b >= 20 && a >= 3 && b >= 3 ? 1 : 0);
+                    gain = Math.max(0, Math.min(1, want - o.chatPts, this.BOND_CHAT - o.chatPts, this.BOND_DAY - o.dayPts)); o.chatPts += gain;
+                } else {
+                    if (o.keys.includes(key)) return 0; o.keys.push(key); if (o.keys.length > 20) o.keys.shift();
+                    gain = Math.max(0, Math.min(1, this.BOND_TEAM - o.teamPts, this.BOND_DAY - o.dayPts)); o.teamPts += gain;
+                }
+                o.dayPts += gain; o.pts += gain; tx.set(ref, o); return gain;
+            });
+            if (add > 0) { const f = this.friends.find(x => x.uid === peer); toast(`與 ${f ? f.name : '好友'} 的羈絆值 +${add}`, 2200); }
+        } catch (e) { console.warn('bond', e); }
     },
     renderFriends() {
         const keep = ($('fr-in') || {}).value || '', me = this.user.uid;
@@ -3569,7 +3605,7 @@ const online = window.online = {
             <div class="row"><input class="inp" id="fr-in" style="flex:1;margin:0" placeholder="輸入對方帳號加好友" value="${esc(keep)}"><button class="sm" onclick="online.addFriend(document.getElementById('fr-in').value)">送出邀請</button></div>
             ${this.liveInvites().length ? `<h4>PK 邀請</h4>` + this.liveInvites().map(i => `<div class="row"><span>${esc(i.fromName)} 邀請你 PK</span><button class="sm" onclick="online.acceptInvite('${esc(i.code)}')">加入</button><button class="sm red" onclick="online.declineInvite('${esc(i.code)}')">拒絕</button></div>`).join('') : ''}
             ${this.reqIn.length ? `<h4>好友邀請</h4>` + this.reqIn.map(r => `<div class="row"><span>${esc(r.fromName)}</span><button class="sm" onclick="online.acceptReq('${r.id}')">接受</button><button class="sm red" onclick="online.declineReq('${r.id}')">拒絕</button></div>`).join('') : ''}
-            <h4>好友列表（${this.friends.length}）</h4><div class="lst">${this.friends.length ? this.friends.map((f, i) => `<div class="row"><b class="fnum">${i + 1}.</b><span class="fname" onclick="online.showPlayer('${f.uid}')" title="點擊查看好友資料">${this.statusDot(f.uid)}${this.friendTag(f.uid)}${esc(f.name)}</span><button class="sm" onclick="online.openChat('dm','${f.uid}')">聊天${this.unr && this.unr['dm:' + f.uid] ? '（' + (this.unr['dm:' + f.uid] > 99 ? '99+' : this.unr['dm:' + f.uid]) + '）' : ''}</button><button class="sm" onclick="online.invite('${f.uid}')">邀請 PK</button><button class="sm" onclick="coop.invite('${f.uid}')">邀請闖關</button><button class="sm red" onclick="online.removeFriend('${f.uid}')">刪除</button></div>`).join('') : '<p class="muted">還沒有好友，輸入對方帳號試試</p>'}</div>${BACK}</div>`);
+            <h4>好友列表（${this.friends.length}）</h4><div class="lst">${this.friends.length ? this.friends.map((f, i) => `<div class="row"><b class="fnum">${i + 1}.</b><span class="fname" onclick="online.showPlayer('${f.uid}')" title="點擊查看好友資料">${this.statusDot(f.uid)}${this.friendTag(f.uid)}${esc(f.name)}<br>${this.bondTag(f.uid)}</span><button class="sm" onclick="online.openChat('dm','${f.uid}')">聊天${this.unr && this.unr['dm:' + f.uid] ? '（' + (this.unr['dm:' + f.uid] > 99 ? '99+' : this.unr['dm:' + f.uid]) + '）' : ''}</button><button class="sm" onclick="online.invite('${f.uid}')">邀請 PK</button><button class="sm" onclick="coop.invite('${f.uid}')">邀請闖關</button><button class="sm red" onclick="online.removeFriend('${f.uid}')">刪除</button></div>`).join('') : '<p class="muted">還沒有好友，輸入對方帳號試試</p>'}</div>${BACK}</div>`);
         const inp = $('fr-in'); if (inp) inp.onkeydown = e => { if (e.key === 'Enter') this.addFriend(inp.value); };
     },
     async addFriend(name) {
@@ -3815,6 +3851,7 @@ const online = window.online = {
             if (th.k === 'dm') { const id = this.dmId(th.peer), f = this.friends.find(x => x.uid === th.peer);
                 if (!this.chat.dmReady[id]) { await db.collection('dms').doc(id).set({ members: [this.user.uid, th.peer], names: { [this.user.uid]: this.profile.name, [th.peer]: f ? f.name : '' }, ts: Date.now() }, { merge: true }); this.chat.dmReady[id] = true; } }
             await this.chatRef(th).add({ uid: this.user.uid, name: this.profile.name, text: text.slice(0, 200), ts: Date.now() });
+            if (th.k === 'dm') this.bondAward(th.peer, 'chat');
         } catch (e) { toast(errMsg(e)); }
     },
 
@@ -3920,6 +3957,7 @@ const online = window.online = {
             }
             for (const k of ['from', 'to']) { try { const r = await adb.collection('friendRequests').where(k, '==', T.uid).get(); await Promise.all(r.docs.map(d => d.ref.delete().catch(() => {}))); } catch (e) {} }   // 相關的好友邀請
             try { await adb.collection('presence').doc(T.uid).delete(); } catch (e) {}
+            try { const r = await adb.collection('bonds').where('members', 'array-contains', T.uid).get(); await Promise.all(r.docs.map(d => d.ref.delete().catch(() => {}))); } catch (e) {}   // 羈絆值紀錄
             try { await adb.collection('creds').doc(T.uid).delete(); } catch (e) {}
             await U.delete();
             this._adUsers = (this._adUsers || []).filter(u => u.uid !== T.uid); this._adT = null;
@@ -4435,6 +4473,7 @@ const online = window.online = {
         const p = this.pk; if (!p || p.over) return; p.over = true; G.pkMode = false; G.paused = true; clearInterval(this._pkTimer); clearInterval(this._pkNet);
         const win = winner === this.user.uid, draw = winner === 'draw' || !winner;
         if (!draw) this.stat(win ? 'pkWins' : 'pkLosses', 1);
+        try { const r = p.room || {}, opp = p.role === 'host' ? r.guest : r.host; if (opp) this.bondAward(opp, 'team', 'p' + p.code + ':' + p.matchId); } catch (e) {}   // 和好友 PK：羈絆值
         sfx.playIdiomFire(win ? 'HEAL' : 'BOMB_BOOST');
         G.dialog(`<h2 style="color:${draw ? '#fff' : win ? 'var(--neon-gold)' : '#ff6b6b'}">${draw ? '平手' : win ? '勝利！' : '落敗'}</h2><p>PK 對戰結束</p><button class="btn btn-start" onclick="online.pkExit()">返回大廳</button>`, () => this.pkExit());
     },
@@ -5235,6 +5274,7 @@ const coop = {
         if (this.local) lcoop.payout(res);   // 同機模式：遊戲結束才把各帳號的銀河幣一次寫入
         else {
             try { if (mine) online.recordCoop(res, mine); } catch (e) {}
+            try { if (mine) res.rows.forEach(r => { if (r.uid !== this.me()) online.bondAward(r.uid, 'team', 'c' + res.mid); }); } catch (e) {}   // 和好友組隊闖關：羈絆值
             try { if (mine && localStorage.getItem('coopPaid') !== String(res.mid)) { localStorage.setItem('coopPaid', String(res.mid)); G.galaxy += mine.coins; online.stat('totalGalaxy', mine.coins); G.save(); } } catch (e) {}
         }
         this.res = res; this.pauseMatch(); G.setState(res.win ? 'VICTORY' : 'GAMEOVER');
