@@ -217,6 +217,11 @@
         .sp-title { font-size:clamp(2.6rem,10vw,5rem); letter-spacing:.25em; margin:0; color:#fff; animation:spGlow 3s ease-in-out infinite alternate; }
         @keyframes spGlow { from { text-shadow:0 0 10px var(--neon-blue); } to { text-shadow:0 0 30px var(--neon-blue),0 0 70px var(--neon-purple); } }
         .sp-sub { color:var(--neon-blue); letter-spacing:.6em; margin:6px 0 34px; }
+        .sp-rot { max-width:min(86vw,560px); margin:16px 0 0; padding:8px 12px; border:1px solid rgba(0,242,255,.45); border-radius:8px; background:rgba(0,242,255,.08); color:#bfefff; font-size:.82rem; line-height:1.6; text-align:left; }
+        #rot-ov { display:none; position:fixed; inset:0; z-index:2147483000; background:#050510; color:#fff; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:24px; text-align:center; pointer-events:auto; }
+        #rot-ov .ph { width:56px; height:96px; border:4px solid #00f2ff; border-radius:12px; box-shadow:0 0 18px #00f2ff88; animation:rotPh 2.4s ease-in-out infinite; position:relative; } #rot-ov .ph::after { content:''; position:absolute; left:50%; bottom:6px; width:14px; height:3px; margin-left:-7px; background:#00f2ff; border-radius:2px; }
+        @keyframes rotPh { 0%,25% { transform:rotate(0); } 60%,100% { transform:rotate(-90deg); } }
+        @media (orientation:portrait) { #rot-ov { display:flex; } }
         .sp-hint { color:#8aa; font-size:.85rem; animation:spBlink 1.6s infinite; } @keyframes spBlink { 50% { opacity:.3; } }
         #hud { font-size:clamp(.7rem,3.3vw,1rem); padding:clamp(4px,1.6vw,10px) clamp(6px,3vw,15px); top:max(6px,env(safe-area-inset-top)); left:clamp(4px,2vw,10px); right:clamp(4px,2vw,10px); }
         .hud-item { margin:0 clamp(2px,1vw,5px); }
@@ -257,6 +262,8 @@
     <div class="boss-hp-bar" id="boss-bar"><div class="boss-hp-fill" id="boss-hp-fill"></div></div>
     <div class="idiom-slots" id="idiom-ui" style="display:none;"></div>
 </div>
+
+<div id="rot-ov"><div class="ph"></div><h2 style="margin:0;color:#00f2ff">請將裝置橫放</h2><p style="margin:0;max-width:420px;line-height:1.7;color:#cfe">成語戰機固定以橫屏遊玩。把手機或平板轉成橫向，遊戲就會繼續。<br><small style="color:#8aa">若沒有自動旋轉：請開啟系統的「自動旋轉／取消直向鎖定」，再把裝置橫放。</small></p></div>
 
 <script>
 "use strict";
@@ -403,7 +410,7 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261119f', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261119h', APP_AUTHOR = '郭柏宏';
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -1146,7 +1153,7 @@ class Game {
     }
 
     init() {
-        this.resize(); window.addEventListener('resize', () => this.resize()); window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250)); if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.resize());
+        this.resize(); window.addEventListener('resize', () => this.resize()); window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250)); document.addEventListener('fullscreenchange', () => { if (document.fullscreenElement) this.lockLandscape(); }); if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.resize());
         window.addEventListener('keydown', (e) => {
             if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
             if (this.anyInputResume(false)) { e.preventDefault(); return; }   // 暫停中：按任意鍵回到遊戲
@@ -1198,7 +1205,8 @@ class Game {
         this.setState('INIT'); requestAnimationFrame((t) => this.loop(t));
     }
 
-    resize() { updateWorld(); this.canvas.width = Math.round(WORLD.rw * WORLD.dpr); this.canvas.height = Math.round(WORLD.rh * WORLD.dpr); this.canvas.style.width = WORLD.rw + 'px'; this.canvas.style.height = WORLD.rh + 'px'; if (this.player && this.player.pos) { this.player.pos.x = Math.min(this.player.pos.x, WORLD.w - 20); this.player.pos.y = Math.min(this.player.pos.y, WORLD.h - 20); } }
+    resize() { if (window.innerHeight > window.innerWidth && this.gameState === 'PLAYING' && !this.paused && !this.casting) this.paused = true; updateWorld();   // 直放：暫停戰鬥（上面蓋著「請將裝置橫放」）
+         this.canvas.width = Math.round(WORLD.rw * WORLD.dpr); this.canvas.height = Math.round(WORLD.rh * WORLD.dpr); this.canvas.style.width = WORLD.rw + 'px'; this.canvas.style.height = WORLD.rh + 'px'; if (this.player && this.player.pos) { this.player.pos.x = Math.min(this.player.pos.x, WORLD.w - 20); this.player.pos.y = Math.min(this.player.pos.y, WORLD.h - 20); } }
 
     setState(state) {
         jukebox.stop();   // 音樂庫只在圖鑑裡播放；換畫面就停止，並由下面的 music.toLobby() 恢復大廳音樂
@@ -1218,7 +1226,7 @@ class Game {
         } else if (state === 'SHOP') {
             this.renderShop();
         } else if (state === 'INIT') {
-            this.uiLayer.innerHTML = `<div class="splash" id="splash"><h1 class="sp-title">成語戰機</h1><p class="sp-sub">IDIOM FIGHTER</p><button class="btn btn-start" id="boot-btn">點擊開始（啟動音樂與音效）</button><p class="sp-hint">按任意鍵也可以開始</p><button id="wipe-btn" title="清除所有資料" style="position:fixed;right:10px;bottom:10px;z-index:50;padding:4px 9px;font-size:12px;opacity:.55;background:rgba(0,0,0,.5);color:#fff;border:1px solid #667;border-radius:6px;cursor:pointer">清除資料</button></div>`;
+            this.uiLayer.innerHTML = `<div class="splash" id="splash"><h1 class="sp-title">成語戰機</h1><p class="sp-sub">IDIOM FIGHTER</p><button class="btn btn-start" id="boot-btn">點擊開始（啟動音樂與音效）</button><p class="sp-hint">按任意鍵也可以開始</p><p class="sp-rot">📱 <b>本遊戲固定以橫屏遊玩</b>。手機／平板請把裝置橫放：按下開始後，支援的裝置會自動旋轉並鎖定橫向；若裝置不支援（例如 iPhone／iPad），請開啟系統「自動旋轉」（取消直向鎖定）並橫放。直放時畫面會自動暫停，並提示你轉向。</p><button id="wipe-btn" title="清除所有資料" style="position:fixed;right:10px;bottom:10px;z-index:50;padding:4px 9px;font-size:12px;opacity:.55;background:rgba(0,0,0,.5);color:#fff;border:1px solid #667;border-radius:6px;cursor:pointer">清除資料</button></div>`;
             document.getElementById('wipe-btn').onclick = (e) => { e.stopPropagation(); this.wipeAll(); };
             const proceed = () => { if (this.needFirstDownload()) this.forceDownload(() => { this.afterBoot(); this._booting = false; }); else { this.afterBoot(); setTimeout(() => this.quietCheck(), 3000); } };
             const boot = () => {
@@ -1264,6 +1272,11 @@ class Game {
         this.weaponLvl = this.lvOf(S.id, 'dmg'); this.covLv = this.lvOf(S.id, 'cov'); this.skin = SHIPS.indexOf(S);
     }
         summonAllies() {   // 呼叫友軍：已擁有（不含目前出戰）的戰機；若沒有其他戰機，派出基礎僚機
+        if (this.coopMode && this.coopAl && this.coopAl.length) {   // 多人闖關（同機／連線）：固定 2 名友軍，以「發動者自己」的戰艦為準（見 coop.allyPacks）；不足 2 艘其他戰艦就補 1 級星藍號
+            this.allies = this.coopAl.slice(0, 2).map((st, i, a) => { const S = this.ship(st.sid), hp = Math.round(st.hp);
+                return { sid: st.sid, slot: i, pos: new Vec2(this.player.pos.x + (i - (a.length - 1) / 2) * 110, WORLD.h + 70 + i * 16), enter: true, hp, maxHp: hp, pen: st.pen, crit: st.crit, dmg: st.dmg, iv: st.iv / 1000, spd: st.spd, wl: st.wl, cv: st.cov, cd: 0, radius: S.r + 2 }; });
+            this.allyTimer = 15; this.showFloatText('友軍出動！', this.player.pos.x, this.player.pos.y - 90, '#7ad7ff'); return;
+        }
         const others = SHIPS.filter(S => this.fleet[S.id].own && S.id !== this.shipId);
         const list = (others.length ? others : [this.ship('star')]).slice(0, 3);
         this.allies = list.map((S, i) => {
@@ -1604,11 +1617,13 @@ class Game {
         this.darkMatter = 0; this.galaxy = 0; this.maxSlots = 1; this.magnetLvl = 0; this.dmLvl = 0; this.bestStage = 1; this.startStage = 1; this.shipId = 'star';
         this.fleet = {}; SHIPS.forEach(S => { this.fleet[S.id] = { own: S.price === 0, ...S.base }; }); this.applyUpgrades();
     }
+    lockLandscape() { try { const o = screen.orientation; if (o && o.lock) { const r = o.lock('landscape'); if (r && r.catch) r.catch(() => {}); } } catch (e) {} }   // 強制橫屏：Android Chrome／已安裝的 PWA 會鎖定並自動旋轉；不支援的裝置（iOS Safari）由 #rot-ov 提示轉向
     tryFullscreen() {
+        this.lockLandscape();
         try {
             if (localStorage.getItem('idiomFS') === '0' || document.fullscreenElement || document.webkitFullscreenElement) return;
             const el = document.documentElement; const f = el.requestFullscreen || el.webkitRequestFullscreen;
-            if (f) { const r = f.call(el); if (r && r.catch) r.catch(() => {}); }
+            if (f) { const r = f.call(el); if (r && r.then) r.then(() => this.lockLandscape(), () => {}); }
         } catch (e) {}
     }
     toggleFullscreen() {
@@ -3967,7 +3982,7 @@ const online = window.online = {
         const DOC = { BOMB_BOOST: ['全螢幕爆破', '清空畫面敵彈與小型敵機並有爆炸動畫；對 Boss 傷害最高為其滿血的 1/4。'], INVINCIBLE: ['無敵', '10 秒內不會受到傷害。'],
             SHIELD: ['護盾', '獲得 5000 點護盾（可累積，上限為最大血量），受到傷害時先扣護盾，會一直存在直到被打光；PK 對戰中被穿甲彈命中會損失一半護盾。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
             MISSILE: ['追蹤導彈', '10 秒內主炮子彈會自動追蹤：先打血量少的敵機，沒有敵機才打字卡。'], LASER_BEAM: ['貫穿雷射', '3 秒的直線雷射，持續貫穿傷害。'],
-            HEAL: ['治療', '立刻回復 3000 點血量。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。'],
+            HEAL: ['治療', '立刻回復 3000 點血量。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。多人闖關：固定派出 2 名友軍；若有隊友倒下，改為救人——1 人倒下，隊友滿血回歸；2 人倒下，兩人以半血復活。'],
             LIFESTEAL: ['吸血', '10 秒內，我方子彈（含友軍）每次命中敵人就回血：回復量為該發傷害的 15%，且每發最多只回自身最大血量的 1%。雷射與全螢幕爆破不算；傷害被 Boss 護盾或護甲擋成 0 時不回血，血量已滿也不會回。PK 對戰中同樣有效，但每次發動最多回復自身最大血量的 30%，回滿就提前結束吸血。'] };
         const COL = { BOMB_BOOST: '#ff5a36', INVINCIBLE: '#ffd400', SHIELD: '#4aa3ff', PIERCE: '#c0c8d8', MISSILE: '#ff8c1a', LASER_BEAM: '#ff3bd4', HEAL: '#35e08a', SLOW_TIME: '#8f7bff', ALLY: '#00e5ff', LIFESTEAL: '#ff5c8a' };
         eff = eff || 'BOMB_BOOST'; const list = CONFIG.IDIOMS.filter(i => i.effect === eff), info = word && IDIOM_INFO[word], c = COL[eff] || '#fff', n = list.length, k = list.findIndex(i => i.word === word);
@@ -4448,7 +4463,7 @@ wrap('handleKey', function (o, e) {
 //  主控端：模擬整個戰場（敵機／Boss／子彈／字塊／所有隊員），約每 0.125 秒把畫面存進 rooms/{code}/pos/world
 //  客戶端：不模擬戰場，只把主控端的畫面「映射」出來；自己的機體在本機移動，位置回報給主控端，成語由主控端裁決
 // ===================================================================
-const COOP_FIELDS = ['hp', 'maxHp', 'shield', 'st', 'skin', 'shipId', 'covLv', 'weaponLvl', 'invincibleTimer', 'laserTimer', 'pierceTimer', 'lifestealTimer', 'missileTimer', 'missileCd', 'allies', 'allyTimer', 'snipe', 'magnetLvl', '_lanceN', 'player'];
+const COOP_FIELDS = ['hp', 'maxHp', 'shield', 'st', 'skin', 'shipId', 'covLv', 'weaponLvl', 'invincibleTimer', 'laserTimer', 'pierceTimer', 'lifestealTimer', 'missileTimer', 'missileCd', 'allies', 'allyTimer', 'snipe', 'magnetLvl', '_lanceN', 'coopAl', 'player'];
 // ===== 多人闖關專屬：Boss 詞綴（單機關卡沒有；同機多人與連線闖關都適用）=====
 // combo 連擊護盾：Boss 帶一面計數護盾，護盾在時對 Boss 傷害 0；COMBO_WIN 秒內全隊累計命中（同一人同一輪齊射算 1 次）達標才破盾，破盾後 COMBO_CD 秒重生 → 連射號
 // wide  巨艦：船體寬度等於螢幕寬、不能移動、彈幕極密；每擊中我方一次回復 WIDE_HEAL 最大血量 → 疾風號靠閃躲
@@ -4488,7 +4503,16 @@ const coop = {
     shipName(id) { const S = SHIPS.find(x => x.id === id); return S ? S.name : '—'; },
     pack(sid) {   // 把這位玩家的機體數值打包，主控端用它來模擬隊員（含銀河幣突破等級）
         const st = G.statsOf(sid), S = G.ship(sid);
-        return { sid, len: st.len || 0, dmg: st.dmg, iv: st.iv, pen: st.pen, crit: st.crit, hp: st.hp, spd: st.spd, cov: G.lvOf(sid, 'cov'), wl: G.lvOf(sid, 'dmg'), r: S.r, mg: G.magnetLvl, sl: G.maxSlots };
+        return { sid, len: st.len || 0, dmg: st.dmg, iv: st.iv, pen: st.pen, crit: st.crit, hp: st.hp, spd: st.spd, cov: G.lvOf(sid, 'cov'), wl: G.lvOf(sid, 'dmg'), r: S.r, mg: G.magnetLvl, sl: G.maxSlots, al: this.allyPacks(G.fleet, sid) };
+    },
+    allyPacks(fleet, sid) {   // 「呼叫友軍」派出的 2 名友軍：取這位玩家已擁有（不含出戰中）的前 2 艘戰艦，數值＝該戰艦在他機庫的實際數值；不足 2 艘就用各項能力 1 級的星藍號補滿
+        const keep = G.fleet; G.fleet = fleet;
+        try {
+            const mk = S => { const st = G.statsOf(S.id); return { sid: S.id, len: st.len || 0, dmg: st.dmg, iv: st.iv, pen: st.pen, crit: st.crit, hp: st.hp, spd: st.spd, cov: G.lvOf(S.id, 'cov'), wl: G.lvOf(S.id, 'dmg'), r: S.r }; };
+            const list = SHIPS.filter(S => fleet[S.id] && fleet[S.id].own && S.id !== sid).slice(0, 2).map(mk);
+            if (list.length < 2) { const star = G.ship('star'), f1 = { star: { own: true } }; STAT_KEYS.forEach(([k]) => { f1.star[k] = Math.min(1, star.cap[k]); }); G.fleet = f1; while (list.length < 2) list.push(mk(star)); }
+            return list;
+        } finally { G.fleet = keep; }
     },
     memberDoc(sid, ready) { return { name: online.profile.name, sid, ready: !!ready, at: Date.now(), st: this.pack(sid), cl: online.coopMask() }; },
     // ---- 起始關卡：以隊長（房主）的通關紀錄為主，隊員通關過的關卡也算解鎖 ----
@@ -4614,7 +4638,7 @@ const coop = {
     // ================= 開戰 =================
     freshState(st) {   // 主控端用來模擬「隊員」的狀態（欄位與 Game 上的同名欄位一一對應）
         return { hp: st.hp, maxHp: st.hp, shield: 0, st: { dmg: st.dmg, interval: st.iv, pen: st.pen, crit: st.crit, len: st.len || 0 }, skin: Math.max(0, SHIPS.findIndex(x => x.id === st.sid)), shipId: st.sid, covLv: st.cov, weaponLvl: st.wl,
-            invincibleTimer: 0, laserTimer: 0, pierceTimer: 0, lifestealTimer: 0, missileTimer: 0, missileCd: 0, allies: [], allyTimer: 0, snipe: { c: 0, t: [], fx: [] }, magnetLvl: st.mg, _lanceN: 0,
+            invincibleTimer: 0, laserTimer: 0, pierceTimer: 0, lifestealTimer: 0, missileTimer: 0, missileCd: 0, allies: [], allyTimer: 0, snipe: { c: 0, t: [], fx: [] }, magnetLvl: st.mg, _lanceN: 0, coopAl: st.al || null,
             player: { pos: new Vec2(WORLD.w / 2, WORLD.h - 150), radius: st.r, speed: st.spd, lastShoot: 0, rapidFire: 0, spreadFire: 0 } };
     },
     begin(d) {
@@ -4624,7 +4648,7 @@ const coop = {
         this.nm = {}; this.order.forEach(id => { this.nm[id] = (mem[id] && mem[id].name) || '玩家'; });
         G.coopMode = true; G.coopHost = host; G.pkMode = false; G._keepSlots = G.maxSlots;
         const mySid = mem[me] && mem[me].sid; if (mySid && G.fleet[mySid] && G.fleet[mySid].own) G.shipId = mySid;
-        G.applyUpgrades();
+        G.applyUpgrades(); G.coopAl = this.allyPacks(G.fleet, G.shipId);
         G.maxSlots = Math.max(1, ...this.order.map(id => (mem[id] && mem[id].st && mem[id].st.sl) || 1));   // 成語列數量＝隊員中最多的那位
         G.shield = 0; G.waves = []; G.pierceTimer = 0; G.lifestealTimer = 0; G.missileTimer = 0; G.allies = []; G.allyTimer = 0; G.laserTimer = 0; G.invincibleTimer = 0; G.snipe = { c: 0, t: [], fx: [] };
         G.hp = G.maxHp; G.slots = []; G.runClock = 0; G.runDM = 0; G.score = 0; G.runKills = 0; G.runCasts = 0; G.currentStage = this.startStage = Math.max(1, Math.min(COOP_ST, (d.stage | 0) || 1)); G.currentSub = 1; G.runSeq = (G.runSeq || 0) + 1; G.clearT = 0; G.runClearLog = {}; G.runStageClears = {};
@@ -4664,6 +4688,17 @@ const coop = {
         P.alive = true; if (!P.host && !this.local) { P.in = { x, y }; P.at = performance.now(); }
         this.ctx(id, () => { G.player.pos.x = x; G.player.pos.y = y; G.hp = 0; G.shield = 0; G.allies = []; G.laserTimer = 0; G.applyIdiom(idiom); G.invincibleTimer = 5; });
         G.showFloatText(`${P.name} ${idiom.word}！原地復活・無敵 5 秒`, WORLD.w / 2, WORLD.h * 0.5, '#7dffb0');
+    },
+    downIds(except) { return this.order.filter(id => id !== except && this.P[id] && !this.P[id].alive && !this.P[id].left); },   // 已倒下（且沒離開）的隊員
+    allyRevive(cid, idiom) {   // 呼叫友軍的救援效果：1 人倒下 → 滿血回歸；2 人（含）以上倒下 → 半血復活，各無敵 3 秒
+        const down = this.downIds(cid), full = down.length === 1;
+        this.ctx(cid, () => { sfx.playIdiomFire('ALLY'); G.showFloatText(`發動！${idiom.word}！友軍救援`, G.player.pos.x, G.player.pos.y - 40, '#ffea00'); });
+        down.forEach(id => {
+            const P = this.P[id], x = Math.max(40, Math.min(WORLD.w - 40, P.dx === undefined ? WORLD.w / 2 : P.dx)), y = Math.max(60, Math.min(WORLD.h - 40, P.dy === undefined ? WORLD.h - 150 : P.dy));
+            P.alive = true; if (!P.host && !this.local) { P.in = { x, y }; P.at = performance.now(); }
+            this.ctx(id, () => { G.player.pos.x = x; G.player.pos.y = y; G.hp = G.maxHp * (full ? 1 : 0.5); G.shield = 0; G.allies = []; G.laserTimer = 0; G.invincibleTimer = 3; });
+            G.showFloatText(`${P.name} 被友軍救回（${full ? '滿血' : '半血'}）`, WORLD.w / 2, WORLD.h * (0.5 + 0.05 * down.indexOf(id)), '#7dffb0');
+        });
     },
     reviveAll() {   // 進入下一關：倒下的隊員以一半血量復活
         this.order.forEach(id => { const P = this.P[id]; if (P.alive || P.left) return; P.alive = true;
@@ -4792,7 +4827,8 @@ const coop = {
         if (this.cast) {   // 有人發動成語：所有玩家一起等 5 秒（戰場凍結），顯示完畢後才套用效果
             const c = this.cast; c.t -= dt; if (c.t > 0) return;
             this.cast = null; const cp = this.P[c.id];
-            if (cp && cp.alive) { this.ctx(c.id, () => { g.applyIdiom(c.idiom); }); if (c.idiom.effect === 'SLOW_TIME') this.slowBy = this.nm[c.id] || ''; }
+            if (cp && cp.alive && c.idiom.effect === 'ALLY' && this.downIds(c.id).length) this.allyRevive(c.id, c.idiom);   // 呼叫友軍：有隊友倒下時改為救人（不派友軍）
+            else if (cp && cp.alive) { this.ctx(c.id, () => { g.applyIdiom(c.idiom); }); if (c.idiom.effect === 'SLOW_TIME') this.slowBy = this.nm[c.id] || ''; }
             else if (cp && !cp.left && c.idiom.effect === 'HEAL') this.revive(c.id, c.idiom);   // 倒下的人用補血成語：原地復活
         }
         // 1) 移動：房主自己用鍵盤／拖曳；隊員跟著他們回報的位置走；倒下的人移出畫面
@@ -5097,6 +5133,16 @@ const coop = {
             ctx.restore();
             g.drawBars(ctx, x, y + 54 * S.s, 64, v.hp, v.maxHp, v.shield, v.maxHp, '#33ff88');
             ctx.save(); ctx.fillStyle = (this.local && LC_COL[this.order.indexOf(id)]) || '#9ff'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(this.nm[id] || '', x, y - 38 * S.s); ctx.restore();
+        });
+        if (G.coopHost) this.order.forEach(id => {   // 主控端：隊員的友軍（自己的友軍由 Game.draw 畫；連線隊員看到的是主控端傳來的整份友軍名單）
+            const P = this.P[id]; if (!P || P.host || !P.alive || !P.s) return;
+            P.s.allies.forEach(a => {
+                const S = g.ship(a.sid), im = IMG['ship_' + a.sid] || IMG.player; ctx.save(); ctx.translate(a.pos.x, a.pos.y); ctx.scale(0.8 * S.s, 0.8 * S.s);
+                if ((P.s.allyTimer < 2 || a.leaving) && Math.floor(g.bgClock * 10) % 2) ctx.globalAlpha = 0.45;
+                if (im) { ctx.shadowColor = S.c; ctx.shadowBlur = 14; if (!IMG['ship_' + a.sid]) ctx.filter = `hue-rotate(${S.h}deg)`; fitDraw(ctx, im, im.width / im.height > 1.3 ? 110 : 90); }
+                else { ctx.fillStyle = S.c; ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(24, 24); ctx.lineTo(-24, 24); ctx.closePath(); ctx.fill(); }
+                ctx.restore(); g.drawBars(ctx, a.pos.x, a.pos.y + 36 * S.s, 50, a.hp, a.maxHp, 0, 0, S.c);
+            });
         });
         const mv = this.vw(me), dead = G.coopHost ? !this.P[me].alive : (this.view[me] && this.view[me].alive === 0);
         if (dead) { ctx.save(); ctx.textAlign = 'center'; ctx.font = "bold 20px " + KAI_FONT; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.fillStyle = '#ff9aa8'; const t = '你已倒下：使用補血成語（如起死回生）可原地復活並無敵 5 秒；或打倒 Boss 後以半血復活'; ctx.strokeText(t, WORLD.w / 2, 120); ctx.fillText(t, WORLD.w / 2, 120); ctx.restore(); }
@@ -5503,7 +5549,7 @@ Object.assign(coop, {
     },
     packWith(fleet, mg, sl, sid) {   // 用「那位玩家自己的機庫」算出機體數值
         const keep = G.fleet; G.fleet = fleet;
-        try { const st = G.statsOf(sid), S = G.ship(sid); return { sid, len: st.len || 0, dmg: st.dmg, iv: st.iv, pen: st.pen, crit: st.crit, hp: st.hp, spd: st.spd, cov: G.lvOf(sid, 'cov'), wl: G.lvOf(sid, 'dmg'), r: S.r, mg, sl }; }
+        try { const st = G.statsOf(sid), S = G.ship(sid); return { sid, len: st.len || 0, dmg: st.dmg, iv: st.iv, pen: st.pen, crit: st.crit, hp: st.hp, spd: st.spd, cov: G.lvOf(sid, 'cov'), wl: G.lvOf(sid, 'dmg'), r: S.r, mg, sl, al: coop.allyPacks(fleet, sid) }; }
         finally { G.fleet = keep; }
     },
     beginLocal(players, stage) {
@@ -5519,6 +5565,7 @@ Object.assign(coop, {
         const el = document.querySelector('.hud-dm'); if (el && el.firstChild) el.firstChild.nodeValue = '銀河幣: ';
         this.P = {};
         players.forEach((p, i) => { const P = { uid: p.id, name: p.name, host: i === 0, alive: true, left: false, in: null, at: performance.now() }; if (i > 0) P.s = this.freshState(this.packWith(p.fleet, p.mg, p.sl, p.sid)); this.P[p.id] = P; });
+        G.coopAl = this.allyPacks(players[0].fleet, players[0].sid);   // 主控端（玩家 1）自己的友軍名單
         G.fillEmptySlots();
         G.bullets.get = function () { const o = ObjectPool.prototype.get.call(this); o.owner = coop.cur; return o; };
         sfx.init(); G.resetStage(); this.placeAll(); this.mountHud(); G.setState('PLAYING'); G.updateHUD();
