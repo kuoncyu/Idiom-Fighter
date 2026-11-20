@@ -102,6 +102,10 @@ const added = paths.filter(p => !oldFiles[p]), removed = Object.keys(oldFiles).f
 const changed = paths.filter(p => oldFiles[p] && oldFiles[p][0] !== files[p][0]);
 const mb = n => (n / 1048576).toFixed(2) + ' MB';
 const dl = [...added, ...changed].reduce((s, p) => s + files[p][1], 0);
+try {   // 提醒：index.html 的 CHANGELOG 要有這個版本的更新紀錄（大廳「版本更新紀錄」會顯示）
+    const htmlTxt = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    if (!htmlTxt.includes(`v: '${version}'`)) console.log(`⚠ index.html 的 CHANGELOG 還沒有 ${version} 的更新紀錄，請在最上面加一筆（舊版本紀錄保留）後再重新發佈。`);
+} catch (e) {}
 console.log(`✓ 已發佈版本 ${version}${oldVersion ? `（上一版 ${oldVersion}）` : ''}`);
 console.log(`  共 ${paths.length} 個檔案｜新增 ${added.length}・變動 ${changed.length}・刪除 ${removed.length}｜玩家更新時只需下載約 ${mb(dl)}`);
 [...added.map(p => '  ＋ ' + p), ...changed.map(p => '  ～ ' + p), ...removed.map(p => '  － ' + p)].slice(0, 30).forEach(l => console.log(l));

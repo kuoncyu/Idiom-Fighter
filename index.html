@@ -441,7 +441,55 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261119s', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261120b', APP_AUTHOR = '郭柏宏';
+// 版本更新紀錄（大廳「版本更新紀錄」磚會顯示）。★每次發佈新版本：在最上面加一筆 { v: '版本號', items: [重點條列] }，舊版本的紀錄一律保留、不要刪除
+const CHANGELOG = [
+    { v: '20261120b', items: [
+        '主畫面新增「版本更新紀錄」功能磚：點開可看每個版本改了什麼（重點條列），舊版本的紀錄會一直保留。',
+    ] },
+    { v: '20261120a', items: [
+        '戰機管理：切換出戰戰機前會先跳出確認視窗「確認切換為XX號？」。',
+        '戰機管理：升級／突破武器與裝備後，不再被拉回頁面最上方。',
+        '設定新增「畫質／幀率」：流暢（30 FPS）、中等、高畫質三段。',
+        '遊戲中若畫面卡頓，會自動調低一級畫質；回到大廳恢復，遊戲中要手動更改須到設定。',
+    ] },
+    { v: '20261119s', items: [
+        '成語效果倒數改為由上到下條列、靠左邊界。',
+        '手機橫放時，成語效果起始位置再往下移，不再遮擋上方功能鍵。',
+    ] },
+    { v: '20261119r', items: [
+        '手機橫放：成語效果列、貢獻度、發動成語說明卡等比例縮小。',
+        '成語效果每條改為單行顯示，同時發動多個成語時佔用畫面更少。',
+    ] },
+    { v: '20261119q', items: [
+        '成語集滿亮起時不再顯示「按 N 發動」，只顯示效果說明，避免文字超出格子。',
+        '手機橫放：上方標題欄縮薄、字體縮小。',
+        '手機橫放：下方成語列改成扁長方形（橫向寬、縱向薄），減少遮擋視線。',
+    ] },
+    { v: '20261119p', items: [
+        '修正多人闖關發動成語時的卡頓：暫停期間照常傳送畫面，成語內容不再延遲或遺失。',
+        '新增雙通道連線：web 直連＋即時資料庫（Realtime Database），直連不通或塞車時自動接手。',
+        '連線對戰卡頓時自動降低畫質與幀率。',
+        '修正四機同體關卡在手機上右邊 Boss 位置：依各自螢幕換算座標，四台 Boss 貼著上下左右邊界。',
+    ] },
+    { v: '20261119o', items: [
+        '修正手機版聊天室無法用手指捲動留言。',
+        '手機橫放時聊天室改為靠右整高側欄並縮小字體，留言區更大。',
+    ] },
+    { v: '20261119n', items: [
+        '羈絆值符號改用星星。',
+    ] },
+    { v: '20261119m', items: [
+        '新增羈絆值系統：好友清單顯示與每位好友的羈絆值與今日進度。',
+        '聊天（私訊雙方互動，每天最多 +2）、一起組隊（多人闖關／PK 每場 +1，每天最多 +3），合計每天最多 +5。',
+    ] },
+    { v: '20261119l', items: [
+        '好友列表顯示上線狀態：在線綠燈、離線灰燈。',
+        '大廳新增「離開遊戲」：保持登入、立即顯示離線，聊天室與好友列表同步顯示下線。',
+        '版本號與離線資料包清單全面更新。',
+    ] },
+];
+
 const VER_RE = /^\d{8}[a-z]$/;
 const verNewer = (a, b) => VER_RE.test(a) && (!VER_RE.test(b) || a > b);   // a 是否比 b 新（日期大者較新；同一天字母大者較新）
 // ===== 暗物質花費曲線：越高等越貴 =====
@@ -457,9 +505,11 @@ const SLOT_COST = [150, 500, 1500, 4500, 12000], MAGNET_COST = [300, 900, 2800, 
 const MAGNET_MAX = 10, MAGNET_RANGE = [0, 90, 150, 220, 300, 390, 490, 610, 750, 900, Infinity];
 const DM_RATE = 0.5;   // 暗物質獲得倍率（想調整難易度就改這裡）
 const WORLD = { w: 540, h: 900, s: 1, k: 1, dpr: 1, rw: 540, rh: 900 };
-const LITE = { on: false, manual: false };   // 省電畫質：連線對戰畫面卡頓時自動開啟（關掉陰影光暈、解析度降為 1 倍、畫面更新減半、粒子減量）
+// 畫質／幀率三段：流暢（30 FPS・低解析度・無光暈）、中等（60 FPS・中解析度・光暈減半）、高畫質（60 FPS・高解析度・完整光暈）。玩家在設定裡選擇；遊戲中卡頓時自動往下降一級（lv），回到大廳恢復成玩家選的畫質（pref）
+const QUAL = { low: { name: '流暢', dpr: 1, shadow: 0, part: 110, half: true }, mid: { name: '中等', dpr: 1.25, shadow: 0.5, part: 220, half: false }, high: { name: '高畫質', dpr: 2, shadow: 1, part: 360, half: false } };
+const LITE = (() => { let v = 'high'; try { v = localStorage.getItem('idiomQuality') || 'high'; } catch (e) {} if (!QUAL[v]) v = 'high'; return { lv: v, pref: v }; })();
 function updateWorld() {
-    const dpr = LITE.on ? 1 : Math.min(2, window.devicePixelRatio || 1), rw = window.innerWidth, rh = window.innerHeight;
+    const dpr = Math.min(QUAL[LITE.lv].dpr, window.devicePixelRatio || 1), rw = window.innerWidth, rh = window.innerHeight;
     document.documentElement.style.setProperty('--app-w', rw + 'px'); document.documentElement.style.setProperty('--app-h', rh + 'px');
     WORLD.rw = rw; WORLD.rh = rh; WORLD.dpr = dpr; WORLD.s = Math.min(rw / 540, rh / 900); WORLD.k = WORLD.s * dpr; WORLD.w = rw / WORLD.s; WORLD.h = rh / WORLD.s;
 }
@@ -471,7 +521,7 @@ const ASSET_FILES = { player:'assets/player.png', scout:'assets/enemy_scout.png'
     ship_wind:'assets/ship_wind.png', ship_bastion:'assets/ship_bastion.png', ship_blaze:'assets/ship_blaze.png', ship_storm:'assets/ship_storm.png', ship_lance:'assets/ship_lance.png', ship_assassin:'assets/ship_assassin.png', ship_nova:'assets/ship_nova.png' };
 for (let i = 1; i <= 9; i++) ASSET_FILES['boss_' + i] = `assets/boss_${i}.png`;   // 每關各自的 Boss 圖，缺檔用 boss.png 或向量圖
 // 所有文字都不加光暈：畫布文字繪製時暫時關閉 shadow
-{ const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'shadowBlur'); if (d && d.set) Object.defineProperty(CanvasRenderingContext2D.prototype, 'shadowBlur', { configurable: true, enumerable: d.enumerable, get: d.get, set(v) { d.set.call(this, LITE.on ? 0 : v); } }); }   // 省電畫質：光暈（shadowBlur）是最吃效能的繪圖項目，直接停用
+{ const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'shadowBlur'); if (d && d.set) Object.defineProperty(CanvasRenderingContext2D.prototype, 'shadowBlur', { configurable: true, enumerable: d.enumerable, get: d.get, set(v) { d.set.call(this, v * QUAL[LITE.lv].shadow); } }); }   // 省電畫質：光暈（shadowBlur）是最吃效能的繪圖項目，直接停用
 ['fillText', 'strokeText'].forEach(n => { const o = CanvasRenderingContext2D.prototype[n]; CanvasRenderingContext2D.prototype[n] = function (...a) { const b = this.shadowBlur; this.shadowBlur = 0; try { return o.apply(this, a); } finally { this.shadowBlur = b; } }; });
 const IMG = {};
 // 機種：hp/spd/dmg/int 為基礎值，base 為初始等級，cap 為該機種各能力的等級上限，fit 為對各類 Boss 的適性
@@ -1504,6 +1554,13 @@ class Game {
         if (d.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${d.fade})`; ctx.fillRect(0, 0, W, H); }
     }
 
+    changelogDialog() {   // 版本更新紀錄：最新版預設展開，舊版本點開查看
+        const fmt = v => `${v.slice(0, 4)}/${v.slice(4, 6)}/${v.slice(6, 8)}`;
+        const list = CHANGELOG.map((c, i) => `<details ${i === 0 ? 'open' : ''} style="text-align:left;margin:6px 0;background:rgba(0,0,0,.28);border:1px solid #334;border-radius:10px;padding:6px 10px;">
+            <summary style="cursor:pointer;color:var(--neon-blue);font-weight:bold;user-select:none;">${c.v}${c.v === APP_VERSION ? '　<small style="color:#33ff88">目前版本</small>' : ''}<small style="color:#8aa;font-weight:normal;margin-left:8px">${fmt(c.v)}</small></summary>
+            <ul style="margin:6px 0 4px 18px;padding:0;line-height:1.6;font-size:.9rem;color:#dde;">${c.items.map(t => `<li>${esc(t)}</li>`).join('')}</ul></details>`).join('');
+        this.dialog(`<h3 style="margin:0 0 8px">版本更新紀錄</h3><div style="max-height:58vh;overflow-y:auto;min-width:min(78vw,420px)">${list}</div><button class="btn btn-start" style="margin-top:10px" onclick="game.closeDlg()">關閉 [Esc]</button>`);
+    }
     aboutDialog() {
         this.dialog(`<h2 style="margin:0 0 6px;letter-spacing:.2em">成語戰機</h2><p class="muted">IDIOM FIGHTER</p>
             <div class="res-rows"><div class="rrow"><span>設計製作</span><b>${APP_AUTHOR}</b></div><div class="rrow"><span>版本</span><b>${APP_VERSION}</b></div></div>
@@ -1740,6 +1797,12 @@ class Game {
             <label>音效音量（射擊、爆炸、招式聲）<input type="range" min="0" max="100" value="${Math.round(this.volSfx * 100)}" oninput="game.setVol('sfx', this.value)"></label>
             <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" ${localStorage.getItem('idiomFS') !== '0' ? 'checked' : ''} onchange="game.setAutoFS(this.checked)" style="width:auto;"> 開啟遊戲時自動全螢幕</label><button class="btn" onclick="game.toggleFullscreen()">全螢幕 ／ 離開全螢幕</button>
             <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" ${this.battleChatOn() ? 'checked' : ''} onchange="game.setBattleChat(this.checked)" style="width:auto;"> 戰鬥中顯示聊天室（右下角）</label>
+            <label>畫質／幀率（遊戲中卡頓時會自動調低；要調回請在這裡更改）
+                <select onchange="game.setQuality(this.value, false)" style="width:100%;padding:8px;margin-top:4px;background:#0b0b1a;color:#fff;border:1px solid var(--neon-blue);border-radius:6px;font-size:1rem;">
+                    <option value="low" ${LITE.pref === 'low' ? 'selected' : ''}>流暢（30 FPS・低解析度・無光暈）</option>
+                    <option value="mid" ${LITE.pref === 'mid' ? 'selected' : ''}>中等（60 FPS・中解析度）</option>
+                    <option value="high" ${LITE.pref === 'high' ? 'selected' : ''}>高畫質（60 FPS・高解析度・光暈）</option>
+                </select>${LITE.lv !== LITE.pref ? `<small style="color:#ffb86b;">目前因卡頓已自動降為「${QUAL[LITE.lv].name}」，回到大廳後恢復</small>` : ''}</label>
             <small style="color:#8aa;">快捷鍵：Esc 暫停</small>
             <button class="btn" onclick="lcKeys.dialog()">同機多人按鍵設定</button>
             <button class="btn" onclick="game.offlineDialog()">離線資料包：${this.offlineInfo()}</button><button class="btn" onclick="game.aboutDialog()">關於（版本 ${APP_VERSION}）</button>
@@ -1899,7 +1962,13 @@ class Game {
     changeStart(d) { this.startStage = Math.max(1, Math.min(this.bestStage, this.startStage + d)); this.renderLobby(); }
 
     openHangar() { this.hIdx = SHIPS.findIndex(x => x.id === this.shipId); this.setState('HANGAR'); }
-    keepScroll(fn) { const o = document.querySelector('#ui-layer .menu-overlay'), y = o ? o.scrollTop : 0; fn(); const n = document.querySelector('#ui-layer .menu-overlay'); if (n) n.scrollTop = y; }
+    keepScroll(fn) {   // 重畫後保持捲動位置。圖片（戰機圖）還沒載入時頁面高度較矮，捲動位置會被截斷而跳回頂端，所以在下一幀、圖片載入後再各補一次
+        const o = document.querySelector('#ui-layer .menu-overlay'), y = o ? o.scrollTop : 0; fn();
+        const n = document.querySelector('#ui-layer .menu-overlay'); if (!n || !y) return;
+        const set = () => { if (n.isConnected && Math.abs(n.scrollTop - y) > 1) n.scrollTop = y; };
+        set(); requestAnimationFrame(set); setTimeout(set, 150); setTimeout(set, 500);
+        n.querySelectorAll('img').forEach(im => { if (!im.complete) { im.addEventListener('load', set, { once: true }); im.addEventListener('error', set, { once: true }); } });
+    }
     upToast(msg) {   // 升級／購買成功彈窗：3 秒後淡出
         let t = document.getElementById('up-toast');
         if (!t) { t = document.createElement('div'); t.id = 'up-toast'; t.style.cssText = 'position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:9999;background:rgba(5,5,16,.96);color:#fff;border:2px solid #ffea00;border-radius:12px;padding:14px 26px;font-size:1.1rem;font-weight:bold;box-shadow:0 0 24px rgba(255,234,0,.5);pointer-events:none;text-align:center;transition:opacity .6s;opacity:0'; document.body.appendChild(t); }
@@ -1918,7 +1987,12 @@ class Game {
             <polygon points="${poly(k => F[k])}" fill="${S.c}" fill-opacity=".35" stroke="${S.c}" stroke-width="2"/>${labels}</svg>`;
     }
     hSel(i) { this.hIdx = i; this.keepScroll(() => this.renderHangar()); }
-    hEquip() { const S = SHIPS[this.hIdx]; if (this.fleet[S.id].own) { this.shipId = S.id; this.applyUpgrades(); this.save(); this.keepScroll(() => this.renderHangar()); } }
+    hEquip() {
+        const S = SHIPS[this.hIdx]; if (!this.fleet[S.id].own || this.dlgOpen) return;
+        if (this.shipId === S.id) { toast(`「${S.name}」已經是出戰戰機`, 1800); return; }
+        this.dialog(`<h3>切換戰機</h3><p>確認切換為「<b style="color:${S.c}">${S.name}</b>」？</p><button class="btn" onclick="game.closeDlg()">取消 [Esc]</button><button class="btn btn-start" onclick="game.doEquip('${S.id}')">確認切換 [Enter]</button>`, () => this.doEquip(S.id));
+    }
+    doEquip(id) { this.closeDlg(); if (!this.fleet[id] || !this.fleet[id].own) return; this.shipId = id; this.applyUpgrades(); this.save(); this.keepScroll(() => this.renderHangar()); }
     upgrade(id, k) {
         const S = this.ship(id), L = this.fleet[id], cost = upgradeCost(L[k]);
         if (L.own && L[k] >= S.cap[k]) {   // 已達上限：改用銀河幣「突破」（每項最多 +3 級）
@@ -2231,21 +2305,24 @@ class Game {
         document.getElementById('lvl-val').innerText = this.currentStage === 9 ? "FINAL BOSS" : `${this.currentStage}-${this.currentSub}`;
     }
 
-    setLite(on, manual) {   // 切換省電畫質（解析度也跟著變，要重設畫布）
-        if (LITE.on === !!on) return; LITE.on = !!on; if (manual !== undefined) LITE.manual = manual; this._fe = 16.7; this._slow = 0; this.resize();
-        try { toast(on ? '已切換為省電畫質（30 FPS・低解析度・無光暈）' : '已恢復標準畫質', 2600); } catch (e) {} if (window.coop && coop.rtcLabel) coop.rtcLabel();
+    setQuality(lv, auto) {   // auto＝遊戲中卡頓自動調降（不改玩家的設定）；否則是玩家在設定裡選的
+        if (!QUAL[lv]) return;
+        if (!auto) { LITE.pref = lv; try { localStorage.setItem('idiomQuality', lv); } catch (e) {} }
+        if (LITE.lv === lv) return; LITE.lv = lv; this._fe = 16.7; this._slow = 0; this.resize();
+        if (auto) { try { toast(`畫面卡頓，已自動調低為「${QUAL[lv].name}」畫質（可到設定調整）`, 3200); } catch (e) {} }
+        if (window.coop && coop.rtcLabel) coop.rtcLabel();
     }
-    perfWatch(ms) {   // 連線對戰中偵測卡頓：畫面更新間隔平均超過約 26ms（低於 38 FPS）並持續 2 秒 → 自動降低畫質
-        if (!(this.coopMode || this.pkMode) || this.gameState !== 'PLAYING' || LITE.on || LITE.manual || ms > 250 || document.hidden) { this._slow = 0; return; }
+    perfWatch(ms) {   // 遊戲中偵測卡頓：畫面更新間隔平均超過約 26ms（低於約 38 FPS）並持續 2 秒 → 自動調低一級畫質（高→中→流暢）
+        if (this.gameState !== 'PLAYING' || this.paused || this.dlgOpen || LITE.lv === 'low' || ms > 250 || document.hidden) { this._slow = 0; return; }
         this._fe = (this._fe || 16.7) * 0.94 + ms * 0.06; this._slow = this._fe > 26 ? (this._slow || 0) + ms / 1000 : 0;
-        if (this._slow > 2) this.setLite(true, false);
+        if (this._slow > 2) this.setQuality(LITE.lv === 'high' ? 'mid' : 'low', true);
     }
     loop(timestamp) {
         this.perfWatch(timestamp - (this._pt || timestamp)); this._pt = timestamp;
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1); this.lastTime = timestamp;
         if (this.coopMode) { if (!this.coopLocal) this.paused = false; if (this.casting) this.endCast(); }   // 連線多人闖關不能暫停；同機多人（同一台電腦）可以暫停（按 Esc、回首頁對話框、視窗失焦）。兩者都沒有 5 秒蓄力停格
         if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); this.tickClear(dt); } else { this.tickClear(dt); this.bgClock += dt; this.runClock += dt; if (this.pkMode) this.pkTime += dt; this.update(dt); } } } else if (this.gameState === 'TRANSITION') { if (!(this.coopLocal && (this.dlgOpen || this.paused))) { this.bgClock += dt; this.runClock += dt; this.updateTransition(dt); } } else if (this.isMenu()) this.updateDemo(dt);
-        if (!(LITE.on && (this._lf = !this._lf))) this.draw(); requestAnimationFrame((t) => this.loop(t));   // 省電畫質：畫面每兩個 frame 才畫一次（約 30 FPS），遊戲邏輯照常跑
+        if (!(QUAL[LITE.lv].half && (this._lf = !this._lf))) this.draw(); requestAnimationFrame((t) => this.loop(t));   // 省電畫質：畫面每兩個 frame 才畫一次（約 30 FPS），遊戲邏輯照常跑
     }
 
     updateTransition(dt) {
@@ -2633,7 +2710,7 @@ class Game {
     }
 
     burst(x, y, n) {
-        n = Math.min(n, (LITE.on ? 110 : 360) - this.particles.length);   // 粒子總數上限：爆炸再多也不會越堆越多
+        n = Math.min(n, QUAL[LITE.lv].part - this.particles.length);   // 粒子總數上限：爆炸再多也不會越堆越多
         for (let i = 0; i < n; i++) {
             const a = Math.random() * Math.PI * 2, v = 60 + Math.random() * 200;
             this.particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.6 + Math.random() * 0.4, color: ['#ffea00','#ffaa00','#ff3366','#ffffff'][i % 4] });
@@ -3456,6 +3533,7 @@ const online = window.online = {
             + T('#00b09b', '#96c93d', '同機多人闖關', '2～3 人同鍵盤・各自登入', '盟', "coop.viaNet = false; game.setState('COOP')", '', '#022')
             + T('#1d2b64', '#3a6073', '個人戰績', '分數・暗物質・常用戰機', '績', "game.setState('STATS')", 'w2')
             + T('#134e5e', '#71b280', '新手教學', '圖文說明', '?', "game.setState('TUTORIAL')", 'w2')
+            + T('#5b3f8c', '#8a6bc2', '版本更新紀錄', 'v' + APP_VERSION, '新', 'game.changelogDialog()', 'w2')
             + T('#3a3f5c', '#555b7e', '離開遊戲', this.user ? '保持登入・顯示離線' : '結束遊玩', '⏻', 'online.exitGame()', 'w2');
     },
 
@@ -4553,7 +4631,7 @@ wrap('dropDarkMatter', function (o, ...a) { const b = this.darkMatter; o.apply(t
 ['buyItem', 'upgrade'].forEach(n => wrap(n, function (o, ...a) { const b = this.darkMatter, g0 = this.galaxy; o.apply(this, a); const d = b - this.darkMatter; if (d > 0) online.stat('spentDM', d); const gd = g0 - this.galaxy; if (gd > 0) online.stat('spentGalaxy', gd); }));
 wrap('startNewGame', function (o) { o.call(this); this.runDM = 0; this.runClock = 0; this.runStart = this.currentStage; this.runStageClears = {}; this.runClearLog = {}; this.stageStart = 0; this.stageStartFor = this.currentStage; this.runSeq = (this.runSeq || 0) + 1; });
 wrap('startNewGame', function (o) { if (!this.pkMode && FORCE_UPDATE.gate()) return; o.call(this); });   // 不是最新版：不能開始出擊
-wrap('setState', function (o, state) { if (online._away && state !== 'INIT') online.comeBack(); if (state === 'LOBBY' && LITE.on) { LITE.manual = false; this.setLite(false); } if (!['INIT', 'PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(state)) FORCE_UPDATE.gate(); return o.call(this, state); });   // 不是最新版：離開結算、進入大廳或任何選單時，立刻跳出更新視窗
+wrap('setState', function (o, state) { if (online._away && state !== 'INIT') online.comeBack(); if (state === 'LOBBY' && LITE.lv !== LITE.pref) this.setQuality(LITE.pref, false); if (!['INIT', 'PLAYING', 'TRANSITION', 'GAMEOVER', 'VICTORY'].includes(state)) FORCE_UPDATE.gate(); return o.call(this, state); });   // 不是最新版：離開結算、進入大廳或任何選單時，立刻跳出更新視窗
 wrap('startTransition', function (o, n) { if (this.pkMode) { this.currentSub = 1; this.resetStage(); return; } o.call(this, n); });
 wrap('startCast', function (o, idiom, remote) {
     o.call(this, idiom);
@@ -5450,8 +5528,7 @@ Object.assign(coop, {
     rtcCheck(gid, dead) { const R = this.rtc, P = R && R.peers[gid]; if (!P) return; const w = P.ch.w, e = P.ch.e; P.open = !dead && !!w && !!e && w.readyState === 'open' && e.readyState === 'open'; this.rtcLabel(); },
     rtcLabel() {
         const el = $('coop-net'), R = this.rtc; if (!el || !R) return; const ids = Object.keys(R.peers), n = ids.filter(id => R.peers[id].open).length;
-        el.style.pointerEvents = 'auto'; el.style.cursor = 'pointer'; el.onclick = () => G.setLite(!LITE.on, true);   // 點一下可手動切換省電畫質
-        el.textContent = (n && n === ids.length ? '雙通道：直連（P2P）＋即時資料庫' : n ? `雙通道：直連 ${n}/${ids.length}＋即時資料庫` : '連線：即時資料庫') + (LITE.on ? '｜省電畫質' : '｜標準畫質') + '（點此切換）';
+        el.textContent = (n && n === ids.length ? '雙通道：直連（P2P）＋即時資料庫' : n ? `雙通道：直連 ${n}/${ids.length}＋即時資料庫` : '連線：即時資料庫') + '｜畫質：' + QUAL[LITE.lv].name;
     },
     rtcMsg(gid, d) {
         if (this.rtc && this.rtc.host) {   // 房主收到：隊員的位置與成語操作
