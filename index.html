@@ -441,10 +441,14 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261120e', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261120f', APP_AUTHOR = '郭柏宏';
 // 版本更新紀錄（大廳「版本更新紀錄」磚會顯示）。★每次發佈新版本：在最上面加一筆 { v: '版本號', items: [重點條列] }；只顯示最近 5 筆，更舊的會自動被擠掉（CHANGE_KEEP）
 const CHANGE_KEEP = 5;
 const CHANGELOG = [
+    { v: '20261120f', items: [
+        '連線闖關：修正打完最終 Boss 後畫面卡死、無法進入結算的問題（結算資料出錯時房主會卡在轉場）。',
+        '房主先進入結算畫面再通知隊員；轉場卡住超過 6 秒會自動處理，隊員也會主動查詢結算結果。',
+    ] },
     { v: '20261120e', items: [
         '連線闖關：修正結算畫面常常卡住無法結算的問題（結果改為重送＋雙通道傳送，隊員畫面中斷時也會主動查詢結算結果）。',
     ] },
@@ -461,12 +465,6 @@ const CHANGELOG = [
     ] },
     { v: '20261120b', items: [
         '主畫面新增「版本更新紀錄」功能磚：點開可看每個版本改了什麼（重點條列），舊版本的紀錄會一直保留。',
-    ] },
-    { v: '20261120a', items: [
-        '戰機管理：切換出戰戰機前會先跳出確認視窗「確認切換為XX號？」。',
-        '戰機管理：升級／突破武器與裝備後，不再被拉回頁面最上方。',
-        '設定新增「畫質／幀率」：流暢（30 FPS）、中等、高畫質三段。',
-        '遊戲中若畫面卡頓，會自動調低一級畫質；回到大廳恢復，遊戲中要手動更改須到設定。',
     ] },
 ];
 
@@ -4934,7 +4932,7 @@ const coop = {
             this.unsubWorld = ref.collection('pos').doc('world').onSnapshot(s => { const x = s.exists && s.data(); if (x) this.onWorld(x); }, () => {});
             this.inTimer = setInterval(() => this.sendInput(), 160);
             clearInterval(this.finT); const rr = this.room; this.finT = setInterval(() => {   // 保險：房主的畫面中斷（結算、轉場時最常見）時，主動去房間文件查結算結果，避免卡在戰鬥畫面
-                if (this.ended || this.room !== rr || !rr.started || Date.now() - this.lastSnapMs < 3500) return;
+                if (this.ended || this.room !== rr || !rr.started || (Date.now() - this.lastSnapMs < 3500 && !(G.gameState === 'TRANSITION' && G.transitionTimer > 4))) return;
                 online.roomRef(rr.code).get().then(s => { const d = s.exists && s.data(); if (d && d.state === 'ended' && d.result && !this.ended && this.room === rr) this.finish(d.result); }).catch(() => {});
             }, 2500);
             G.resetStage();
@@ -5261,6 +5259,7 @@ const coop = {
     },
     transition(dt) {   // 關卡之間的 2 秒轉場
         const g = G; g.transitionTimer += dt;
+        if (G.coopHost && g.transitionTimer > 6 && !this.finished) { this.ended = false; if (g.isNextStage && g.currentStage >= 9) { this.end(true); return; } g.transitionTimer = 2.1; }   // 保險：轉場卡超過 6 秒仍沒進結算／下一關，強制處理
         if (g.transitionTimer > 1.0 && g.transitionTimer <= 2.0) { if (G.coopHost ? this.P[this.hostUid].alive : !(this.view[this.me()] && this.view[this.me()].alive === 0)) g.player.pos.y -= 1000 * dt; }
         if (G.coopHost) {
             if (g.transitionTimer > 2.0) {
@@ -5474,17 +5473,26 @@ const coop = {
     },
     end(win) {   // 主控端：結束這場，算出貢獻比並通知所有人
         if (this.ended) return; this.ended = true;
-        const rows = this.calc(this.order.filter(id => !this.P[id].left)); rows.forEach(r => { r.tank = Math.round(r.tank); r.dmg = Math.round(r.dmg); r.chr = Math.round(r.chr); });
-        rows.forEach(r => { const P = this.P[r.uid]; r.sid = P ? (P.host ? G.shipId : (P.s && P.s.shipId)) || 'star' : 'star'; });   // 各隊員用的戰機（紀錄榜顯示用）
-        const lg = G.runClearLog || {}, clr = Object.keys(lg).map(Number).sort((a, b) => a - b).map(k => [k, lg[k].ms]);
-        const res = { win: !!win, st: G.currentStage, sb: G.currentSub, pool: Math.round(this.pool), rows, mid: this.mid, from: this.startStage || 1, ms: Math.round(G.runClock * 1000), clr };
-        if (this.room) {   // 結算結果要確保每位隊員都收到：房間文件失敗會重試，並同時從「戰場畫面」通道再送一份
-            const ref = online.roomRef(this.room.code), code = this.room.code, send = n => { if (!this.room || this.room.code !== code) return; ref.update({ state: 'ended', result: res }).catch(() => { if (n < 5) setTimeout(() => send(n + 1), 1200 * (n + 1)); }); };
-            send(0);
-            const fin = () => { try { ref.collection('pos').doc('world').set({ s: JSON.stringify({ q: ++this.seq, fin: res }), q: this.seq, t: Date.now() }).catch(() => {}); } catch (e) {} };
-            fin(); setTimeout(fin, 1500);
+        let res;
+        try {
+            const rows = this.calc(this.order.filter(id => this.P[id] && !this.P[id].left)); rows.forEach(r => { r.tank = Math.round(r.tank) || 0; r.dmg = Math.round(r.dmg) || 0; r.chr = Math.round(r.chr) || 0; });
+            rows.forEach(r => { const P = this.P[r.uid]; r.sid = P ? (P.host ? G.shipId : (P.s && P.s.shipId)) || 'star' : 'star'; });   // 各隊員用的戰機（紀錄榜顯示用）
+            const lg = G.runClearLog || {}, clr = Object.keys(lg).map(Number).sort((a, b) => a - b).map(k => [k, (lg[k] && lg[k].ms) || 0]);
+            res = { win: !!win, st: G.currentStage, sb: G.currentSub, pool: Math.round(this.pool) || 0, rows, mid: this.mid, from: this.startStage || 1, ms: Math.round(G.runClock * 1000) || 0, clr };
+            res = JSON.parse(JSON.stringify(res));   // 去掉 undefined／NaN：Firestore 遇到 undefined 會直接丟出錯誤，結算就卡死
+        } catch (e) {
+            console.warn('結算計算失敗，改用保底結果', e);
+            res = { win: !!win, st: G.currentStage || 1, sb: G.currentSub || 1, pool: 0, rows: (this.order || []).map(id => ({ uid: id, name: (this.nm && this.nm[id]) || '玩家', tank: 0, dmg: 0, chr: 0, pt: 0, pd: 0, pc: 0, share: 1 / ((this.order || []).length || 1), coins: 0, sid: 'star' })), mid: this.mid, from: this.startStage || 1, ms: 0, clr: [] };
         }
-        this.finish(res);
+        this.finish(res);   // 先讓自己進結算畫面，再通知隊員（通知失敗也不會卡住房主）
+        try {
+            if (this.room) {   // 結算結果要確保每位隊員都收到：房間文件失敗會重試，並同時從「戰場畫面」通道再送一份
+                const ref = online.roomRef(this.room.code), code = this.room.code, send = n => { try { if (!this.room || this.room.code !== code) return; ref.update({ state: 'ended', result: res }).catch(() => { if (n < 5) setTimeout(() => send(n + 1), 1200 * (n + 1)); }); } catch (e) { if (n < 5) setTimeout(() => send(n + 1), 1200 * (n + 1)); } };
+                send(0);
+                const fin = () => { try { ref.collection('pos').doc('world').set({ s: JSON.stringify({ q: ++this.seq, fin: res }), q: this.seq, t: Date.now() }).catch(() => {}); } catch (e) {} };
+                fin(); setTimeout(fin, 1500); setTimeout(fin, 4000);
+            }
+        } catch (e) {}
     },
     finish(res) {
         if (this.finished === res.mid) return; this.finished = res.mid; this.ended = true;
@@ -5497,7 +5505,7 @@ const coop = {
             try { if (mine) (res.rows || []).forEach(r => { if (r.uid !== this.me()) online.bondAward(r.uid, 'team', 'c' + res.mid); }); } catch (e) {}   // 和好友組隊闖關：羈絆值
             try { if (mine && localStorage.getItem('coopPaid') !== String(res.mid)) { localStorage.setItem('coopPaid', String(res.mid)); G.galaxy += mine.coins; online.stat('totalGalaxy', mine.coins); G.save(); } } catch (e) {}
         }
-        this.res = res; this.pauseMatch(); G.setState(res.win ? 'VICTORY' : 'GAMEOVER');
+        this.res = res; try { this.pauseMatch(); } catch (e) {} try { G.setState(res.win ? 'VICTORY' : 'GAMEOVER'); } catch (e) { console.warn(e); try { G.gameState = res.win ? 'VICTORY' : 'GAMEOVER'; this.renderResult(!!res.win); } catch (e2) {} }
     },
     renderResult(win) {
         const r = this.res || { rows: [], pool: 0, st: 1, sb: 1 }, me = this.me(), host = G.coopHost, pct = x => Math.round((x || 0) * 100) + '%', num = x => Number(Math.round(x || 0)).toLocaleString();
