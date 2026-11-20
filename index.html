@@ -441,9 +441,18 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261120c', APP_AUTHOR = '郭柏宏';
-// 版本更新紀錄（大廳「版本更新紀錄」磚會顯示）。★每次發佈新版本：在最上面加一筆 { v: '版本號', items: [重點條列] }，舊版本的紀錄一律保留、不要刪除
+const APP_VERSION = '20261120e', APP_AUTHOR = '郭柏宏';
+// 版本更新紀錄（大廳「版本更新紀錄」磚會顯示）。★每次發佈新版本：在最上面加一筆 { v: '版本號', items: [重點條列] }；只顯示最近 5 筆，更舊的會自動被擠掉（CHANGE_KEEP）
+const CHANGE_KEEP = 5;
 const CHANGELOG = [
+    { v: '20261120e', items: [
+        '連線闖關：修正結算畫面常常卡住無法結算的問題（結果改為重送＋雙通道傳送，隊員畫面中斷時也會主動查詢結算結果）。',
+    ] },
+    { v: '20261120d', items: [
+        '連線闖關：進入房間與戰鬥中新增提醒「請勿切換螢幕或分頁」，避免有玩家切走畫面造成卡住或斷線。',
+        '連線闖關：修正過關後下一關的初始位置有時跑到戰場上方，現在一律出現在戰場最下方。',
+        '版本更新紀錄只保留最近 5 次更新，更舊的會自動被擠掉。',
+    ] },
     { v: '20261120c', items: [
         '設定新增「刪除帳號」：輸入密碼確認後，永久刪除自己的帳號與所有資料（含好友清單中的自己）。',
         '已刪除的帳號名稱可以重新註冊（自己刪除或管理員刪除都一樣）。',
@@ -458,41 +467,6 @@ const CHANGELOG = [
         '戰機管理：升級／突破武器與裝備後，不再被拉回頁面最上方。',
         '設定新增「畫質／幀率」：流暢（30 FPS）、中等、高畫質三段。',
         '遊戲中若畫面卡頓，會自動調低一級畫質；回到大廳恢復，遊戲中要手動更改須到設定。',
-    ] },
-    { v: '20261119s', items: [
-        '成語效果倒數改為由上到下條列、靠左邊界。',
-        '手機橫放時，成語效果起始位置再往下移，不再遮擋上方功能鍵。',
-    ] },
-    { v: '20261119r', items: [
-        '手機橫放：成語效果列、貢獻度、發動成語說明卡等比例縮小。',
-        '成語效果每條改為單行顯示，同時發動多個成語時佔用畫面更少。',
-    ] },
-    { v: '20261119q', items: [
-        '成語集滿亮起時不再顯示「按 N 發動」，只顯示效果說明，避免文字超出格子。',
-        '手機橫放：上方標題欄縮薄、字體縮小。',
-        '手機橫放：下方成語列改成扁長方形（橫向寬、縱向薄），減少遮擋視線。',
-    ] },
-    { v: '20261119p', items: [
-        '修正多人闖關發動成語時的卡頓：暫停期間照常傳送畫面，成語內容不再延遲或遺失。',
-        '新增雙通道連線：web 直連＋即時資料庫（Realtime Database），直連不通或塞車時自動接手。',
-        '連線對戰卡頓時自動降低畫質與幀率。',
-        '修正四機同體關卡在手機上右邊 Boss 位置：依各自螢幕換算座標，四台 Boss 貼著上下左右邊界。',
-    ] },
-    { v: '20261119o', items: [
-        '修正手機版聊天室無法用手指捲動留言。',
-        '手機橫放時聊天室改為靠右整高側欄並縮小字體，留言區更大。',
-    ] },
-    { v: '20261119n', items: [
-        '羈絆值符號改用星星。',
-    ] },
-    { v: '20261119m', items: [
-        '新增羈絆值系統：好友清單顯示與每位好友的羈絆值與今日進度。',
-        '聊天（私訊雙方互動，每天最多 +2）、一起組隊（多人闖關／PK 每場 +1，每天最多 +3），合計每天最多 +5。',
-    ] },
-    { v: '20261119l', items: [
-        '好友列表顯示上線狀態：在線綠燈、離線灰燈。',
-        '大廳新增「離開遊戲」：保持登入、立即顯示離線，聊天室與好友列表同步顯示下線。',
-        '版本號與離線資料包清單全面更新。',
     ] },
 ];
 
@@ -1562,7 +1536,7 @@ class Game {
 
     changelogDialog() {   // 版本更新紀錄：最新版預設展開，舊版本點開查看
         const fmt = v => `${v.slice(0, 4)}/${v.slice(4, 6)}/${v.slice(6, 8)}`;
-        const list = CHANGELOG.map((c, i) => `<details ${i === 0 ? 'open' : ''} style="text-align:left;margin:6px 0;background:rgba(0,0,0,.28);border:1px solid #334;border-radius:10px;padding:6px 10px;">
+        const list = CHANGELOG.slice(0, CHANGE_KEEP).map((c, i) => `<details ${i === 0 ? 'open' : ''} style="text-align:left;margin:6px 0;background:rgba(0,0,0,.28);border:1px solid #334;border-radius:10px;padding:6px 10px;">
             <summary style="cursor:pointer;color:var(--neon-blue);font-weight:bold;user-select:none;">${c.v}${c.v === APP_VERSION ? '　<small style="color:#33ff88">目前版本</small>' : ''}<small style="color:#8aa;font-weight:normal;margin-left:8px">${fmt(c.v)}</small></summary>
             <ul style="margin:6px 0 4px 18px;padding:0;line-height:1.6;font-size:.9rem;color:#dde;">${c.items.map(t => `<li>${esc(t)}</li>`).join('')}</ul></details>`).join('');
         this.dialog(`<h3 style="margin:0 0 8px">版本更新紀錄</h3><div style="max-height:58vh;overflow-y:auto;min-width:min(78vw,420px)">${list}</div><button class="btn btn-start" style="margin-top:10px" onclick="game.closeDlg()">關閉 [Esc]</button>`);
@@ -4176,15 +4150,22 @@ const online = window.online = {
         catch (e) { if (m) m.textContent = errMsg(e); }
     },
     adCard() {
-        const T = this._adT, box = $('ad-user'); if (!T || !box) return; const d = T.d, sv = T.save, K = [['dmg', '火力'], ['rate', '射速'], ['hp', '裝甲'], ['spd', '機動'], ['cov', '覆蓋']];
+        const T = this._adT, box = $('ad-user'); if (!T || !box) return; const d = T.d, sv = T.save, K = STAT_KEYS.map(([k, n]) => [k, k === 'cov' ? '覆蓋' : n]);
+        const stp = (fn, v, t) => `<span class="ad-st"><button class="sm" onclick="${fn}(-1)">−</button><b>${v}</b><button class="sm" onclick="${fn}(1)">＋</button></span>`;
+        const GL = [['s', '成語列', 1, 6, '同時收集的成語數'], ['m', '磁吸字塊', 0, MAGNET_MAX, '字塊自動吸附範圍'], ['d', '暗物質回收', 0, 5, '暗物質獲得 +20%／級']];
         box.innerHTML = `<div style="padding:10px;border:1px solid #334;border-radius:10px;margin-bottom:8px">
             <h3 style="margin:0 0 4px;color:var(--neon-gold)">${esc(d.name || '')} <small style="color:#aaa">帳號 ${esc(d.username || '')}</small></h3>
             <div class="muted">最高分 ${d.bestScore || 0}・累積暗物質 ${d.totalDM || 0}・PK ${d.pkWins || 0} 勝 ${d.pkLosses || 0} 敗${T.ban ? '<br><b style="color:var(--neon-red)">★ 黑名單停權中：' + esc(T.ban.reason || '（無原因）') + '</b>' : ''}</div></div>
             <div class="row" style="gap:6px;margin:6px 0"><b>暗物質</b><input class="inp" id="ad-dm" type="number" min="0" value="${sv.dm || 0}" style="margin:0;width:140px"><button class="sm" onclick="online.adSetDM()">設定</button></div>
             <div class="row" style="gap:6px;margin:6px 0"><b style="color:#ffd700">銀河幣</b><input class="inp" id="ad-g" type="number" min="0" value="${sv.g || 0}" style="margin:0;width:140px"><button class="sm" onclick="online.adSetG()">設定</button><button class="sm" onclick="online.adAddG(-1000)">−1000</button><button class="sm" onclick="online.adAddG(1000)">＋1000</button></div>
-            <div style="margin-top:8px"><b>戰機（調整不扣暗物質）</b></div>
-            ${SHIPS.map(S => { const f = sv.f[S.id]; return `<div style="margin:6px 0;padding:6px;border:1px solid #223;border-radius:8px"><label><input type="checkbox" ${f.own ? 'checked' : ''} onchange="online.adShip('${S.id}','own',this.checked)"> <b style="color:${S.c}">${S.name}</b> 已擁有</label>
-                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">${K.map(([k, n]) => `<span>${n} <button class="sm" onclick="online.adShip('${S.id}','${k}',-1)">−</button> ${f[k]}/${S.cap[k]} <button class="sm" onclick="online.adShip('${S.id}','${k}',1)">＋</button></span>`).join('')}<button class="sm" onclick="online.adShip('${S.id}','max')">全部升滿</button></div></div>`; }).join('')}
+            <style>.ad-box{margin:8px 0;padding:8px 10px;border:1px solid #334;border-radius:10px;background:rgba(255,255,255,.03)}.ad-box>summary{cursor:pointer;user-select:none}.ad-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 10px;margin-top:6px}.ad-cell{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 6px;border-radius:6px;background:rgba(0,0,0,.25)}.ad-cell em{font-style:normal;color:#9ab;font-size:.85rem}.ad-st{display:inline-flex;align-items:center;gap:4px}.ad-st b{min-width:3.2em;text-align:center;font-variant-numeric:tabular-nums}.ad-x b{color:#ffd700}.ad-sub{color:var(--neon-gold);font-size:.85rem;margin-top:8px}</style>
+            <div class="ad-box"><b>全體能力（商店項目・不扣暗物質）</b><div class="ad-grid">${GL.map(([k, n, lo, hi, tip]) => `<div class="ad-cell" title="${tip}"><em>${n}</em>${stp(`online.adGlobal.bind(online,'${k}',${lo},${hi})`, (sv[k] || lo) + '/' + hi)}</div>`).join('')}</div><div style="margin-top:6px"><button class="sm" onclick="online.adGlobal('all')">全體能力全部升滿</button></div></div>
+            <div class="row" style="gap:6px;margin:8px 0"><b>戰機（調整不扣暗物質）</b><button class="sm" onclick="online.adShip('*','own',true)">全部擁有</button><button class="sm" onclick="online.adShip('*','max')">全機種升滿</button><button class="sm" onclick="online.adShip('*','maxx')">全機種突破 ${XMAX} 層</button></div>
+            ${SHIPS.map(S => { const f = sv.f[S.id], X = f.x || {}; return `<details class="ad-box" ${this._adOpen === S.id ? 'open' : ''} ontoggle="if(this.open)online._adOpen='${S.id}'"><summary><b style="color:${S.c}">${S.name}</b> <small class="muted">${S.role || ''}</small>${f.own ? ' <small style="color:#38ef7d">已擁有</small>' : ' <small style="color:#789">未擁有</small>'}</summary>
+                <label style="display:block;margin-top:6px"><input type="checkbox" ${f.own ? 'checked' : ''} onchange="online.adShip('${S.id}','own',this.checked)"> 已擁有</label>
+                <div class="ad-sub">能力等級（上限）</div><div class="ad-grid">${K.map(([k, n]) => `<div class="ad-cell"><em>${n}</em>${stp(`online.adShip.bind(online,'${S.id}','${k}')`, f[k] + '/' + S.cap[k])}</div>`).join('')}</div>
+                <div class="ad-sub">銀河幣突破（0～${XMAX} 層）</div><div class="ad-grid ad-x">${K.map(([k, n]) => `<div class="ad-cell"><em>${n}</em>${stp(`online.adShip.bind(online,'${S.id}','x_${k}')`, (X[k] || 0) + '/' + XMAX)}</div>`).join('')}</div>
+                <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="sm" onclick="online.adShip('${S.id}','max')">能力全部升滿</button><button class="sm" onclick="online.adShip('${S.id}','maxx')">突破全滿</button><button class="sm" onclick="online.adShip('${S.id}','clrx')">清除突破</button></div></details>`; }).join('')}
             <div class="row" style="gap:6px;margin:6px 0"><b>密碼</b><span id="ad-pw" style="font-family:monospace;letter-spacing:.1em;min-width:120px">${T.pwShow ? esc(T.pwShow) : '••••••••'}</span><button class="sm" onclick="online.adTogglePw()">${T.pwShow ? '隱藏密碼' : '顯示密碼'}</button></div>
             <div style="margin:10px 0;padding:8px;border:1px solid #522;border-radius:8px"><b>黑名單／停權</b>
                 ${T.ban ? `<button class="sm" onclick="online.adUnban()">解除停權</button>` : `<textarea class="inp" id="ad-reason" rows="2" maxlength="200" placeholder="輸入被封原因（玩家登入時會看到）"></textarea><button class="sm red" onclick="online.adBan()">加入黑名單</button>`}</div>
@@ -4201,11 +4182,24 @@ const online = window.online = {
     adSetDM() { const v = Math.max(0, Math.floor(+($('ad-dm') || {}).value || 0)); this._adT.save.dm = v; this.adSaveSave(`已把暗物質設為 ${v}`); },
     adSetG() { const v = Math.max(0, Math.floor(+($('ad-g') || {}).value || 0)); this._adT.save.g = v; this.adSaveSave(`已把銀河幣設為 ${v}`); },
     adAddG(n) { const v = Math.max(0, Math.floor((this._adT.save.g || 0) + n)); this._adT.save.g = v; this.adSaveSave(`銀河幣已${n >= 0 ? '增加' : '減少'} ${Math.abs(n)}，目前 ${v}`); },
-    adShip(id, k, v) {
-        const S = SHIPS.find(x => x.id === id), f = this._adT.save.f[id];
-        if (k === 'own') f.own = !!v; else if (k === 'max') { f.own = true; ['dmg', 'rate', 'hp', 'spd', 'cov'].forEach(x => f[x] = S.cap[x]); }
-        else f[k] = Math.max(S.base[k] || 0, Math.min(S.cap[k], (f[k] || 0) + v));
+    adShip(id, k, v) {   // id='*' 代表全部戰機；k：own／max（能力升滿）／maxx（突破全滿）／clrx（清除突破）／能力代號（pen、crit…）／x_能力代號（突破層數）
+        const T = this._adT; if (!T) return;
+        (id === '*' ? SHIPS : [SHIPS.find(x => x.id === id)]).forEach(S => {
+            const f = T.save.f[S.id], keys = STAT_KEYS.map(a => a[0]); f.x = f.x || {};
+            if (k === 'own') f.own = !!v;
+            else if (k === 'max') { f.own = true; keys.forEach(x => f[x] = S.cap[x]); }
+            else if (k === 'maxx') { f.own = true; keys.forEach(x => { f[x] = S.cap[x]; f.x[x] = XMAX; }); }
+            else if (k === 'clrx') f.x = {};
+            else if (k.startsWith('x_')) { const q = k.slice(2); if (f[q] < S.cap[q] && v > 0) f[q] = S.cap[q]; f.x[q] = Math.max(0, Math.min(XMAX, (f.x[q] || 0) + v)); if (f.x[q] > 0) f.own = true; }   // 突破只在能力滿級後才有意義：加突破時順便把該項補到上限
+            else f[k] = Math.max(S.base[k] || 0, Math.min(S.cap[k], (f[k] || 0) + v));
+        });
         this.adSaveSave('戰機已更新（未扣暗物質）');
+    },
+    adGlobal(k, lo, hi, v) {   // 全體能力：成語列（s）、磁吸（m）、暗物質回收（d）
+        const T = this._adT; if (!T) return; const sv = T.save;
+        if (k === 'all') { sv.s = 6; sv.m = MAGNET_MAX; sv.d = 5; }
+        else sv[k] = Math.max(lo, Math.min(hi, (sv[k] === undefined ? lo : sv[k]) + v));
+        this.adSaveSave('全體能力已更新（未扣暗物質）');
     },
     async adReset() {
         const T = this._adT; if (!T || !confirm('確定要把這個帳號重置回全新狀態嗎？（存檔、暗物質、戰機、分數統計都會清空）')) return;
@@ -4891,7 +4885,7 @@ const coop = {
         const d = r.data || {}, host = r.role === 'host', me = this.me(), M = this.members(), mine = (d.members || {})[me] || {};
         const owned = SHIPS.filter(S => G.fleet[S.id].own), others = M.filter(m => m.id !== d.host), canStart = M.length >= 2 && M.every(m => m.ready) && d.state === 'lobby';
         ui(`<div class="menu-overlay" style="width:min(94vw,520px)"><h2 class="shop-title">多人闖關房間 <span style="color:var(--neon-gold);letter-spacing:.2em">${esc(r.code)}</span></h2>
-            <p class="muted">${host ? '你是房主：把房間密碼告訴隊友，至少 2 人到齊並準備後才能出擊' : '你是隊員：準備好後等待房主出擊'}　(${M.length}/3 人)</p>
+            <p style="color:#ffb347;font-size:.85rem;margin:4px 0">⚠ 連線對戰中請勿切換螢幕或分頁，以免畫面卡住或斷線</p><p class="muted">${host ? '你是房主：把房間密碼告訴隊友，至少 2 人到齊並準備後才能出擊' : '你是隊員：準備好後等待房主出擊'}　(${M.length}/3 人)</p>
             ${d.state === 'ended' ? '<p style="color:#ffd700">上一場已結束，等待房主重新開房…</p>' : ''}
             ${M.map((m, i) => `<div class="row"><span>${m.id === d.host ? '★ 房主' : '隊員'}：${esc(m.name)}　${this.shipName(m.sid)}</span><b style="color:${m.ready ? '#38ef7d' : '#9ab'}">${m.ready ? '已準備' : '未準備'}</b></div>`).join('')}
             ${M.length < 3 ? `<div class="row"><span style="color:#9ab">等待隊員加入…</span></div>` : ''}
@@ -4929,7 +4923,7 @@ const coop = {
             G.bullets.get = function () { const o = ObjectPool.prototype.get.call(this); o.owner = coop.cur; return o; };   // 每顆子彈記下是誰發射的（傷害要算在誰頭上）
             this.unsubIn = ref.collection('pos').onSnapshot(s => s.docChanges().forEach(ch => {
                 const id = ch.doc.id; if (id === 'world' || ch.type === 'removed') return; const p = this.P[id], x = ch.doc.data();
-                if (p && x && x.mid === this.mid) { p.in = { x: x.x, y: x.y }; p.at = performance.now(); }
+                if (p && x && x.mid === this.mid) { p.at = performance.now(); if (x.rs === undefined || x.rs === this.resetSeq) p.in = { x: x.x, y: x.y }; }
             }), () => {});
             this.unsubEv = ref.collection('events').where('matchId', '==', this.mid).onSnapshot(s => s.docChanges().forEach(ch => {
                 if (ch.type !== 'added') return; const e = ch.doc.data();
@@ -4939,9 +4933,13 @@ const coop = {
         } else {
             this.unsubWorld = ref.collection('pos').doc('world').onSnapshot(s => { const x = s.exists && s.data(); if (x) this.onWorld(x); }, () => {});
             this.inTimer = setInterval(() => this.sendInput(), 160);
+            clearInterval(this.finT); const rr = this.room; this.finT = setInterval(() => {   // 保險：房主的畫面中斷（結算、轉場時最常見）時，主動去房間文件查結算結果，避免卡在戰鬥畫面
+                if (this.ended || this.room !== rr || !rr.started || Date.now() - this.lastSnapMs < 3500) return;
+                online.roomRef(rr.code).get().then(s => { const d = s.exists && s.data(); if (d && d.state === 'ended' && d.result && !this.ended && this.room === rr) this.finish(d.result); }).catch(() => {});
+            }, 2500);
             G.resetStage();
         }
-        this.mountHud(); G.setState('PLAYING'); G.updateHUD(); this.rtcStart(d);
+        this.mountHud(); G.setState('PLAYING'); G.updateHUD(); this.rtcStart(d); toast('⚠ 連線對戰中請勿切換螢幕或分頁，以免卡住或斷線', 4500);
     },
     mountHud() { if ($('coop-hud')) return; $('game-container').insertAdjacentHTML('beforeend', '<div id="coop-hud" style="position:absolute;right:max(6px,env(safe-area-inset-right));top:74px;z-index:6;pointer-events:none;font-size:12px;line-height:1.35;text-shadow:0 0 3px #000;text-align:right"></div>'); },
     placeAll() {   // 關卡開始：全員排在畫面下方；客戶端靠 rs 序號知道要重置自己的位置
@@ -5312,17 +5310,19 @@ const coop = {
 
     // ================= 客戶端：映射主控端的畫面 =================
     sendInput() {
-        if (!this.room || !this.room.started || this.ended || G.gameState === 'COOP') return;
+        if (!this.room || !this.room.started || this.ended || G.gameState === 'COOP' || G.gameState === 'TRANSITION') return;   // 轉場中（戰機正飛出畫面上方）不回報位置，避免舊位置蓋掉下一關的起點
         const p = G.player.pos, moved = Math.hypot(p.x - this.inX, p.y - this.inY) > 2;
         if (!moved && Date.now() - this.inSent < 1500) return;
         this.inX = p.x; this.inY = p.y; this.inSent = Date.now();
         const hx = Math.round(p.x * (this.sx || 1)), hy = Math.round(p.y * (this.sy || 1));   // 換算回房主的座標
-        if (this.rtcToHost({ k: 'in', x: hx, y: hy })) return;
-        const R = this.rtc; if (R && R.rt && !R.host) { R.base.child('in/' + this.me()).set({ x: hx, y: hy, t: Date.now() }).catch(() => {}); return; }   // 直連不通：改走 Realtime Database
-        online.roomRef(this.room.code).collection('pos').doc(this.me()).set({ x: hx, y: hy, mid: this.mid, t: Date.now() }).catch(() => {});
+        const rs = this.rsSeen;   // 我目前看到的「關卡重置序號」：房主只收和自己序號相同的位置，過期（轉場時送出的）位置一律丟棄
+        if (this.rtcToHost({ k: 'in', x: hx, y: hy, rs })) return;
+        const R = this.rtc; if (R && R.rt && !R.host) { R.base.child('in/' + this.me()).set({ x: hx, y: hy, rs, t: Date.now() }).catch(() => {}); return; }   // 直連不通：改走 Realtime Database
+        online.roomRef(this.room.code).collection('pos').doc(this.me()).set({ x: hx, y: hy, rs, mid: this.mid, t: Date.now() }).catch(() => {});
     },
     onWorld(d) {
         let S; try { S = JSON.parse(d.s); } catch (e) { return; }
+        if (S && S.fin && this.room && this.room.started && !this.ended) { this.finish(S.fin); return; }
         if (!S || S.q <= (this.lastQ || 0) || !this.room || !this.room.started || this.ended) return;
         if (this._cm !== this.mid) { this._cm = this.mid; this.castSeen = 0; }
         // 房主與隊員的螢幕比例不同（例如房主電腦 1600 寬、手機 2000 寬）：把房主座標換算成自己的螢幕，Boss 與四台分身才會貼著自己螢幕的上下左右邊界
@@ -5352,7 +5352,7 @@ const coop = {
                 g.hp = a[3]; g.maxHp = a[4]; g.shield = a[5]; g.invincibleTimer = a[6]; g.laserTimer = a[7] ? 1 : 0; g.pierceTimer = a[10]; g.missileTimer = a[11]; g.lifestealTimer = a[13] || 0;
                 if (wasDead && a[9]) g.player.pos = new Vec2(a[1], a[2]);
                 this.view[me] = { alive: a[9], hp: a[3], maxHp: a[4], shield: a[5], inv: a[6], laser: a[7], pierce: a[10], missile: a[11], ally: a[12] || 0, lifesteal: a[13] || 0 };
-                if (S.rs !== this.rsSeen) { this.rsSeen = S.rs; if (a[9]) g.player.pos = new Vec2(a[1], a[2]); }
+                if (S.rs !== this.rsSeen) { this.rsSeen = S.rs; if (a[9]) g.player.pos = new Vec2(a[1], a[2]); this.inX = -1; this.inSent = 0; }   // 新關卡：站到房主排好的起點（畫面最下方），並立刻回報新位置
             } else {
                 let o = this.view[id]; if (!o) o = this.view[id] = { x: a[1], y: a[2] };
                 o.tx = a[1]; o.ty = a[2]; o.hp = a[3]; o.maxHp = a[4]; o.shield = a[5]; o.inv = a[6]; o.laser = a[7]; o.skin = a[8]; o.alive = a[9]; o.pierce = a[10]; o.missile = a[11]; o.ally = a[12] || 0; o.lifesteal = a[13] || 0;
@@ -5478,17 +5478,23 @@ const coop = {
         rows.forEach(r => { const P = this.P[r.uid]; r.sid = P ? (P.host ? G.shipId : (P.s && P.s.shipId)) || 'star' : 'star'; });   // 各隊員用的戰機（紀錄榜顯示用）
         const lg = G.runClearLog || {}, clr = Object.keys(lg).map(Number).sort((a, b) => a - b).map(k => [k, lg[k].ms]);
         const res = { win: !!win, st: G.currentStage, sb: G.currentSub, pool: Math.round(this.pool), rows, mid: this.mid, from: this.startStage || 1, ms: Math.round(G.runClock * 1000), clr };
-        if (this.room) online.roomRef(this.room.code).update({ state: 'ended', result: res }).catch(() => {});
+        if (this.room) {   // 結算結果要確保每位隊員都收到：房間文件失敗會重試，並同時從「戰場畫面」通道再送一份
+            const ref = online.roomRef(this.room.code), code = this.room.code, send = n => { if (!this.room || this.room.code !== code) return; ref.update({ state: 'ended', result: res }).catch(() => { if (n < 5) setTimeout(() => send(n + 1), 1200 * (n + 1)); }); };
+            send(0);
+            const fin = () => { try { ref.collection('pos').doc('world').set({ s: JSON.stringify({ q: ++this.seq, fin: res }), q: this.seq, t: Date.now() }).catch(() => {}); } catch (e) {} };
+            fin(); setTimeout(fin, 1500);
+        }
         this.finish(res);
     },
     finish(res) {
         if (this.finished === res.mid) return; this.finished = res.mid; this.ended = true;
-        const mine = res.rows.find(r => r.uid === this.me());
+        try { this.cast = null; const cc = $('coop-casts'); if (cc) cc.remove(); G.casting = null; G.paused = false; clearInterval(this.finT); this.finT = null; } catch (e) {}   // 正在發動成語的全場暫停畫面要先收掉，否則結算畫面出不來
+        const mine = (res.rows || []).find(r => r.uid === this.me());
         G.maxSlots = G._keepSlots || G.maxSlots;   // 還原自己原本的成語列數量
         if (this.local) lcoop.payout(res);   // 同機模式：遊戲結束才把各帳號的銀河幣一次寫入
         else {
             try { if (mine) online.recordCoop(res, mine); } catch (e) {}
-            try { if (mine) res.rows.forEach(r => { if (r.uid !== this.me()) online.bondAward(r.uid, 'team', 'c' + res.mid); }); } catch (e) {}   // 和好友組隊闖關：羈絆值
+            try { if (mine) (res.rows || []).forEach(r => { if (r.uid !== this.me()) online.bondAward(r.uid, 'team', 'c' + res.mid); }); } catch (e) {}   // 和好友組隊闖關：羈絆值
             try { if (mine && localStorage.getItem('coopPaid') !== String(res.mid)) { localStorage.setItem('coopPaid', String(res.mid)); G.galaxy += mine.coins; online.stat('totalGalaxy', mine.coins); G.save(); } } catch (e) {}
         }
         this.res = res; this.pauseMatch(); G.setState(res.win ? 'VICTORY' : 'GAMEOVER');
@@ -5516,7 +5522,7 @@ const coop = {
         this.cleanupMatch(); this.leaveRoom(true); G.setState('LOBBY');
     },
     pauseMatch() {
-        [this.unsubIn, this.unsubEv, this.unsubWorld].forEach(f => { try { f && f(); } catch (e) {} }); this.unsubIn = this.unsubEv = this.unsubWorld = null; clearInterval(this.inTimer); this.inTimer = null;
+        [this.unsubIn, this.unsubEv, this.unsubWorld].forEach(f => { try { f && f(); } catch (e) {} }); this.unsubIn = this.unsubEv = this.unsubWorld = null; clearInterval(this.inTimer); this.inTimer = null; clearInterval(this.finT); this.finT = null;
         try { delete G.bullets.get; } catch (e) {}
         this.rtcStop();
     },
@@ -5550,7 +5556,7 @@ Object.assign(coop, {
         if (host) {
             if (hasRtc) this.order.filter(id => id !== me).forEach(id => this.rtcPeer(id, true));
             this.order.filter(id => id !== me).forEach(id => {   // Realtime Database 通道：隊員的位置
-                const ref = this.rtc.base.child('in/' + id), f = x => { const v = x.val(), P = this.P && this.P[id]; if (v && P && !P.left && !this.ended) { P.in = { x: +v.x || 0, y: +v.y || 0 }; P.at = performance.now(); } }; ref.on('value', f); this.rtc.off.push(() => ref.off('value', f));
+                const ref = this.rtc.base.child('in/' + id), f = x => { const v = x.val(), P = this.P && this.P[id]; if (v && P && !P.left && !this.ended) { P.at = performance.now(); if (v.rs === undefined || v.rs === this.resetSeq) P.in = { x: +v.x || 0, y: +v.y || 0 }; } }; ref.on('value', f); this.rtc.off.push(() => ref.off('value', f));
             });
             const uref = this.rtc.base.child('use'), uf = x => { const v = x.val(); if (v && v.by && this.P && this.P[v.by]) this.hostUse(v.by, v.slot | 0, v.id); try { x.ref.remove(); } catch (e) {} }; uref.on('child_added', uf); this.rtc.off.push(() => uref.off('child_added', uf));   // 成語操作
         } else {
@@ -5590,7 +5596,7 @@ Object.assign(coop, {
     rtcMsg(gid, d) {
         if (this.rtc && this.rtc.host) {   // 房主收到：隊員的位置與成語操作
             const P = this.P && this.P[gid]; if (!P || P.left || this.ended) return;
-            if (d.k === 'in') { P.in = { x: +d.x || 0, y: +d.y || 0 }; P.at = performance.now(); } else if (d.k === 'use') this.hostUse(gid, d.slot | 0, d.id);
+            if (d.k === 'in') { P.at = performance.now(); if (d.rs === undefined || d.rs === this.resetSeq) P.in = { x: +d.x || 0, y: +d.y || 0 }; } else if (d.k === 'use') this.hostUse(gid, d.slot | 0, d.id);
         } else if (d.k === 'w') this.onWorld({ s: d.s });   // 隊員收到：房主的畫面
     },
     rtcWorld(str) {   // 房主：把畫面送給已直連的隊員；全部隊員都直連時回傳 true（可略過 Firestore）
@@ -5971,6 +5977,10 @@ wrap('openSettings', function (o) {
     box.insertBefore(d, last);
 });
 
+document.addEventListener('visibilitychange', () => {   // 連線闖關中切走畫面：回來時提醒（切走期間畫面會停住，可能造成卡住或斷線）
+    if (document.hidden || !G.coopMode || G.coopLocal || !['PLAYING', 'TRANSITION'].includes(G.gameState)) return;
+    toast('⚠ 連線對戰中請勿切換螢幕，以免卡住或斷線', 4000); coop.inX = -1; coop.inSent = 0;
+});
 window.addEventListener('online', () => { setTimeout(() => G.quietCheck(), 1500);  if (online.offline) toast('已恢復網路：點大廳的「連線登入」即可同步進度', 5000); });
 
 // ---------- 啟動 ----------
