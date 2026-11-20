@@ -37,7 +37,8 @@ service cloud.firestore {
     // 帳號密碼紀錄：玩家登入時只能寫入自己的那一筆（讀不回來），只有管理員能讀／刪；管理員介面按「顯示密碼」才會讀取
     match /creds/{uid} {
       allow create, update: if signedIn() && request.auth.uid == uid;
-      allow get, list, delete: if isAdmin();
+      allow get, list: if isAdmin();
+      allow delete: if signedIn() && (request.auth.uid == uid || isAdmin());   // 玩家自己刪除帳號時，一併刪掉自己的密碼紀錄
     }
 
     // 玩家資料（排行榜需要讀取名稱與統計）
@@ -45,8 +46,8 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn() && ((request.auth.uid == uid && notBanned() && !regClosed()) || isAdmin());   // 管理員停止註冊時，新帳號建不起玩家資料
       allow update: if signedIn() && ((request.auth.uid == uid && notBanned()) || isAdmin());
-      allow delete: if isAdmin();   // 刪除別人的帳號：只有管理員（一般玩家無法刪除任何其他玩家的資料）
-      match /friends/{fid} { allow read: if signedIn() && (request.auth.uid == uid || isAdmin()); allow write: if signedIn() && request.auth.uid == uid; allow delete: if isAdmin(); }   // 管理員要能讀出好友清單才能刪除帳號
+      allow delete: if signedIn() && (request.auth.uid == uid || isAdmin());   // 只能刪除自己的玩家資料（玩家自己刪帳號）；刪除別人的帳號只有管理員
+      match /friends/{fid} { allow read: if signedIn() && (request.auth.uid == uid || isAdmin()); allow write: if signedIn() && request.auth.uid == uid; allow delete: if signedIn() && (request.auth.uid == fid || isAdmin()); }   // 管理員要能讀出好友清單才能刪除帳號；玩家刪除自己的帳號時，可把自己（fid）從別人的好友清單移除
       match /invites/{code} {
         allow read, delete: if signedIn() && (request.auth.uid == uid || isAdmin());
         allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
@@ -65,7 +66,7 @@ service cloud.firestore {
     match /presence/{uid} {
       allow read: if signedIn();
       allow write: if signedIn() && request.auth.uid == uid && notBanned();
-      allow delete: if isAdmin();
+      allow delete: if signedIn() && (request.auth.uid == uid || isAdmin());
     }
 
     // 大廳聊天
@@ -90,7 +91,7 @@ service cloud.firestore {
       allow read: if signedIn() && (request.auth.uid in resource.data.members || isAdmin());
       allow create: if signedIn() && notBanned() && request.auth.uid in pid.split('_') && request.resource.data.members.hasAll(pid.split('_')) && request.resource.data.pts <= 1;
       allow update: if signedIn() && notBanned() && request.auth.uid in resource.data.members && request.resource.data.pts <= resource.data.pts + 1;
-      allow delete: if isAdmin();
+      allow delete: if signedIn() && (request.auth.uid in resource.data.members || isAdmin());   // 雙方任一人（刪除帳號時）或管理員
     }
 
     // 群組聊天（成員與管理員可讀）

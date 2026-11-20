@@ -441,9 +441,15 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261120b', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261120c', APP_AUTHOR = '郭柏宏';
 // 版本更新紀錄（大廳「版本更新紀錄」磚會顯示）。★每次發佈新版本：在最上面加一筆 { v: '版本號', items: [重點條列] }，舊版本的紀錄一律保留、不要刪除
 const CHANGELOG = [
+    { v: '20261120c', items: [
+        '設定新增「刪除帳號」：輸入密碼確認後，永久刪除自己的帳號與所有資料（含好友清單中的自己）。',
+        '已刪除的帳號名稱可以重新註冊（自己刪除或管理員刪除都一樣）。',
+        '管理員刪除帳號時，會一併把登入帳號刪掉，名稱立刻可重新註冊；若玩家改過密碼而無法立刻刪除，註冊時輸入相同密碼也會自動清掉舊帳號。',
+        '★ 需要到 Firebase 重新發佈 firestore.rules（開放玩家刪除自己的資料）。',
+    ] },
     { v: '20261120b', items: [
         '主畫面新增「版本更新紀錄」功能磚：點開可看每個版本改了什麼（重點條列），舊版本的紀錄會一直保留。',
     ] },
@@ -3336,7 +3342,7 @@ const online = window.online = {
         const u = $('lg-user').value.trim().toLowerCase(), p = $('lg-pass').value, name = reg ? $('lg-name').value.trim() : '';
         if (!/^[a-z0-9_]{3,16}$/.test(u)) return msg('帳號需為 3~16 字的英文、數字或底線');
         if (p.length < 6) return msg('密碼至少 6 碼');
-        $('lg-go').disabled = true; msg('處理中…');
+        $('lg-go').disabled = true; msg('處理中…'); this._regIntent = reg ? { u, p, name } : null;
         if (reg && await this.regClosed()) { msg('目前管理員已暫停開放註冊新帳號，已有帳號請回到登入'); const b = $('lg-go'); if (b) b.disabled = false; return; }
         try {
             let cr;
@@ -3377,11 +3383,57 @@ const online = window.online = {
         this.startListeners(); this.mountChat();
         if (G.gameState === 'LOGIN') G.setState(this.profile.tutorialDone ? 'LOBBY' : 'TUTORIAL');
     },
+    // ===== 玩家自己刪除帳號（設定 → 刪除帳號）：清除自己的所有資料與登入帳號，名稱可立刻重新註冊 =====
+    deleteDialog() {
+        if (!this.user || !this.profile || this.free) return;
+        G.dialog(`<h3 style="color:var(--neon-red)">刪除帳號</h3>
+            <p style="text-align:left;line-height:1.7;font-size:.92rem">帳號「<b>${esc(this.profile.username)}</b>」的存檔、暗物質、戰機、好友與紀錄都會<b style="color:var(--neon-red)">永久刪除</b>，無法復原。<br>刪除後這個帳號名稱可以重新註冊（會是全新的帳號）。</p>
+            <label>請輸入密碼確認<input id="del-pw" type="password" autocomplete="current-password" placeholder="目前的帳號密碼" style="width:100%;padding:8px;margin-top:4px;box-sizing:border-box"></label>
+            <p id="del-msg" class="muted" style="min-height:1.2em;color:#ff8a8a"></p>
+            <button class="btn" id="del-go" style="border-color:#ff4466;color:#ff6b88" onclick="online.deleteSelf()">永久刪除我的帳號</button>
+            <button class="btn btn-start" onclick="game.closeDlg()">取消 [Esc]</button>`);
+    },
+    async deleteSelf() {
+        const say = t => { const m = $('del-msg'); if (m) m.textContent = t; }, btn = $('del-go'), u = this.user;
+        if (!u || !this.profile || !fbOk || this._deleting) return;
+        const pw = ($('del-pw') || {}).value || ''; if (!pw) return say('請輸入密碼');
+        if (!confirm(`最後確認：真的要永久刪除帳號「${this.profile.username}」嗎？`)) return;
+        if (btn) btn.disabled = true; say('驗證密碼…');
+        try { await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, pw)); }
+        catch (e) { if (btn) btn.disabled = false; return say(e && /wrong-password|invalid-credential|invalid-login/.test(e.code || '') ? '密碼錯誤' : errMsg(e)); }
+        this._deleting = true; clearTimeout(this._pt); clearInterval(this._presT);   // 停止所有寫入，免得資料被寫回去
+        const uid = u.uid, U = db.collection('users').doc(uid), nm = this.profile.username;
+        try {
+            say('刪除資料中…');
+            for (const sub of ['friends', 'invites']) {
+                const sn = await U.collection(sub).get();
+                if (sub === 'friends') await Promise.all(sn.docs.map(d => db.collection('users').doc(d.id).collection('friends').doc(uid).delete().catch(() => {})));   // 別人好友清單裡的我
+                await Promise.all(sn.docs.map(d => d.ref.delete()));
+            }
+            for (const k of ['from', 'to']) { try { const r = await db.collection('friendRequests').where(k, '==', uid).get(); await Promise.all(r.docs.map(d => d.ref.delete().catch(() => {}))); } catch (e) {} }
+            try { const r = await db.collection('bonds').where('members', 'array-contains', uid).get(); await Promise.all(r.docs.map(d => d.ref.delete().catch(() => {}))); } catch (e) {}
+            try { await db.collection('presence').doc(uid).delete(); } catch (e) {}
+            try { await db.collection('creds').doc(uid).delete(); } catch (e) {}
+            await U.delete();
+            say('刪除登入帳號…'); await u.delete();
+        } catch (e) {
+            console.error(e); this._deleting = false; if (btn) btn.disabled = false;
+            return say('刪除失敗：' + errMsg(e) + '（資料可能已部分清除，請再按一次「永久刪除」）');
+        }
+        try { await auth.signOut(); } catch (e) {}
+        try { localStorage.removeItem(SAVEKEY); localStorage.removeItem(MIRROR); } catch (e) {}
+        this._deleting = false; G.closeDlg(); this.onLogout();
+        setTimeout(() => G.dialog(`<h3>帳號已刪除</h3><p style="text-align:left;line-height:1.7">帳號「${esc(nm)}」與所有資料都已刪除，這個帳號名稱可以重新註冊。</p><button class="btn btn-start" onclick="game.closeDlg()">我知道了</button>`), 400);
+    },
     async removeDeleted(u) {   // 管理員已刪除這個帳號：把 Firebase 的登入帳號本身也刪除（瀏覽器只能刪「自己」，所以在對方下次登入時執行），名稱就能重新註冊
         let done = true; try { await u.delete(); } catch (e) { done = false; console.error(e); }
         try { if (fbOk) await auth.signOut(); } catch (e) {}
         try { localStorage.removeItem(SAVEKEY); localStorage.removeItem(MIRROR); } catch (e) {}
         this.onLogout();
+        const ri = this._regIntent; this._regIntent = null;
+        if (ri && done) {   // 剛剛是在「註冊」這個名稱時撞到被刪除的舊帳號：舊的已清乾淨，直接用輸入的帳密重新註冊
+            try { this.pending = ri.name || ri.u; const cr = await auth.createUserWithEmailAndPassword(ri.u + MAIL, ri.p); this.saveCred(db, cr, ri.u, ri.p); return; } catch (e) { console.error(e); }
+        }
         setTimeout(() => G.dialog(`<h3 style="color:var(--neon-red)">此帳號已被管理員刪除</h3><p style="text-align:left;line-height:1.7">${done ? '帳號與資料都已刪除，這個帳號名稱可以重新註冊。' : '帳號資料已刪除；請再輸入一次帳號密碼登入，即可完成刪除登入帳號。'}</p><button class="btn btn-start" onclick="game.closeDlg()">我知道了</button>`), 400);
     },
     async kick(b) {   // 黑名單：登出並顯示停權原因
@@ -3441,9 +3493,9 @@ const online = window.online = {
     },
 
     // ===== 雲端存檔 / 統計 =====
-    queuePush() { this._dirty = true; this.writeMirror(); clearTimeout(this._pt); this._pt = setTimeout(() => this.pushNow(), 1500); },
+    queuePush() { if (this._deleting) return; this._dirty = true; this.writeMirror(); clearTimeout(this._pt); this._pt = setTimeout(() => this.pushNow(), 1500); },
     pushNow() {
-        if (!this.user || !this.profile || !db || this._pendingAdmin) return;
+        if (!this.user || !this.profile || !db || this._pendingAdmin || this._deleting) return;
         let sv = null; try { sv = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); } catch (e) {}
         const doc = Object.assign({}, this.profile, { save: sv, darkMatter: G.darkMatter, galaxy: G.galaxy, updatedAt: Date.now() });
         if (this.isAdmin || this.profile.username === ADMIN_USER) doc.hideRank = true;   // 管理員不列入排行榜
@@ -3606,14 +3658,14 @@ const online = window.online = {
     // ===== 上線狀態：5 分鐘內有活動＝在線，5 分鐘沒活動自動變下線 =====
     touch(force) {
         const now = Date.now();
-        if (!this.user || !this.profile || !db || this.offline || this._away) return;   // 「離開遊戲」期間不回報在線
+        if (!this.user || !this.profile || !db || this.offline || this._away || this._deleting) return;   // 「離開遊戲」期間不回報在線
         if (force || now - this.lastPres > 60000) {
             this.lastPres = now;
             db.collection('presence').doc(this.user.uid).set({ name: this.profile.name, top: this.topShip(this.profile), lastActive: now }).catch(() => {});
         }
     },
     goOffline() {
-        if (!this.user || !this.profile || !db) return; this.lastPres = 0;
+        if (!this.user || !this.profile || !db || this._deleting) return; this.lastPres = 0;
         db.collection('presence').doc(this.user.uid).set({ name: this.profile.name, top: this.topShip(this.profile), lastActive: Date.now() - this.ONL_MS }).catch(() => {});
     },
     // ===== 離開遊戲：保持登入（下次開啟不用重打帳密），但立即變成離線，聊天室顯示「XXX下線囉!」、好友列表顯示灰燈 =====
@@ -4090,11 +4142,16 @@ const online = window.online = {
             for (const k of ['from', 'to']) { try { const r = await adb.collection('friendRequests').where(k, '==', T.uid).get(); await Promise.all(r.docs.map(d => d.ref.delete().catch(() => {}))); } catch (e) {} }   // 相關的好友邀請
             try { await adb.collection('presence').doc(T.uid).delete(); } catch (e) {}
             try { const r = await adb.collection('bonds').where('members', 'array-contains', T.uid).get(); await Promise.all(r.docs.map(d => d.ref.delete().catch(() => {}))); } catch (e) {}   // 羈絆值紀錄
+            let authGone = false;
+            try {   // 用玩家登入時記下的密碼，在暫時的第二個登入環境把「登入帳號」本身刪掉（瀏覽器只能刪自己）；成功的話名稱立刻可重新註冊
+                const cs = await adb.collection('creds').doc(T.uid).get(), pw = cs.exists ? cs.data().pw : '', un = T.d.username || (cs.exists ? cs.data().u : '');
+                if (pw && un) { let app; try { app = firebase.initializeApp(CFG, 'del' + Date.now()); const a = app.auth(); try { await a.setPersistence(firebase.auth.Auth.Persistence.NONE); } catch (e) {} const cr = await a.signInWithEmailAndPassword(un + MAIL, pw); if (cr.user.uid === T.uid) { await cr.user.delete(); authGone = true; } } finally { try { if (app) await app.delete(); } catch (e) {} } }
+            } catch (e) { console.warn('刪除登入帳號失敗（密碼已變更或沒有紀錄）', e); }
             try { await adb.collection('creds').doc(T.uid).delete(); } catch (e) {}
             await U.delete();
             this._adUsers = (this._adUsers || []).filter(u => u.uid !== T.uid); this._adT = null;
             const b = $('ad-user'); if (b) b.innerHTML = ''; const q = $('ad-q'); if (q) q.value = '';
-            this.adList(); if (m) m.textContent = `已刪除帳號「${nm}」：玩家資料已清除；該玩家下次開啟遊戲或登入時，登入帳號本身也會自動刪除、名稱即可重新註冊（想立刻釋出名稱，可到 Firebase → Authentication 手動刪除）`;
+            this.adList(); if (m) m.textContent = `已刪除帳號「${nm}」：玩家資料已清除；` + (authGone ? '登入帳號也已一併刪除，這個名稱現在就可以重新註冊。' : '登入帳號沒能立刻刪除（沒有密碼紀錄或對方已改密碼）：對方下次開啟遊戲或登入時會自動刪除；若有人要用同一個名稱註冊，輸入的密碼和舊密碼相同也會自動清掉舊帳號並完成註冊（想立刻釋出名稱，可到 Firebase → Authentication 手動刪除）。');
         } catch (e) { if (m) m.textContent = errMsg(e); }
     },
     async adFind() {
@@ -4646,7 +4703,7 @@ wrap('closeDlg', function (o) { this.aboutOpen = false; o.call(this); });
 wrap('openSettings', function (o) {
     o.call(this); const box = document.querySelector('#dlg .box'); if (!box) return;
     const last = box.querySelector('.btn-start'), d = document.createElement('div');
-    d.innerHTML = `${online.profile ? `<p class="muted">帳號：${esc(online.profile.name)}（${esc(online.profile.username)}）</p>${online.user ? '<button class="btn" onclick="game.closeDlg();online.logout()">登出</button>' : ''}` : ''}`;
+    d.innerHTML = `${online.profile ? `<p class="muted">帳號：${esc(online.profile.name)}（${esc(online.profile.username)}）</p>${online.user ? '<button class="btn" onclick="game.closeDlg();online.logout()">登出</button><button class="btn" style="border-color:#ff4466;color:#ff6b88" onclick="game.closeDlg();online.deleteDialog()">刪除帳號</button>' : ''}` : ''}`;
     box.insertBefore(d, last);
 });
 wrap('handleKey', function (o, e) {
