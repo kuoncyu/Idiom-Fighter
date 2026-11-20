@@ -441,10 +441,14 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261120f', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261121a', APP_AUTHOR = '郭柏宏';
 // 版本更新紀錄（大廳「版本更新紀錄」磚會顯示）。★每次發佈新版本：在最上面加一筆 { v: '版本號', items: [重點條列] }；只顯示最近 5 筆，更舊的會自動被擠掉（CHANGE_KEEP）
 const CHANGE_KEEP = 5;
 const CHANGELOG = [
+    { v: '20261121a', items: [
+        '連線闖關：修正暗殺號無法正常狙擊——現在隊員自己的畫面也看得到瞄準星、鎖定線與命中光束，鎖定所需秒數改用隊員自己的戰機數值（射速升級會生效）。',
+        '連線闖關：修正戰鬥中點開聊天室後背景音樂暫停、關掉也不會恢復的問題。',
+    ] },
     { v: '20261120f', items: [
         '連線闖關：修正打完最終 Boss 後畫面卡死、無法進入結算的問題（結算資料出錯時房主會卡在轉場）。',
         '房主先進入結算畫面再通知隊員；轉場卡住超過 6 秒會自動處理，隊員也會主動查詢結算結果。',
@@ -462,9 +466,6 @@ const CHANGELOG = [
         '已刪除的帳號名稱可以重新註冊（自己刪除或管理員刪除都一樣）。',
         '管理員刪除帳號時，會一併把登入帳號刪掉，名稱立刻可重新註冊；若玩家改過密碼而無法立刻刪除，註冊時輸入相同密碼也會自動清掉舊帳號。',
         '★ 需要到 Firebase 重新發佈 firestore.rules（開放玩家刪除自己的資料）。',
-    ] },
-    { v: '20261120b', items: [
-        '主畫面新增「版本更新紀錄」功能磚：點開可看每個版本改了什麼（重點條列），舊版本的紀錄會一直保留。',
     ] },
 ];
 
@@ -1739,7 +1740,7 @@ class Game {
         return true;
     }
     chatPause() {   // 戰鬥中點到聊天室：自動暫停（聊天室裡的操作不會讓戰鬥恢復，點聊天室以外的地方才會恢復）
-        if (this.gameState !== 'PLAYING' || this.paused || this.dlgOpen || this.pkMode) return;
+        if (this.gameState !== 'PLAYING' || this.paused || this.dlgOpen || this.pkMode || (this.coopMode && !this.coopLocal)) return;   // 連線闖關不能暫停：點聊天室不暫停、也不要把音樂停掉
         this.paused = true; music.pause(true);
     }
     battleChatOn() { try { return localStorage.getItem('idiomChatBattle') !== '0'; } catch (e) { return true; } }   // 戰鬥中是否顯示聊天室（預設顯示）
@@ -1820,7 +1821,7 @@ class Game {
         }
         return e._armor;
     }
-    snipeNeedOf(id) { const S = this.ship(id), L = this.fleet[id] || {}; return SNIPE_T0 - (SNIPE_T0 - SNIPE_T1) * Math.min(1, (L.rate || 0) / S.cap.rate); }   // 鎖定所需停留秒數：基礎 3 秒，射速升到頂 1 秒
+    snipeNeedOf(id) { if (this.coopMode && this.snipeNeed > 0) return this.snipeNeed; const S = this.ship(id), L = this.fleet[id] || {}; return SNIPE_T0 - (SNIPE_T0 - SNIPE_T1) * Math.min(1, (L.rate || 0) / S.cap.rate); }   // 鎖定所需停留秒數：基礎 3 秒，射速升到頂 1 秒
     snipePick(n) {   // 鎖定順序：Boss → 敵機 → 字卡（同類取離自己最近的）
         if (this.pkMode) {   // PK：只鎖定對手（字塊交給附炮）
             const g = window.online && online.pk && online.pk.ghost; return g && n > 0 ? [{ k: 'g', o: { pos: { x: g.x, y: g.y }, radius: (online.pk.ghostR || 15) + 6, hp: 1 } }] : [];
@@ -2298,7 +2299,7 @@ class Game {
     loop(timestamp) {
         this.perfWatch(timestamp - (this._pt || timestamp)); this._pt = timestamp;
         const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1); this.lastTime = timestamp;
-        if (this.coopMode) { if (!this.coopLocal) this.paused = false; if (this.casting) this.endCast(); }   // 連線多人闖關不能暫停；同機多人（同一台電腦）可以暫停（按 Esc、回首頁對話框、視窗失焦）。兩者都沒有 5 秒蓄力停格
+        if (this.coopMode) { if (!this.coopLocal && this.paused) { this.paused = false; music.pause(false); } if (this.casting) this.endCast(); }   // 連線多人闖關不能暫停；同機多人（同一台電腦）可以暫停（按 Esc、回首頁對話框、視窗失焦）。兩者都沒有 5 秒蓄力停格
         if (this.gameState === 'PLAYING') { if (!this.paused) { if (this.casting) { this.casting.t -= dt; if (this.casting.t <= 0) this.finishCast(); this.tickClear(dt); } else { this.tickClear(dt); this.bgClock += dt; this.runClock += dt; if (this.pkMode) this.pkTime += dt; this.update(dt); } } } else if (this.gameState === 'TRANSITION') { if (!(this.coopLocal && (this.dlgOpen || this.paused))) { this.bgClock += dt; this.runClock += dt; this.updateTransition(dt); } } else if (this.isMenu()) this.updateDemo(dt);
         if (!(QUAL[LITE.lv].half && (this._lf = !this._lf))) this.draw(); requestAnimationFrame((t) => this.loop(t));   // 省電畫質：畫面每兩個 frame 才畫一次（約 30 FPS），遊戲邏輯照常跑
     }
@@ -4723,7 +4724,7 @@ wrap('handleKey', function (o, e) {
 //  主控端：模擬整個戰場（敵機／Boss／子彈／字塊／所有隊員），約每 0.125 秒把畫面存進 rooms/{code}/pos/world
 //  客戶端：不模擬戰場，只把主控端的畫面「映射」出來；自己的機體在本機移動，位置回報給主控端，成語由主控端裁決
 // ===================================================================
-const COOP_FIELDS = ['hp', 'maxHp', 'shield', 'st', 'skin', 'shipId', 'covLv', 'weaponLvl', 'invincibleTimer', 'laserTimer', 'pierceTimer', 'lifestealTimer', 'missileTimer', 'missileCd', 'allies', 'allyTimer', 'snipe', 'magnetLvl', '_lanceN', 'coopAl', 'player'];
+const COOP_FIELDS = ['hp', 'maxHp', 'shield', 'st', 'skin', 'shipId', 'covLv', 'weaponLvl', 'invincibleTimer', 'laserTimer', 'pierceTimer', 'lifestealTimer', 'missileTimer', 'missileCd', 'allies', 'allyTimer', 'snipe', 'snipeNeed', 'magnetLvl', '_lanceN', 'coopAl', 'player'];
 // ===== 多人闖關專屬：Boss 詞綴（單機關卡沒有；同機多人與連線闖關都適用）=====
 // combo 連擊護盾：Boss 帶一面計數護盾，護盾在時對 Boss 傷害 0；COMBO_WIN 秒內全隊累計命中（同一人同一輪齊射算 1 次）達標才破盾，破盾後 COMBO_CD 秒重生 → 連射號
 // wide  巨艦：船體寬度等於螢幕寬、不能移動、彈幕極密；每擊中我方一次回復 WIDE_HEAL 最大血量 → 疾風號靠閃躲
@@ -4898,7 +4899,7 @@ const coop = {
     // ================= 開戰 =================
     freshState(st) {   // 主控端用來模擬「隊員」的狀態（欄位與 Game 上的同名欄位一一對應）
         return { hp: st.hp, maxHp: st.hp, shield: 0, st: { dmg: st.dmg, interval: st.iv, pen: st.pen, crit: st.crit, len: st.len || 0 }, skin: Math.max(0, SHIPS.findIndex(x => x.id === st.sid)), shipId: st.sid, covLv: st.cov, weaponLvl: st.wl,
-            invincibleTimer: 0, laserTimer: 0, pierceTimer: 0, lifestealTimer: 0, missileTimer: 0, missileCd: 0, allies: [], allyTimer: 0, snipe: { c: 0, t: [], fx: [] }, magnetLvl: st.mg, _lanceN: 0, coopAl: st.al || null,
+            invincibleTimer: 0, laserTimer: 0, pierceTimer: 0, lifestealTimer: 0, missileTimer: 0, missileCd: 0, allies: [], allyTimer: 0, snipe: { c: 0, t: [], fx: [] }, snipeNeed: st.sn > 0 ? st.sn : 0, magnetLvl: st.mg, _lanceN: 0, coopAl: st.al || null,
             player: { pos: new Vec2(WORLD.w / 2, WORLD.h - 150), radius: st.r, speed: st.spd, lastShoot: 0, rapidFire: 0, spreadFire: 0 } };
     },
     begin(d) {
@@ -5279,7 +5280,7 @@ const coop = {
         const src = id => this.P[id].host ? g : this.P[id].s;
         const S = { q: ++this.seq, W: ri(WORLD.w), H: ri(WORLD.h), gs: g.gameState, st: g.currentStage, sb: g.currentSub, ct: r1(g.clearT || 0), cn: g.clearNext ? 1 : 0, nx: g.isNextStage ? 1 : 0, rs: this.resetSeq, pool: ri(this.pool), ms: g.maxSlots, sw: g.slowTimer > 0 ? Math.max(0.1, r1(g.slowTimer)) : 0, sn: g.slowTimer > 0 ? (this.slowBy || '') : '' };
         S.sl = g.slots.map(s => [s.type === 'READY' ? 1 : 0, s.word, s.chars.join(''), s.effect, s.effectDesc]);
-        S.P = ids.map(id => { const P = this.P[id], s = src(id), pos = P.host ? g.player.pos : s.player.pos; return [id, ri(pos.x), ri(pos.y), r1(s.hp), ri(s.maxHp), r1(s.shield), r1(Math.max(0, s.invincibleTimer)), s.laserTimer > 0 ? Math.max(0.1, r1(s.laserTimer)) : 0, s.skin, P.alive ? 1 : 0, r1(Math.max(0, s.pierceTimer)), r1(Math.max(0, s.missileTimer)), r1(Math.max(0, s.allyTimer || 0)), r1(Math.max(0, s.lifestealTimer || 0))]; });
+        S.P = ids.map(id => { const P = this.P[id], s = src(id), pos = P.host ? g.player.pos : s.player.pos; return [id, ri(pos.x), ri(pos.y), r1(s.hp), ri(s.maxHp), r1(s.shield), r1(Math.max(0, s.invincibleTimer)), s.laserTimer > 0 ? Math.max(0.1, r1(s.laserTimer)) : 0, s.skin, P.alive ? 1 : 0, r1(Math.max(0, s.pierceTimer)), r1(Math.max(0, s.missileTimer)), r1(Math.max(0, s.allyTimer || 0)), r1(Math.max(0, s.lifestealTimer || 0)), (s.snipe && SKINS[s.skin] && SKINS[s.skin].pat === 'snipe') ? [Math.round(s.snipe.c * 100) / 100, (s.snipe.t || []).map(t => [ri(t.o.pos.x), ri(t.o.pos.y), ri(t.o.radius || 30)]), (s.snipe.fx || []).map(f => [ri(f.x1), ri(f.y1), ri(f.x2), ri(f.y2), Math.round(f.t * 100) / 100])] : 0]; });
         S.E = g.enemies.map(e => { if (!e._id) e._id = ++this.nid; return [e._id, COOP_TYPES.indexOf(e.type), ri(e.pos.x), ri(e.pos.y), r1(e.hp), r1(e.maxHp), ri(e.radius), ri(g.shieldOf(e)), ri(e.maxShield || 0), e.charge > 0 ? r1(e.charge) : 0, r1(e.lockA || 0), r1(e.snipeP || 0)]; });
         const b = g.boss; S.B = b ? [ri(b.pos.x), ri(b.pos.y), r1(b.hp), r1(b.maxHp), ri(g.shieldOf(b)), ri(b.maxShield || 0), b.stage, b.cmb || 0, b.csUp === false ? 0 : 1, r1(b.csT || 0), b.fm | 0, r1(b.formT || 0)] : 0; S.BC = (g.bossClones || []).map(c => [ri(c.pos.x), ri(c.pos.y), c.side]);
         S.U = []; const sl = g.slowTimer > 0, MAXB = 300, BP = g.bullets.pool;   // 子彈過多時：敵彈（會傷人）全送，我方子彈只送一半（依編號奇偶固定挑選，畫面不閃爍），總數上限 300，大幅縮小封包
@@ -5348,13 +5349,13 @@ const coop = {
             const id = a[0];
             if (id === me) {
                 const wasDead = this.view[me] && this.view[me].alive === 0;   // 倒下→復活：把自己的戰機對齊主控端算好的復活位置
-                g.hp = a[3]; g.maxHp = a[4]; g.shield = a[5]; g.invincibleTimer = a[6]; g.laserTimer = a[7] ? 1 : 0; g.pierceTimer = a[10]; g.missileTimer = a[11]; g.lifestealTimer = a[13] || 0;
+                g.hp = a[3]; g.maxHp = a[4]; g.shield = a[5]; g.invincibleTimer = a[6]; g.laserTimer = a[7] ? 1 : 0; g.pierceTimer = a[10]; g.missileTimer = a[11]; g.lifestealTimer = a[13] || 0; if (a[14]) g.snipe = this.decSn(a[14]);
                 if (wasDead && a[9]) g.player.pos = new Vec2(a[1], a[2]);
                 this.view[me] = { alive: a[9], hp: a[3], maxHp: a[4], shield: a[5], inv: a[6], laser: a[7], pierce: a[10], missile: a[11], ally: a[12] || 0, lifesteal: a[13] || 0 };
                 if (S.rs !== this.rsSeen) { this.rsSeen = S.rs; if (a[9]) g.player.pos = new Vec2(a[1], a[2]); this.inX = -1; this.inSent = 0; }   // 新關卡：站到房主排好的起點（畫面最下方），並立刻回報新位置
             } else {
                 let o = this.view[id]; if (!o) o = this.view[id] = { x: a[1], y: a[2] };
-                o.tx = a[1]; o.ty = a[2]; o.hp = a[3]; o.maxHp = a[4]; o.shield = a[5]; o.inv = a[6]; o.laser = a[7]; o.skin = a[8]; o.alive = a[9]; o.pierce = a[10]; o.missile = a[11]; o.ally = a[12] || 0; o.lifesteal = a[13] || 0;
+                o.tx = a[1]; o.ty = a[2]; o.hp = a[3]; o.maxHp = a[4]; o.shield = a[5]; o.inv = a[6]; o.laser = a[7]; o.skin = a[8]; o.alive = a[9]; o.pierce = a[10]; o.missile = a[11]; o.ally = a[12] || 0; o.lifesteal = a[13] || 0; o.sn = a[14] ? this.decSn(a[14]) : null;
             }
         });
         // 敵機
@@ -5412,6 +5413,7 @@ const coop = {
         if (G.coopHost) { const P = this.P[id]; if (!P) return null; const s = P.host ? G : P.s, pos = P.host ? G.player.pos : s.player.pos; return { x: pos.x, y: pos.y, hp: s.hp, maxHp: s.maxHp, shield: s.shield, inv: s.invincibleTimer, laser: s.laserTimer > 0, skin: s.skin, alive: P.alive ? 1 : 0 }; }
         return this.view[id] || null;
     },
+    decSn(a) { return { c: a[0] || 0, t: (a[1] || []).map(q => ({ o: { pos: { x: q[0], y: q[1] }, radius: q[2] } })), fx: (a[2] || []).map(q => ({ x1: q[0], y1: q[1], x2: q[2], y2: q[3], t: q[4] || 0 })) }; },   // 解開房主傳來的狙擊狀態（蓄力、鎖定目標、命中光束）
     drawTeam(ctx) {
         this.drawBossFx(ctx);
         const g = G, me = this.me(), tr = (g.gameState === 'TRANSITION' && g.transitionTimer > 1) ? (g.transitionTimer - 1) * 1000 : 0;
@@ -5423,6 +5425,7 @@ const coop = {
             if (img) { ctx.shadowColor = S.c; ctx.shadowBlur = 14; if (!IMG['ship_' + S.id]) ctx.filter = `hue-rotate(${S.h}deg)`; fitDraw(ctx, img, img.width / img.height > 1.3 ? 118 : 96); }
             else { ctx.fillStyle = S.c; ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(24, 24); ctx.lineTo(-24, 24); ctx.closePath(); ctx.fill(); }
             ctx.restore();
+            if (S.pat === 'snipe') { const sn = (G.coopHost || this.local) ? (this.P[id] && this.P[id].s && this.P[id].s.snipe) : v.sn; if (sn && sn.t) { try { g.drawSnipe.call({ snipe: sn, player: { pos: { x, y } } }, ctx); } catch (e) {} } }   // 隊友的暗殺號：畫出瞄準星、鎖定線與命中光束
             g.drawBars(ctx, x, y + 54 * S.s, 64, v.hp, v.maxHp, v.shield, v.maxHp, '#33ff88');
             ctx.save(); ctx.fillStyle = (this.local && LC_COL[this.order.indexOf(id)]) || '#9ff'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(this.nm[id] || '', x, y - 38 * S.s); ctx.restore();
         });
