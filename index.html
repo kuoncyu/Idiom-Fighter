@@ -441,10 +441,16 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261121a', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261121b', APP_AUTHOR = '郭柏宏';
 // 版本更新紀錄（大廳「版本更新紀錄」磚會顯示）。★每次發佈新版本：在最上面加一筆 { v: '版本號', items: [重點條列] }；只顯示最近 5 筆，更舊的會自動被擠掉（CHANGE_KEEP）
 const CHANGE_KEEP = 5;
 const CHANGELOG = [
+    { v: '20261121b', items: [
+        '同機闖關：修正其他玩家（非房主）領不到銀河幣的問題——改為交易寫入並從伺服器讀回核對，沒加成功會顯示失敗並可重試。',
+        '成語效果改為依血量百分比：治療回復最大血量 30%、護盾每次 +40%（說明文字同步更新）。',
+        '連線闖關：暗殺號陣亡後，隊友不會再看到殘留的狙擊線。',
+        '修正離開遊戲畫面的「關閉視窗」按鈕沒反應：瀏覽器不允許關閉時，會改為清空頁面並提示可直接關閉分頁。',
+    ] },
     { v: '20261121a', items: [
         '連線闖關：修正暗殺號無法正常狙擊——現在隊員自己的畫面也看得到瞄準星、鎖定線與命中光束，鎖定所需秒數改用隊員自己的戰機數值（射速升級會生效）。',
         '連線闖關：修正戰鬥中點開聊天室後背景音樂暫停、關掉也不會恢復的問題。',
@@ -460,12 +466,6 @@ const CHANGELOG = [
         '連線闖關：進入房間與戰鬥中新增提醒「請勿切換螢幕或分頁」，避免有玩家切走畫面造成卡住或斷線。',
         '連線闖關：修正過關後下一關的初始位置有時跑到戰場上方，現在一律出現在戰場最下方。',
         '版本更新紀錄只保留最近 5 次更新，更舊的會自動被擠掉。',
-    ] },
-    { v: '20261120c', items: [
-        '設定新增「刪除帳號」：輸入密碼確認後，永久刪除自己的帳號與所有資料（含好友清單中的自己）。',
-        '已刪除的帳號名稱可以重新註冊（自己刪除或管理員刪除都一樣）。',
-        '管理員刪除帳號時，會一併把登入帳號刪掉，名稱立刻可重新註冊；若玩家改過密碼而無法立刻刪除，註冊時輸入相同密碼也會自動清掉舊帳號。',
-        '★ 需要到 Firebase 重新發佈 firestore.rules（開放玩家刪除自己的資料）。',
     ] },
 ];
 
@@ -558,6 +558,7 @@ function patternShots(S, lv, solo) {   // solo：沒有狙擊系統可用的場�
     }
     return out;
 }
+const HEAL_PCT = 0.3, SHIELD_PCT = 0.4;   // 治療回復最大血量的 30%；護盾每次增加最大血量的 40%（上限為最大血量）
 const SNIPE_SIDE_DM = 0.6, SNIPE_K = 10, SNIPE_CRIT_BONUS = 0.3, SNIPE_T0 = 3, SNIPE_T1 = 1;   // 附炮傷害倍率／狙擊傷害倍率／鎖定爆擊加成／基礎與滿級鎖定秒數
 // ===== PK 平衡：部分戰機輸出過高，PK 時削弱；暗殺號狙擊蓄滿即瞬間命中（傷害降低）=====
 const PK_MAGNET = 2, PK_SLOTS = 3;   // PK 固定磁吸等級與成語列格數
@@ -833,7 +834,7 @@ const jukebox = {
 };
 
 const CONFIG = {
-    EFFECTS: { BOMB_BOOST:"清空彈幕", INVINCIBLE:"10秒無敵", LASER_BEAM:"貫穿雷射", HEAL:"回復3000血", SLOW_TIME:"敵彈減速", SHIELD:"護盾+5000", PIERCE:"穿甲彈 30秒", MISSILE:"追蹤導彈 10秒", ALLY:"呼叫友軍 15秒", LIFESTEAL:"吸血 10秒" },
+    EFFECTS: { BOMB_BOOST:"清空彈幕", INVINCIBLE:"10秒無敵", LASER_BEAM:"貫穿雷射", HEAL:"回復30%血量", SLOW_TIME:"敵彈減速", SHIELD:"護盾+40%血量", PIERCE:"穿甲彈 30秒", MISSILE:"追蹤導彈 10秒", ALLY:"呼叫友軍 15秒", LIFESTEAL:"吸血 10秒" },
     IDIOM_LIST: [
         ["天崩地裂","BOMB_BOOST"],["排山倒海","BOMB_BOOST"],["石破天驚","BOMB_BOOST"],["雷霆萬鈞","BOMB_BOOST"],["驚天動地","BOMB_BOOST"],["地動山搖","BOMB_BOOST"],["摧枯拉朽","BOMB_BOOST"],["翻江倒海","BOMB_BOOST"],["氣吞山河","BOMB_BOOST"],["驚濤駭浪","BOMB_BOOST"],
         ["金蟬脫殼","INVINCIBLE"],["安然無恙","INVINCIBLE"],["全身而退","INVINCIBLE"],["平安無事","INVINCIBLE"],["毫髮無傷","INVINCIBLE"],["逢凶化吉","INVINCIBLE"],["吉人天相","INVINCIBLE"],["有驚無險","INVINCIBLE"],["化險為夷","INVINCIBLE"],["轉危為安","INVINCIBLE"],
@@ -1739,6 +1740,10 @@ class Game {
         this.paused = false; music.pause(false); this._resumedAt = now; if (fromPointer) this._swallowUntil = now + 300;   // 這一下點擊只用來恢復，不要同時施放成語
         return true;
     }
+    closeWindow() {   // 瀏覽器只允許關閉「由程式開啟」的視窗；關不掉時改為清空頁面並提示，避免按了沒反應
+        try { window.close(); } catch (e) {}
+        setTimeout(() => { try { document.title = '可以關閉此分頁'; document.body.innerHTML = '<div style="position:fixed;inset:0;background:#050510;color:#9ab;display:flex;align-items:center;justify-content:center;text-align:center;font:18px sans-serif;line-height:1.8">遊戲已關閉<br>瀏覽器不允許網頁自行關閉分頁，請直接關閉此分頁（或回到主畫面）。</div>'; } catch (e) {} try { location.replace('about:blank'); } catch (e) {} }, 250);
+    }
     chatPause() {   // 戰鬥中點到聊天室：自動暫停（聊天室裡的操作不會讓戰鬥恢復，點聊天室以外的地方才會恢復）
         if (this.gameState !== 'PLAYING' || this.paused || this.dlgOpen || this.pkMode || (this.coopMode && !this.coopLocal)) return;   // 連線闖關不能暫停：點聊天室不暫停、也不要把音樂停掉
         this.paused = true; music.pause(true);
@@ -2220,12 +2225,12 @@ class Game {
         if (idiom.effect === 'INVINCIBLE') this.invincibleTimer = 10;
         
         if (idiom.effect === 'LASER_BEAM') this.triggerLaser();
-        if (idiom.effect === 'SHIELD') { this.shield = Math.min(this.maxHp, this.shield + 50); this.showFloatText('護盾 +' + 50 * SHOW, this.player.pos.x, this.player.pos.y - 70, '#4dd2ff'); }
+        if (idiom.effect === 'SHIELD') { const add = this.maxHp * SHIELD_PCT; this.shield = Math.min(this.maxHp, this.shield + add); this.showFloatText('護盾 +' + Math.round(add * SHOW), this.player.pos.x, this.player.pos.y - 70, '#4dd2ff'); }
         if (idiom.effect === 'ALLY') this.summonAllies();
         if (idiom.effect === 'PIERCE') this.pierceTimer = 30;
         if (idiom.effect === 'LIFESTEAL') { this.lifestealTimer = LIFESTEAL_T; this._lsAcc = 0; this._lsTot = 0; this.showFloatText('吸血 ' + LIFESTEAL_T + ' 秒', this.player.pos.x, this.player.pos.y - 70, '#ff5c8a'); }
         if (idiom.effect === 'MISSILE') { this.missileTimer = 10; this.missileCd = 0; }
-        if (idiom.effect === 'HEAL') { this.hp = Math.min(this.maxHp, this.hp + 30); this.updateHUD(); }
+        if (idiom.effect === 'HEAL') { this.hp = Math.min(this.maxHp, this.hp + this.maxHp * HEAL_PCT); this.updateHUD(); }
         if (idiom.effect === 'SLOW_TIME') this.slowTimer = 6;
     }
 
@@ -2985,7 +2990,7 @@ class Game {
             });
             this.enemies.forEach(e => { this.shieldOf(e); this.drawBars(ctx, e.pos.x, e.pos.y - e.radius * 1.7 - 6, e.radius * 2.4, e.hp, e.maxHp, e.shield, e.maxShield, e.color); });
             if (this.boss) { this.shieldOf(this.boss); this.drawBars(ctx, this.boss.pos.x, this.boss.pos.y - this.boss.size * 0.5 - 14, 150, this.boss.hp, this.boss.maxHp, this.boss.shield, this.boss.maxShield, '#ff3333'); }
-            if (this.snipe && SKINS[this.skin].pat === 'snipe') this.drawSnipe(ctx);
+            if (this.snipe && SKINS[this.skin].pat === 'snipe' && this.player.pos.y > 0) this.drawSnipe(ctx);
             this.drawBars(ctx, this.player.pos.x, this.player.pos.y + 54 * SKINS[this.skin].s, 64, this.hp, this.maxHp, this.shield, this.maxHp, '#33ff88');
             if (this.clearT > 0) {
                 ctx.save(); ctx.textAlign = 'center'; ctx.font = "22px 'DFKai-SB','BiauKai','標楷體','KaiTi','Kaiti TC',serif"; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.7)'; ctx.fillStyle = '#ffea00';
@@ -3648,7 +3653,7 @@ const online = window.online = {
         try { music.pause(true); } catch (e) {}
         const f = $('chat-fab'), pn = $('chat-panel'); if (f) f.style.display = 'none'; if (pn) pn.style.display = 'none';
         const who = this.profile ? `<p class="muted" style="line-height:1.7">帳號：<b>${esc(this.profile.name)}</b>（${esc(this.profile.username || '')}）<br>登入狀態已保留，下次開啟遊戲不需要重新輸入帳號密碼。<br>你目前顯示為「離線」，好友會看到你已下線。</p>` : '<p class="muted">已離開遊戲。</p>';
-        ui(`<div class="menu-overlay" style="width:min(92vw,380px)"><h2 class="shop-title">已離開遊戲</h2>${who}<button class="btn btn-start" onclick="game.setState('LOBBY')">重新進入遊戲</button><button class="btn" style="margin-top:8px" onclick="try{window.close()}catch(e){}">關閉視窗</button></div>`);
+        ui(`<div class="menu-overlay" style="width:min(92vw,380px)"><h2 class="shop-title">已離開遊戲</h2>${who}<button class="btn btn-start" onclick="game.setState('LOBBY')">重新進入遊戲</button><button class="btn" style="margin-top:8px" onclick="game.closeWindow()">關閉視窗</button></div>`);
         try { window.close(); } catch (e) {}   // 只有「由程式開啟」的視窗才關得掉；其他情況會留在這個畫面
     },
     comeBack() {   // 離開遊戲後重新進入：恢復在線狀態
@@ -4240,9 +4245,9 @@ const online = window.online = {
     },
     dexIdiom(eff, word) {
         const DOC = { BOMB_BOOST: ['全螢幕爆破', '清空畫面敵彈與小型敵機並有爆炸動畫；對 Boss 傷害最高為其滿血的 1/4。'], INVINCIBLE: ['無敵', '10 秒內不會受到傷害。'],
-            SHIELD: ['護盾', '獲得 5000 點護盾（可累積，上限為最大血量），受到傷害時先扣護盾，會一直存在直到被打光；PK 對戰中被穿甲彈命中會損失一半護盾。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
+            SHIELD: ['護盾', '獲得相當於最大血量 40% 的護盾（可累積，上限為最大血量），受到傷害時先扣護盾，會一直存在直到被打光；PK 對戰中被穿甲彈命中會損失一半護盾。'], PIERCE: ['穿甲彈', '30 秒內，對有裝甲（護盾）的敵人造成 2～3 倍傷害。'],
             MISSILE: ['追蹤導彈', '10 秒內主炮子彈會自動追蹤：先打血量少的敵機，沒有敵機才打字卡。'], LASER_BEAM: ['貫穿雷射', '3 秒的直線雷射，持續貫穿傷害。'],
-            HEAL: ['治療', '立刻回復 3000 點血量。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。多人闖關：固定派出 2 名友軍；若有隊友倒下，改為救人——1 人倒下，隊友滿血回歸；2 人倒下，兩人以半血復活。'],
+            HEAL: ['治療', '立刻回復最大血量的 30%。'], SLOW_TIME: ['時緩', '6 秒內敵機與敵彈的速度大幅減慢。'], ALLY: ['呼叫友軍', '15 秒內召喚其他已擁有的戰機協助射擊與蒐集字卡，血量歸零或時間到就消失。多人闖關：固定派出 2 名友軍；若有隊友倒下，改為救人——1 人倒下，隊友滿血回歸；2 人倒下，兩人以半血復活。'],
             LIFESTEAL: ['吸血', '10 秒內，我方子彈（含友軍）每次命中敵人就回血：回復量為該發傷害的 15%，且每發最多只回自身最大血量的 1%。雷射與全螢幕爆破不算；傷害被 Boss 護盾或護甲擋成 0 時不回血，血量已滿也不會回。PK 對戰中同樣有效，但每次發動最多回復自身最大血量的 30%，回滿就提前結束吸血。'] };
         const COL = { BOMB_BOOST: '#ff5a36', INVINCIBLE: '#ffd400', SHIELD: '#4aa3ff', PIERCE: '#c0c8d8', MISSILE: '#ff8c1a', LASER_BEAM: '#ff3bd4', HEAL: '#35e08a', SLOW_TIME: '#8f7bff', ALLY: '#00e5ff', LIFESTEAL: '#ff5c8a' };
         eff = eff || 'BOMB_BOOST'; const list = CONFIG.IDIOMS.filter(i => i.effect === eff), info = word && IDIOM_INFO[word], c = COL[eff] || '#fff', n = list.length, k = list.findIndex(i => i.word === word);
@@ -5097,10 +5102,10 @@ const coop = {
             else if (cp && !cp.left && c.idiom.effect === 'HEAL') this.revive(c.id, c.idiom);   // 倒下的人用補血成語：原地復活
         }
         // 1) 移動：房主自己用鍵盤／拖曳；隊員跟著他們回報的位置走；倒下的人移出畫面
-        if (this.P[me].alive) this.moveSelf(dt); else g.player.pos.y = -500;
+        if (this.P[me].alive) this.moveSelf(dt); else { g.player.pos.y = -500; if (g.snipe) { g.snipe.c = 0; g.snipe.t = []; g.snipe.fx = []; } }
         ids.forEach(id => {
             const P = this.P[id]; if (P.host || P.left) return; const pl = P.s.player;
-            if (!P.alive) { pl.pos.y = -500; return; }
+            if (!P.alive) { pl.pos.y = -500; if (P.s.snipe) { P.s.snipe.c = 0; P.s.snipe.t = []; P.s.snipe.fx = []; } return; }
             if (this.local) this.moveLocal(id, dt); else if (P.in) { const k = Math.min(1, 14 * dt); pl.pos.x += (P.in.x - pl.pos.x) * k; pl.pos.y += (P.in.y - pl.pos.y) * k; }
             if (!this.local && performance.now() - P.at > 20000) this.leftP(id);
         });
@@ -5227,7 +5232,7 @@ const coop = {
     },
     kill(id) {
         const P = this.P[id]; if (!P || !P.alive) return; const dp = G.player.pos; if (dp.y > -100) { P.dx = dp.x; P.dy = dp.y; }   // 記下倒下的位置，補血成語復活時原地重生
-        P.alive = false; G.hp = 0; G.laserTimer = 0; G.allies = []; G.player.pos.y = -500;
+        P.alive = false; G.hp = 0; G.laserTimer = 0; G.allies = []; G.player.pos.y = -500; if (G.snipe) { G.snipe.c = 0; G.snipe.t = []; G.snipe.fx = []; }
         G.showFloatText(`${P.name} 倒下了！用補血成語可原地復活，或打倒 Boss 後下一關復活`, WORLD.w / 2, WORLD.h * 0.4, '#ff6b6b');
     },
     leftP(id) {
@@ -5280,7 +5285,7 @@ const coop = {
         const src = id => this.P[id].host ? g : this.P[id].s;
         const S = { q: ++this.seq, W: ri(WORLD.w), H: ri(WORLD.h), gs: g.gameState, st: g.currentStage, sb: g.currentSub, ct: r1(g.clearT || 0), cn: g.clearNext ? 1 : 0, nx: g.isNextStage ? 1 : 0, rs: this.resetSeq, pool: ri(this.pool), ms: g.maxSlots, sw: g.slowTimer > 0 ? Math.max(0.1, r1(g.slowTimer)) : 0, sn: g.slowTimer > 0 ? (this.slowBy || '') : '' };
         S.sl = g.slots.map(s => [s.type === 'READY' ? 1 : 0, s.word, s.chars.join(''), s.effect, s.effectDesc]);
-        S.P = ids.map(id => { const P = this.P[id], s = src(id), pos = P.host ? g.player.pos : s.player.pos; return [id, ri(pos.x), ri(pos.y), r1(s.hp), ri(s.maxHp), r1(s.shield), r1(Math.max(0, s.invincibleTimer)), s.laserTimer > 0 ? Math.max(0.1, r1(s.laserTimer)) : 0, s.skin, P.alive ? 1 : 0, r1(Math.max(0, s.pierceTimer)), r1(Math.max(0, s.missileTimer)), r1(Math.max(0, s.allyTimer || 0)), r1(Math.max(0, s.lifestealTimer || 0)), (s.snipe && SKINS[s.skin] && SKINS[s.skin].pat === 'snipe') ? [Math.round(s.snipe.c * 100) / 100, (s.snipe.t || []).map(t => [ri(t.o.pos.x), ri(t.o.pos.y), ri(t.o.radius || 30)]), (s.snipe.fx || []).map(f => [ri(f.x1), ri(f.y1), ri(f.x2), ri(f.y2), Math.round(f.t * 100) / 100])] : 0]; });
+        S.P = ids.map(id => { const P = this.P[id], s = src(id), pos = P.host ? g.player.pos : s.player.pos; return [id, ri(pos.x), ri(pos.y), r1(s.hp), ri(s.maxHp), r1(s.shield), r1(Math.max(0, s.invincibleTimer)), s.laserTimer > 0 ? Math.max(0.1, r1(s.laserTimer)) : 0, s.skin, P.alive ? 1 : 0, r1(Math.max(0, s.pierceTimer)), r1(Math.max(0, s.missileTimer)), r1(Math.max(0, s.allyTimer || 0)), r1(Math.max(0, s.lifestealTimer || 0)), (P.alive && s.snipe && SKINS[s.skin] && SKINS[s.skin].pat === 'snipe') ? [Math.round(s.snipe.c * 100) / 100, (s.snipe.t || []).map(t => [ri(t.o.pos.x), ri(t.o.pos.y), ri(t.o.radius || 30)]), (s.snipe.fx || []).map(f => [ri(f.x1), ri(f.y1), ri(f.x2), ri(f.y2), Math.round(f.t * 100) / 100])] : 0]; });
         S.E = g.enemies.map(e => { if (!e._id) e._id = ++this.nid; return [e._id, COOP_TYPES.indexOf(e.type), ri(e.pos.x), ri(e.pos.y), r1(e.hp), r1(e.maxHp), ri(e.radius), ri(g.shieldOf(e)), ri(e.maxShield || 0), e.charge > 0 ? r1(e.charge) : 0, r1(e.lockA || 0), r1(e.snipeP || 0)]; });
         const b = g.boss; S.B = b ? [ri(b.pos.x), ri(b.pos.y), r1(b.hp), r1(b.maxHp), ri(g.shieldOf(b)), ri(b.maxShield || 0), b.stage, b.cmb || 0, b.csUp === false ? 0 : 1, r1(b.csT || 0), b.fm | 0, r1(b.formT || 0)] : 0; S.BC = (g.bossClones || []).map(c => [ri(c.pos.x), ri(c.pos.y), c.side]);
         S.U = []; const sl = g.slowTimer > 0, MAXB = 300, BP = g.bullets.pool;   // 子彈過多時：敵彈（會傷人）全送，我方子彈只送一半（依編號奇偶固定挑選，畫面不閃爍），總數上限 300，大幅縮小封包
@@ -5349,7 +5354,7 @@ const coop = {
             const id = a[0];
             if (id === me) {
                 const wasDead = this.view[me] && this.view[me].alive === 0;   // 倒下→復活：把自己的戰機對齊主控端算好的復活位置
-                g.hp = a[3]; g.maxHp = a[4]; g.shield = a[5]; g.invincibleTimer = a[6]; g.laserTimer = a[7] ? 1 : 0; g.pierceTimer = a[10]; g.missileTimer = a[11]; g.lifestealTimer = a[13] || 0; if (a[14]) g.snipe = this.decSn(a[14]);
+                g.hp = a[3]; g.maxHp = a[4]; g.shield = a[5]; g.invincibleTimer = a[6]; g.laserTimer = a[7] ? 1 : 0; g.pierceTimer = a[10]; g.missileTimer = a[11]; g.lifestealTimer = a[13] || 0; g.snipe = a[14] && a[9] ? this.decSn(a[14]) : { c: 0, t: [], fx: [] };
                 if (wasDead && a[9]) g.player.pos = new Vec2(a[1], a[2]);
                 this.view[me] = { alive: a[9], hp: a[3], maxHp: a[4], shield: a[5], inv: a[6], laser: a[7], pierce: a[10], missile: a[11], ally: a[12] || 0, lifesteal: a[13] || 0 };
                 if (S.rs !== this.rsSeen) { this.rsSeen = S.rs; if (a[9]) g.player.pos = new Vec2(a[1], a[2]); this.inX = -1; this.inSent = 0; }   // 新關卡：站到房主排好的起點（畫面最下方），並立刻回報新位置
@@ -5815,20 +5820,31 @@ const lcoop = window.lcoop = {
         res.rows.forEach(r => {
             const i = (+String(r.uid).slice(1)) - 1, pl = this.pl && this.pl[i]; if (!pl) return; pl.coins = r.coins; pl.up = null;
             if (pl.kind === 'main') { G._lcPay = true; try { G.galaxy += r.coins; online.stat('totalGalaxy', r.coins); online.recordCoop(res, r); G.save(); } finally { G._lcPay = false; } pl.up = 'ok'; }   // 目前登入的帳號：沿用原本的存檔與同步流程
-            else if (pl.kind === 'acct') { pl.res = res; pl.row = r; this.upload(pl); }
+            else if (pl.kind === 'acct') { pl.res = res; pl.row = r; pl._paid = false; pl._busy = false; this.upload(pl); }
         });
     },
-    async upload(pl) {
-        pl.up = 'busy'; this.paint();
+    async upload(pl) {   // 把這一場的銀河幣寫進該帳號：用交易讀出目前的值再寫入「絕對數值」，寫完再從伺服器讀回核對，沒加成功就視為失敗（可按「重試上傳」）
+        if (pl.up === 'ok' || pl._busy) return; pl.up = 'busy'; pl._busy = true; this.paint();
         try {
-            const ref = pl.acct.db.collection('users').doc(pl.acct.uid), inc = firebase.firestore.FieldValue.increment, snap = await ref.get();
-            const patch = pl.res ? coopPatch(snap.exists ? snap.data() : {}, pl.res, pl.row || {}) : {};
-            await ref.update(Object.assign({ 'save.g': inc(pl.coins), galaxy: inc(pl.coins), totalGalaxy: inc(pl.coins), updatedAt: Date.now() }, patch)); pl.up = 'ok';
+            const d = pl.acct.db, ref = d.collection('users').doc(pl.acct.uid), coins = Math.max(0, Math.floor(pl.coins || 0));
+            if (!pl._paid) {   // 已經成功寫入過就不再重複加（重試時只重新核對）
+                let want = 0;
+                await d.runTransaction(async tx => {
+                    const sn = await tx.get(ref), prof = sn.exists ? sn.data() : {}, sv = Object.assign({}, prof.save || {}), g = Math.max(0, (sv.g | 0) || 0) + coins;
+                    sv.g = g; want = g;
+                    const patch = pl.res ? coopPatch(prof, pl.res, pl.row || {}) : {};
+                    tx.set(ref, Object.assign({ save: sv, galaxy: g, totalGalaxy: (prof.totalGalaxy || 0) + coins, updatedAt: Date.now() }, patch), { merge: true });
+                });
+                pl._paid = true; pl._want = want;
+            }
+            const chk = await ref.get({ source: 'server' }), cs = chk.exists ? chk.data() : {};
+            if (!(cs.save && (cs.save.g | 0) >= (pl._want | 0))) throw new Error('寫入後核對不符，請按「重試上傳」');
+            pl.up = 'ok';
         }
         catch (e) { pl.up = 'fail'; pl.err = errMsg(e); }
-        this.paint();
+        pl._busy = false; this.paint();
     },
-    retry() { (this.pl || []).forEach(p => { if (p.kind === 'acct' && p.up === 'fail') this.upload(p); }); },
+    retry() { (this.pl || []).forEach(p => { if (p.kind === 'acct' && p.up === 'fail') { p._busy = false; this.upload(p); } }); },
     drawSel() {},   // 已移除：戰機下方不再顯示小字成語（選擇狀態改由成語槽上方的 P1／P2／P3 標記表示）
     paintSel() {   // 在成語列上，用每位玩家的顏色框出他目前選中的成語
         const c = document.getElementById('idiom-ui'); if (!c || !coop.local || !coop.sel) return;
