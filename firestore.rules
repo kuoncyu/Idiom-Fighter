@@ -98,7 +98,12 @@ service cloud.firestore {
     match /groups/{gid} {
       allow read: if signedIn() && (request.auth.uid in resource.data.members || isAdmin());
       allow create: if signedIn() && request.resource.data.owner == request.auth.uid && request.auth.uid in request.resource.data.members;
-      allow update, delete: if signedIn() && resource.data.owner == request.auth.uid;
+      allow delete: if signedIn() && resource.data.owner == request.auth.uid;
+      allow update: if signedIn() && (resource.data.owner == request.auth.uid
+                    || (request.auth.uid in resource.data.members                                   // 一般成員只能「退出自己」：只動 members／memberNames，且只少掉自己一人
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberNames'])
+                        && !(request.auth.uid in request.resource.data.members)
+                        && request.resource.data.members.size() == resource.data.members.size() - 1));
       match /messages/{mid} {
         allow read: if signedIn() && (request.auth.uid in get(/databases/$(database)/documents/groups/$(gid)).data.members || isAdmin());
         allow create: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(gid)).data.members

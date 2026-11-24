@@ -441,10 +441,15 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261121b', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261124c', APP_AUTHOR = '郭柏宏';
 // 版本更新紀錄（大廳「版本更新紀錄」磚會顯示）。★每次發佈新版本：在最上面加一筆 { v: '版本號', items: [重點條列] }；只顯示最近 5 筆，更舊的會自動被擠掉（CHANGE_KEEP）
 const CHANGE_KEEP = 5;
 const CHANGELOG = [
+    { v: '20261124c', items: [
+        '群組：修正「＋建立群組」按鈕看不到的問題；建立時可命名並從好友中勾選成員（只能拉好友，可全選、也可先建立再拉人），群組上限 20 人。',
+        '群組：被拉進或移出群組時會收到提示；成員現在可以正常退出群組。',
+        '羈絆值：好友聊天選單會顯示目前羈絆值；寫入失敗時會提示原因。',
+    ] },
     { v: '20261121b', items: [
         '同機闖關：修正其他玩家（非房主）領不到銀河幣的問題——改為交易寫入並從伺服器讀回核對，沒加成功會顯示失敗並可重試。',
         '成語效果改為依血量百分比：治療回復最大血量 30%、護盾每次 +40%（說明文字同步更新）。',
@@ -461,11 +466,6 @@ const CHANGELOG = [
     ] },
     { v: '20261120e', items: [
         '連線闖關：修正結算畫面常常卡住無法結算的問題（結果改為重送＋雙通道傳送，隊員畫面中斷時也會主動查詢結算結果）。',
-    ] },
-    { v: '20261120d', items: [
-        '連線闖關：進入房間與戰鬥中新增提醒「請勿切換螢幕或分頁」，避免有玩家切走畫面造成卡住或斷線。',
-        '連線闖關：修正過關後下一關的初始位置有時跑到戰場上方，現在一律出現在戰場最下方。',
-        '版本更新紀錄只保留最近 5 次更新，更舊的會自動被擠掉。',
     ] },
 ];
 
@@ -3722,7 +3722,9 @@ const online = window.online = {
             U.collection('friends').doc(x.to).set({ name: x.toName, ts: Date.now() }).then(() => d.ref.delete()).catch(() => {}); }));
         on(U.collection('invites'), s => { const old = new Set(this.invites.map(i => i.code)); this.invites = s.docs.map(d => d.data());
             const fresh = this.liveInvites().filter(i => !old.has(i.code)); fresh.forEach(i => toast(i.mode === 'coop' ? `${i.fromName} 邀請你一起多人闖關！` : `${i.fromName} 邀請你 PK！`, 5000)); this.refresh(); if (fresh.length) this.popInvite(); });
-        on(db.collection('groups').where('members', 'array-contains', uid), s => { this.groups = s.docs.map(d => Object.assign({ id: d.id }, d.data())); this.syncWatch(); this.chatSel(); });
+        on(db.collection('groups').where('members', 'array-contains', uid), s => { const old = new Set((this.groups || []).map(g => g.id)), first = !this._grpInit; this._grpInit = true; this.groups = s.docs.map(d => Object.assign({ id: d.id }, d.data()));
+            if (!first) { s.docChanges().forEach(ch => { if (ch.type === 'added' && !old.has(ch.doc.id) && ch.doc.id !== this._grpNew) { const x = ch.doc.data(); toast(`你被拉進群組「${x.name}」`, 4000); } }); old.forEach(id => { if (!this.groups.some(g => g.id === id)) { const og = (this._grpOld || {})[id]; toast(`你已不在群組${og ? '「' + og + '」' : ''}中`, 3500); } }); }
+            this._grpOld = {}; this.groups.forEach(g => { this._grpOld[g.id] = g.name; }); this.syncWatch(); this.chatSel(); });
         on(db.collection('bonds').where('members', 'array-contains', uid), s => { this.bonds = {}; s.docs.forEach(d => { const x = d.data(), peer = (x.members || []).find(m => m !== uid); if (peer) this.bonds[peer] = x; }); if (G.gameState === 'FRIENDS') this.renderFriends(); });   // 羈絆值
         this.startPresence(); this.syncWatch();
     },
@@ -3759,7 +3761,7 @@ const online = window.online = {
                 o.dayPts += gain; o.pts += gain; tx.set(ref, o); return gain;
             });
             if (add > 0) { const f = this.friends.find(x => x.uid === peer); toast(`與 ${f ? f.name : '好友'} 的羈絆值 +${add}`, 2200); }
-        } catch (e) { console.warn('bond', e); }
+        } catch (e) { console.warn('bond', e); if (!this._bondWarned) { this._bondWarned = 1; toast(/permission|insufficient/i.test(String(e && (e.code || e.message))) ? '羈絆值寫入被拒絕：請把最新的 firestore.rules 貼到 Firebase 主控台並發佈' : '羈絆值更新失敗：' + errMsg(e), 6000); } }
     },
     renderFriends() {
         const keep = ($('fr-in') || {}).value || '', me = this.user.uid;
@@ -3897,26 +3899,31 @@ const online = window.online = {
         else if (c.tab === 'dm') {
             if (!this.friends.length) { sel.innerHTML = '<span class="muted">加好友後才能私訊</span>'; this.subChat(null); return; }
             const cur = peer || (c.th && c.th.k === 'dm' ? c.th.peer : this.friends[0].uid);
-            sel.innerHTML = `<select id="ch-friend">${this.friends.map(f => `<option value="${f.uid}" ${f.uid === cur ? 'selected' : ''}>${esc(f.name)}${(this.unr || {})['dm:' + f.uid] ? '（' + Math.min(99, this.unr['dm:' + f.uid]) + '）' : ''}</option>`).join('')}</select>`;
+            sel.innerHTML = `<select id="ch-friend">${this.friends.map(f => `<option value="${f.uid}" ${f.uid === cur ? 'selected' : ''}>${esc(f.name)} ⭐${((this.bonds[f.uid] || {}).pts | 0)}${(this.unr || {})['dm:' + f.uid] ? '（' + Math.min(99, this.unr['dm:' + f.uid]) + '）' : ''}</option>`).join('')}</select>`;
             $('ch-friend').onchange = e => this.chatSel(e.target.value); this.subChat({ k: 'dm', peer: cur });
         } else {
             const cur = (c.th && c.th.k === 'group' && this.groups.some(g => g.id === c.th.id)) ? c.th.id : (this.groups[0] && this.groups[0].id);
-            sel.innerHTML = `${this.groups.length ? `<select id="ch-group">${this.groups.map(g => `<option value="${g.id}" ${g.id === cur ? 'selected' : ''}>${esc(g.name)}${(this.unr || {})['group:' + g.id] ? '（' + Math.min(99, this.unr['group:' + g.id]) + '）' : ''}</option>`).join('')}</select>` : '<span class="muted">還沒有群組</span>'}${cur ? '<button class="sm" id="ch-mg">⚙ 管理</button>' : ''}<button class="sm" id="ch-new">＋建立群組</button>`;
+            sel.innerHTML = `${this.groups.length ? `<select id="ch-group">${this.groups.map(g => `<option value="${g.id}" ${g.id === cur ? 'selected' : ''}>${esc(g.name)}${(this.unr || {})['group:' + g.id] ? '（' + Math.min(99, this.unr['group:' + g.id]) + '）' : ''}</option>`).join('')}</select>` : '<span class="muted">還沒有群組</span>'}${cur ? '<button class="sm" id="ch-mg">⚙ 管理</button>' : ''}<button class="sm" id="ch-newgrp">＋建立群組</button>`;
             if ($('ch-group')) $('ch-group').onchange = e => { this.groupBack(true); this.subChat({ k: 'group', id: e.target.value }); };
             if ($('ch-mg')) $('ch-mg').onclick = () => this.groupManage(cur);
-            $('ch-new').onclick = () => this.groupForm(); this.subChat(cur ? { k: 'group', id: cur } : null);
+            $('ch-newgrp').onclick = () => this.groupForm(); this.subChat(cur ? { k: 'group', id: cur } : null);
         }
     },
-    groupForm() {
-        if (!this.friends.length) return toast('先加好友才能建立群組');
-        $('ch-msgs').innerHTML = `<input class="inp" id="gp-name" maxlength="12" placeholder="群組名稱">${this.friends.map(f => `<label style="display:block"><input type="checkbox" class="gp-f" value="${f.uid}" data-n="${esc(f.name)}"> ${esc(f.name)}</label>`).join('')}<button class="sm" id="gp-ok">建立</button> <button class="sm" id="gp-cancel">取消</button>`;
+    GROUP_MAX: 20,
+    groupForm() {   // 建立群組：可命名（最多 12 字）、從好友中勾選成員（只能拉好友；也可以先建立再慢慢拉人）
+        const box = $('ch-msgs'); if (!box) return; this.chat.rKey = null;
+        const fl = this.friends.map(f => `<label style="display:block;padding:2px 0"><input type="checkbox" class="gp-f" value="${f.uid}" data-n="${esc(f.name)}"> ${esc(f.name)}</label>`).join('') || '<div class="muted">你還沒有好友：可以先建立群組，之後加好友再拉進來</div>';
+        box.innerHTML = `<div style="padding:6px"><b>建立群組</b><input class="inp" id="gp-name" maxlength="12" placeholder="群組名稱（最多 12 字）" style="width:100%;box-sizing:border-box;margin:6px 0"><div class="muted" style="margin:6px 0 4px">拉進好友（只能邀請好友，上限 ${this.GROUP_MAX} 人含自己）　<button class="sm" id="gp-all">全選／取消</button></div><div style="max-height:36vh;overflow:auto">${fl}</div><div style="margin-top:10px"><button class="sm" id="gp-ok">建立</button> <button class="sm" id="gp-cancel">取消</button></div></div>`;
         $('gp-cancel').onclick = () => this.groupBack();
+        $('gp-all').onclick = () => { const cs = [...document.querySelectorAll('.gp-f')], on = cs.some(x => !x.checked); cs.forEach(x => { x.checked = on; }); };
         $('gp-ok').onclick = async () => {
-            const name = $('gp-name').value.trim(), sel = [...document.querySelectorAll('.gp-f:checked')];
-            if (!name || !sel.length) return toast('請輸入名稱並勾選好友');
+            const name = $('gp-name').value.trim(); if (!name) return toast('請輸入群組名稱');
+            const fset = new Set(this.friends.map(f => f.uid)), sel = [...document.querySelectorAll('.gp-f:checked')].filter(x => fset.has(x.value));   // 只收好友
+            if (sel.length + 1 > this.GROUP_MAX) return toast(`群組最多 ${this.GROUP_MAX} 人`);
             const names = { [this.user.uid]: this.profile.name }; sel.forEach(x => { names[x.value] = x.dataset.n; });
-            try { const r = await db.collection('groups').add({ name, owner: this.user.uid, members: [this.user.uid, ...sel.map(x => x.value)], memberNames: names, ts: Date.now() }); this.chat.th = { k: 'group', id: r.id }; this.chat.key = ''; $('ch-msgs').innerHTML = ''; toast('群組已建立'); this.chatSel(); }
-            catch (e) { toast(errMsg(e)); }
+            const btn = $('gp-ok'); if (btn) btn.disabled = true;
+            try { const r = await db.collection('groups').add({ name, owner: this.user.uid, members: [this.user.uid, ...sel.map(x => x.value)], memberNames: names, ts: Date.now() }); this.chat.th = { k: 'group', id: r.id }; this.chat.key = ''; this.chat.tab = 'group'; this._grpNew = r.id; toast(sel.length ? `群組「${name}」已建立，已拉進 ${sel.length} 位好友` : `群組「${name}」已建立，可按「⚙ 管理」拉進好友`); this.groupBack(true); this.chatSel(); }
+            catch (e) { if (btn) btn.disabled = false; toast(errMsg(e)); }
         };
     },
     groupBack(quiet) {   // 關掉建立／管理畫面，回到訊息列表
@@ -3946,8 +3953,9 @@ const online = window.online = {
             try { await db.collection('groups').doc(id).update({ members: firebase.firestore.FieldValue.arrayRemove(u), ['memberNames.' + u]: firebase.firestore.FieldValue.delete() }); g.members = (g.members || []).filter(x => x !== u); if (g.memberNames) delete g.memberNames[u]; toast('已將 ' + btn.dataset.n + ' 踢出群組'); this.groupManage(id); const nb = $('gp-name'); if (nb) nb.value = typed; } catch (e) { toast(errMsg(e)); }
         }));
         $('gp-save').onclick = async () => {
-            const name = $('gp-name').value.trim(), add = [...document.querySelectorAll('.gp-f:checked')];
+            const name = $('gp-name').value.trim(), fset = new Set(this.friends.map(f => f.uid)), add = [...document.querySelectorAll('.gp-f:checked')].filter(x => fset.has(x.value) && !mem.includes(x.value));
             if (!name) return toast('請輸入群組名稱');
+            if (mem.length + add.length > this.GROUP_MAX) return toast(`群組最多 ${this.GROUP_MAX} 人（目前 ${mem.length} 人）`);
             const names = Object.assign({}, nm, { [me]: this.profile.name }); add.forEach(x => { names[x.value] = x.dataset.n; });
             try { await db.collection('groups').doc(id).update({ name, members: [...mem, ...add.map(x => x.value)], memberNames: names }); toast(add.length ? '群組已更新，已拉進 ' + add.length + ' 位好友' : '群組已更新'); this.groupBack(); } catch (e) { toast(errMsg(e)); }
         };
