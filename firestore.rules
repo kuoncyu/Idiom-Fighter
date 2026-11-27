@@ -86,11 +86,11 @@ service cloud.firestore {
       }
     }
 
-    // 羈絆值（文件 ID = 兩位玩家 uid 排序後用底線相連；雙方可讀寫，每次寫入最多 +1，只有管理員能刪除）
+    // 羈絆值（文件 ID = 兩位玩家 uid 排序後用底線相連；雙方可讀寫，每次寫入最多 +10（羈絆禮物最高 +10；聊天／組隊每次 +1），管理員可任意調整）
     match /bonds/{pid} {
-      allow read: if signedIn() && (request.auth.uid in resource.data.members || isAdmin());
-      allow create: if signedIn() && notBanned() && request.auth.uid in pid.split('_') && request.resource.data.members.hasAll(pid.split('_')) && request.resource.data.pts <= 1;
-      allow update: if signedIn() && notBanned() && request.auth.uid in resource.data.members && request.resource.data.pts <= resource.data.pts + 1;
+      allow read: if signedIn() && (resource == null ? request.auth.uid in pid.split('_') : (request.auth.uid in resource.data.members || isAdmin()));   // 文件不存在時（第一次建立前）也要放行讀取，否則永遠建不起來
+      allow create: if signedIn() && ((notBanned() && request.auth.uid in pid.split('_') && request.resource.data.members.hasAll(pid.split('_')) && request.resource.data.pts <= 10) || isAdmin());
+      allow update: if signedIn() && ((notBanned() && request.auth.uid in resource.data.members && request.resource.data.pts <= resource.data.pts + 10) || isAdmin());
       allow delete: if signedIn() && (request.auth.uid in resource.data.members || isAdmin());   // 雙方任一人（刪除帳號時）或管理員
     }
 
@@ -103,7 +103,10 @@ service cloud.firestore {
                     || (request.auth.uid in resource.data.members                                   // 一般成員只能「退出自己」：只動 members／memberNames，且只少掉自己一人
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberNames'])
                         && !(request.auth.uid in request.resource.data.members)
-                        && request.resource.data.members.size() == resource.data.members.size() - 1));
+                        && request.resource.data.members.size() == resource.data.members.size() - 1)
+                    || (request.auth.uid in resource.data.members                                   // 一般成員也可以更新「自己」在名單裡的顯示名稱（改暱稱後同步）
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberNames'])
+                        && request.resource.data.memberNames.diff(resource.data.memberNames).affectedKeys().hasOnly([request.auth.uid])));
       match /messages/{mid} {
         allow read: if signedIn() && (request.auth.uid in get(/databases/$(database)/documents/groups/$(gid)).data.members || isAdmin());
         allow create: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(gid)).data.members

@@ -1,14 +1,50 @@
 {
- "version": "20261124c",
- "built": "2026-11-24T01:49:55.889Z",
+ "version": "20261127b",
+ "built": "2026-11-26T15:27:31.208Z",
  "files": {
   "assets/bg/stage1.jpg": [
    "4715408cde33603d",
    146678
   ],
+  "assets/bg/stage19.jpg": [
+   "1e9dbe6c29840720",
+   357838
+  ],
   "assets/bg/stage2.jpg": [
    "74c89dc9017716b0",
    231885
+  ],
+  "assets/bg/stage20.jpg": [
+   "4dedc0cb09436cf0",
+   319297
+  ],
+  "assets/bg/stage21.jpg": [
+   "5873ff7d1035fa19",
+   309090
+  ],
+  "assets/bg/stage22.jpg": [
+   "a76f3de3d13f20fc",
+   167387
+  ],
+  "assets/bg/stage23.jpg": [
+   "501f7b083975e787",
+   289587
+  ],
+  "assets/bg/stage24.jpg": [
+   "50826c5ee09ed46d",
+   306922
+  ],
+  "assets/bg/stage25.jpg": [
+   "f449521ab561ab2c",
+   432861
+  ],
+  "assets/bg/stage26.jpg": [
+   "9c1a3e484e8ca58a",
+   287346
+  ],
+  "assets/bg/stage27.jpg": [
+   "609dd5eae7c87dc8",
+   170051
   ],
   "assets/bg/stage3.jpg": [
    "d6a2a7a3826e37a0",
@@ -46,9 +82,45 @@
    "dfa11d285fb9f686",
    192672
   ],
+  "assets/boss_19.png": [
+   "3c33266f004c935e",
+   282810
+  ],
   "assets/boss_2.png": [
    "500275499ab0e22a",
    221801
+  ],
+  "assets/boss_20.png": [
+   "214b4e317a8a86d0",
+   274464
+  ],
+  "assets/boss_21.png": [
+   "899f4b4ee1b21591",
+   232246
+  ],
+  "assets/boss_22.png": [
+   "5eb2ba4353c66e70",
+   332798
+  ],
+  "assets/boss_23.png": [
+   "e7f72cbd117f8616",
+   268891
+  ],
+  "assets/boss_24.png": [
+   "23c23411ce69c9f5",
+   253928
+  ],
+  "assets/boss_25.png": [
+   "9506edbe22ea2c5a",
+   257420
+  ],
+  "assets/boss_26.png": [
+   "4ae5f4f59c80f1d5",
+   297150
+  ],
+  "assets/boss_27.png": [
+   "e4618db99381e512",
+   369770
   ],
   "assets/boss_3.png": [
    "83d01d027e2debc7",
@@ -279,12 +351,44 @@
    3677816
   ],
   "assets/music/stage19.mp3": [
-   "d7ed6b05811245df",
-   3602584
+   "2b921d5654680283",
+   4250838
   ],
   "assets/music/stage2.mp3": [
    "616a85f7a49cba6f",
    4252382
+  ],
+  "assets/music/stage20.mp3": [
+   "1a825ab5b54c2de0",
+   4272154
+  ],
+  "assets/music/stage21.mp3": [
+   "187cdafaee068653",
+   4233284
+  ],
+  "assets/music/stage22.mp3": [
+   "1da4533847cc2e4c",
+   4326698
+  ],
+  "assets/music/stage23.mp3": [
+   "12821330ccf381db",
+   4376226
+  ],
+  "assets/music/stage24.mp3": [
+   "9de23a8bbda0cbec",
+   4331086
+  ],
+  "assets/music/stage25.mp3": [
+   "5b58ab16c86323ac",
+   4300366
+  ],
+  "assets/music/stage26.mp3": [
+   "cef380a752487271",
+   4393780
+  ],
+  "assets/music/stage27.mp3": [
+   "6a208357d8f32547",
+   4228268
   ],
   "assets/music/stage3.mp3": [
    "bfb8f73546bcaaa7",
@@ -317,6 +421,10 @@
   "assets/player.png": [
    "958e5fa2a10d874a",
    116857
+  ],
+  "assets/ship_aid.png": [
+   "3a5ecb836450d0dd",
+   88257
   ],
   "assets/ship_assassin.png": [
    "d82c6650fbed96c3",
@@ -355,8 +463,8 @@
    95281
   ],
   "index.html": [
-   "9df5720dd4a69367",
-   637737
+   "0114b505e6a35494",
+   700862
   ],
   "manifest.webmanifest": [
    "9b157f48a270380d",
