@@ -443,10 +443,16 @@ document.addEventListener('keydown', e => { const t = e.target; if (t && (t.tagN
 // ===== 等比例縮放：遊戲以「虛擬世界」(寬 ≥ 540、高 900 為基準) 運作，畫布再等比例放大到實際螢幕 =====
 // ★ 版本號格式：日期＋英文字母，如 20261116a 是當天第一版、20261116b 是第二版（較新）。
 // ★ 不要手動修改！請在專案資料夾執行  node release.js  ，它會自動產生新版本號、同步 sw.js、並更新 version.json（檔案清單與雜湊值）。
-const APP_VERSION = '20261127b', APP_AUTHOR = '郭柏宏';
+const APP_VERSION = '20261127d', APP_AUTHOR = '郭柏宏';
 // 版本更新紀錄（大廳「版本更新紀錄」磚會顯示）。★每次發佈新版本：在最上面加一筆 { v: '版本號', items: [重點條列] }；只顯示最近 5 筆，更舊的會自動被擠掉（CHANGE_KEEP）
 const CHANGE_KEEP = 5;
 const CHANGELOG = [
+    { v: '20261127d', items: [
+        '修正雙星挑戰第 19～27 關的 Boss 圖片與名稱：之前一直沿用第 1～9 關的 Boss，現在會正確顯示各關專屬的 Boss。',
+    ] },
+    { v: '20261127c', items: [
+        '內部架構調整與精簡，遊戲內容不變。',
+    ] },
     { v: '20261127b', items: [
         '助力號的增益狀態會和成語效果一樣顯示在畫面左側（含剩餘秒數與效果：攻擊 ×2、爆擊 +10%、血量上限 +10%）；多人闖關也會顯示每位隊員的助力增益。',
         '雙星挑戰第 23 關（赤核）改版：怒氣累積滿時，Boss 會在螢幕中快速橫衝直撞 15 秒，被碰到的人損失 1/5 最大血量（取代原本的全隊扣 30% 血量）。',
@@ -535,7 +541,7 @@ const ASSET_FILES = { player:'assets/player.png', scout:'assets/enemy_scout.png'
     ship_wind:'assets/ship_wind.png', ship_bastion:'assets/ship_bastion.png', ship_blaze:'assets/ship_blaze.png', ship_storm:'assets/ship_storm.png', ship_lance:'assets/ship_lance.png', ship_assassin:'assets/ship_assassin.png', ship_nova:'assets/ship_nova.png', ship_aid:'assets/ship_aid.png' };
 for (let i = 1; i <= 9; i++) ASSET_FILES['boss_' + i] = `assets/boss_${i}.png`;
 for (let i = 19; i <= 27; i++) ASSET_FILES['boss_' + i] = `assets/boss_${i}.png`;   // 雙星挑戰（第 19～27 關）專屬 Boss 圖，缺檔就沿用一般 Boss 圖
-const bossImg = st => (typeof G !== 'undefined' && G && G.twinMode && IMG['boss_' + (st + 18)]) || IMG['boss_' + st] || IMG.boss;   // 每關各自的 Boss 圖，缺檔用 boss.png 或向量圖
+const bossImg = st => (typeof game !== 'undefined' && game && game.twinMode && IMG['boss_' + (st + 18)]) || IMG['boss_' + st] || IMG.boss;   // 每關各自的 Boss 圖，缺檔用 boss.png 或向量圖
 // 所有文字都不加光暈：畫布文字繪製時暫時關閉 shadow
 { const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'shadowBlur'); if (d && d.set) Object.defineProperty(CanvasRenderingContext2D.prototype, 'shadowBlur', { configurable: true, enumerable: d.enumerable, get: d.get, set(v) { d.set.call(this, v * QUAL[LITE.lv].shadow); } }); }   // 省電畫質：光暈（shadowBlur）是最吃效能的繪圖項目，直接停用
 ['fillText', 'strokeText'].forEach(n => { const o = CanvasRenderingContext2D.prototype[n]; CanvasRenderingContext2D.prototype[n] = function (...a) { const b = this.shadowBlur; this.shadowBlur = 0; try { return o.apply(this, a); } finally { this.shadowBlur = b; } }; });
@@ -664,7 +670,7 @@ function bulletImg(color, kind) {   // 回傳 [圖, sx, sy, sw, sh]：優先用�
     const cw = im.width / sh.cols, ch = im.height / sh.rows, r = [im, (i % sh.cols) * cw, Math.floor(i / sh.cols) * ch, cw, ch, BULLET_DIR.has(c)]; _blCache.set(key, r); return r;
 }
 const BOSS_NAMES = { 1:'璃光', 2:'鐵幕', 3:'環星', 4:'金矛', 5:'霜牆', 6:'旋蝕', 7:'紫刃', 8:'赤殼', 9:'裂空' };
-const bossLabel = (st, tw) => { if (tw === undefined) tw = typeof G !== 'undefined' && G && !!G.twinMode; return tw ? TWIN_BOSS_NAMES[st] : `${BOSS_NAMES[st]}（${BOSS_INFO[BOSS_TYPES[st]].name}）`; };   // 例：璃光（玻璃砲）
+const bossLabel = (st, tw) => { if (tw === undefined) tw = typeof game !== 'undefined' && game && !!game.twinMode; return tw ? TWIN_BOSS_NAMES[st] : `${BOSS_NAMES[st]}（${BOSS_INFO[BOSS_TYPES[st]].name}）`; };   // 例：璃光（玻璃砲）
 // 每關 Boss：mv 移動方式、sh 射擊樣式（依序輪替）、r 基礎射擊間隔（秒）
 const BOSS_CFG = {
     1:{ mv:'hover',  sh:['aim'], r:1.6 },                      2:{ mv:'sweep',  sh:['burst'], r:1.5 },
@@ -3242,7 +3248,7 @@ const errMsg = e => ({ 'auth/user-not-found': '帳號或密碼錯誤', 'auth/wro
     'auth/operation-not-allowed': '尚未在 Firebase 後台開啟「電子郵件／密碼」登入', 'auth/too-many-requests': '嘗試次數過多，請稍後再試',
     'auth/invalid-email': '帳號格式不被接受（請用英文、數字或底線）', 'auth/admin-restricted-operation': 'Firebase 後台已關閉「使用者自行註冊」，請到 Authentication → 設定 → 使用者動作 開啟', 'auth/unauthorized-domain': '這個網址沒有加入 Firebase 的「授權網域」', 'auth/configuration-not-found': 'Firebase 尚未啟用 Authentication（請到後台按「開始使用」）',
     'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'Firebase API 金鑰無效', 'auth/internal-error': 'Firebase 內部錯誤，請稍後再試', 'auth/quota-exceeded': 'Firebase 今日額度已用完', 'unavailable': '無法連線到資料庫（Firestore），請確認網路', 'failed-precondition': '資料庫尚未建立（請到 Firebase 後台建立 Firestore）',
-    'permission-denied': '沒有權限（請確認最新的 Firestore 規則 firestore.rules 已發布；管理員功能需用管理員帳號 admin 登入）' }[e && e.code]
+    'permission-denied': '沒有權限（請確認最新的 Firestore 規則 firestore.rules 已發布）' }[e && e.code]
     || ((e && e.message === 'timeout') ? '連線逾時，請確認網路後再試一次' : (e && /^auth\/(requests-from-referer|requests-from-ip)/.test(e.code || '')) ? '這個網址被 Firebase API 金鑰的限制擋下（請到 Google Cloud 的金鑰設定加入這個網域）' : ('發生錯誤：' + ((e && (e.code || e.message)) || e))));
 
 // ---------- 樣式 ----------
@@ -3619,7 +3625,7 @@ const online = window.online = {
     renderState(st) {
         this.updateChatVis();
         ({ LOGIN: () => this.renderLogin(false), RANK: () => this.renderRankHome(), FRIENDS: () => this.renderFriends(), PK: () => this.renderPK(), COOP: () => coop.renderRoom(), NET: () => this.renderNet(), TWIN: () => this.renderTwin(),
-           DB: () => this.renderDB(), DB2: () => this.renderDex('ship'), STATS: () => this.renderStats(), TUTORIAL: () => this.renderTutorial(0), ADMIN: () => this.renderAdmin('users') }[st])();
+           DB: () => this.renderDB(), DB2: () => this.renderDex('ship'), STATS: () => this.renderStats(), TUTORIAL: () => this.renderTutorial(0) }[st])();
     },
     refresh() { const st = G.gameState; if (st === 'FRIENDS') this.renderFriends(); else if (st === 'PK') this.renderPK(); else if (st === 'COOP' && coop.room && coop.room.role === 'host') coop.renderRoom(); this.updateFriendDot(); this.renderInvites(); },
     updateFriendDot() { const d = $('fr-dot'); if (!d) return; const n = this.reqIn.length; d.textContent = n > 99 ? '99+' : n; d.style.display = n ? 'block' : 'none';
@@ -4145,255 +4151,6 @@ const online = window.online = {
         } catch (e) { toast(errMsg(e)); }
     },
 
-    // ===== 管理員登入：用獨立的 Firebase 連線驗證，不影響目前的玩家登入 =====
-    async adminLogin(pw) {   // 在「關於」頁面輸入暗碼後呼叫；暗碼同時當作管理員帳號的 Firebase 密碼
-        const msg = t => toast(t, 3500);
-        if (!pw) return;
-        if (!fbOk || !navigator.onLine) return msg('需要網路連線');
-        msg('驗證中…');
-        try {
-            if (!this.adminApp) { try { this.adminApp = firebase.app('admin'); } catch (e) { this.adminApp = firebase.initializeApp(CFG, 'admin'); } }
-            const aAuth = this.adminApp.auth();
-            try { await aAuth.setPersistence(firebase.auth.Auth.Persistence.NONE); } catch (e) {}
-            await aAuth.signInWithEmailAndPassword(ADMIN_USER + MAIL, pw);
-            this.adminDb = this.adminApp.firestore();
-            G.closeDlg(); G.setState('ADMIN');
-        } catch (e) { this.adminDb = null; msg(({ 'auth/user-not-found': '管理員帳號尚未建立（請看設定說明）', 'auth/wrong-password': '管理員密碼錯誤', 'auth/invalid-credential': '管理員密碼錯誤', 'auth/invalid-login-credentials': '管理員密碼錯誤' }[e && e.code]) || errMsg(e)); }
-    },
-    adminLogout() { try { if (this._adUnsub) { this._adUnsub(); this._adUnsub = null; } this.adminApp && this.adminApp.auth().signOut(); } catch (e) {} this.adminDb = null; G.setState('LOBBY'); },
-
-    // ===== 管理員 =====
-    async renderAdmin(tab, id) {
-        if (!this.isAdmin && !this.adminDb) return G.setState('LOBBY');
-        const adb = this.adminDb || db;
-        const T = [['users', '玩家管理'], ['rank', '排行榜紀錄'], ['lobby', '大廳'], ['group', '群組聊天'], ['dm', '好友私聊']];
-        tab = tab || 'users';
-        const usersBody = `<div class="row" id="ad-reg" style="gap:6px;margin-bottom:8px;align-items:center"><span class="muted">註冊新帳號：載入中…</span></div><div class="row" style="gap:6px;margin-bottom:6px"><select class="inp" id="ad-sel" style="margin:0;flex:1" onchange="online.adPick(this.value)"><option value="">載入帳號清單中…</option></select><button class="sm" onclick="online.adList(true)" title="重新整理清單">↻</button></div><div class="row" style="gap:6px"><input class="inp" id="ad-q" placeholder="輸入玩家帳號（登入用帳號）" style="margin:0" onkeydown="if(event.key==='Enter')online.adFind()"><button class="sm" onclick="online.adFind()">搜尋</button></div><p id="ad-umsg" class="muted"></p><div id="ad-user" style="text-align:left"></div>`;
-        ui(`<div class="menu-overlay" style="width:min(94vw,600px);max-height:92vh;overflow-y:auto"><h2 class="shop-title">管理員</h2><div class="tabs">${T.map(t => `<button class="${t[0] === tab ? 'on' : ''}" onclick="online.renderAdmin('${t[0]}')">${t[1]}</button>`).join('')}</div>
-            ${tab === 'users' ? usersBody : tab === 'rank' ? '<div id="ad-rk">載入中…</div>' : `<div class="lst" id="ad-list">載入中…</div><h4 id="ad-title"></h4><div class="lst" id="ad-msgs" style="min-height:120px"></div>`}<button class="sm red" onclick="online.adminLogout()">登出管理員</button>${BACK}</div>`);
-        if (this._adUnsub) { this._adUnsub(); this._adUnsub = null; }
-        if (tab === 'users') { this.adReg(); this.adList(); if (this._adT) this.adCard(); return; }
-        if (tab === 'rank') return this.adRank();
-        try {
-            if (tab === 'lobby') { $('ad-list').innerHTML = ''; return this.adView(adb.collection('lobbyChat'), '大廳'); }
-            const s = await adb.collection(tab === 'group' ? 'groups' : 'dms').limit(100).get();
-            $('ad-list').innerHTML = s.docs.length ? s.docs.map(d => { const x = d.data(); const label = tab === 'group' ? `${x.name}（${Object.values(x.memberNames || {}).join('、')}）` : Object.values(x.names || {}).join(' ⇄ ');
-                return `<div class="row"><span>${esc(label)}</span><button class="sm" onclick="online.adOpen('${tab}','${d.id}')">查看</button></div>`; }).join('') : '<p class="muted">沒有資料</p>';
-        } catch (e) { $('ad-list').textContent = errMsg(e); }
-    },
-    // ----- 開放／停止註冊新帳號（寫入 config/app，登入頁註冊前會檢查；Firestore 規則也會擋下新帳號的玩家資料）-----
-    async adReg(set) {
-        const box = $('ad-reg'); if (!box) return; const adb = this.adminDb || db, ref = adb.collection('config').doc('app');
-        try {
-            if (typeof set === 'boolean') await ref.set({ regClosed: set, updatedAt: Date.now() }, { merge: true });
-            const d = await ref.get(), closed = !!(d.exists && d.data().regClosed);
-            box.innerHTML = `<span style="flex:1;text-align:left">註冊新帳號：<b style="color:${closed ? '#ff6b6b' : '#7dffb0'}">${closed ? '已停止（只有舊帳號能登入）' : '開放中'}</b></span><button class="sm ${closed ? '' : 'red'}" onclick="online.adReg(${!closed})">${closed ? '重新開放註冊' : '停止註冊新帳號'}</button>`;
-            if (typeof set === 'boolean') toast(closed ? '已停止註冊新帳號' : '已重新開放註冊');
-        } catch (e) { box.innerHTML = `<span class="muted" style="text-align:left">${esc(errMsg(e))}（請確認已發布最新的 firestore.rules）</span>`; }
-    },
-    // ----- 玩家管理：設定暗物質／免費升級戰機／重置／黑名單 -----
-    adDefaultSave() { const f = {}; SHIPS.forEach(S => { f[S.id] = Object.assign({ own: S.price === 0 }, S.base); }); return { dm: 0, g: 0, s: 1, m: 0, d: 0, f, i: 'star', b: 1, t: 1 }; },
-    // ----- 排行榜紀錄：管理員手動刪除某一筆排行榜紀錄 -----
-    async adRank(board, st) {
-        board = board || (this._adRk && this._adRk.board) || 'bestScore'; st = st || (this._adRk && this._adRk.st) || 1; this._adRk = { board, st };
-        const box = $('ad-rk'); if (!box) return; const adb = this.adminDb || db;
-        const T = [...RANK_ACH, ...RANK_CLR], sp = this.rankSpec(board, st);
-        const sub = board === 'stage' ? this.stageTabs('online.adRank', st) : '';
-        box.innerHTML = `<div class="tabs">${T.map(t => `<button class="${t[0] === board ? 'on' : ''}" onclick="online.adRank('${t[0]}')">${t[1]}</button>`).join('')}</div>${sub}<div class="lst" id="ad-rk-list">載入中…</div><p class="muted" id="ad-rk-msg">按「刪除」會清除該玩家在這個榜上的這一筆紀錄（玩家其他資料不受影響）。</p>`;
-        try {
-            const s = await adb.collection('users').orderBy(sp.key, sp.asc ? 'asc' : 'desc').limit(50).get(); if (!$('ad-rk-list') || !this._adRk || this._adRk.board !== board || this._adRk.st !== st) return;
-            this._adRkRows = s.docs.map(d => ({ uid: d.id, x: d.data() })).filter(r => r.x[sp.ms] !== undefined && (sp.time || r.x[sp.ms] > 0));
-            $('ad-rk-list').innerHTML = this._adRkRows.length ? this._adRkRows.map((r, i) => { const x = r.x, v = sp.time ? fmtTime(x[sp.ms]) : (x[sp.ms] || 0);
-                return `<div class="row"><b class="n">${i + 1}</b><span>${esc(x.name || '')} <small style="color:#aaa">${esc(x.username || '')}${x.hideRank || x.username === ADMIN_USER ? '・不上榜' : ''}</small></span><b>${v}</b><button class="sm red" onclick="online.adRkDel(${i})">刪除</button></div>`; }).join('') : '<p class="muted">這個榜目前沒有紀錄</p>';
-        } catch (e) { const l = $('ad-rk-list'); if (l) l.textContent = errMsg(e); }
-    },
-    async adRkDel(i) {
-        const r = (this._adRkRows || [])[i], rk = this._adRk, adb = this.adminDb || db, m = $('ad-rk-msg'); if (!r || !rk) return;
-        const x = r.x, board = rk.board, st = rk.st, del = firebase.firestore.FieldValue.delete(), sp = this.rankSpec(board, st);
-        const label = board === 'stage' ? `第 ${st} 關` : ([...RANK_ACH, ...RANK_CLR].find(t => t[0] === board) || [])[1] || board;
-        if (!confirm(`確定要刪除「${x.name || x.username || r.uid}」在【${label}】榜上的紀錄嗎？\n此動作無法復原。`)) return;
-        const now = Date.now(), upd = { adminAt: now, updatedAt: now };
-        if (sp.time) { [sp.key, sp.ms, sp.ship, sp.mates].filter(Boolean).forEach(k => { upd[k] = del; }); if (board === 'clear') upd.clearAt = del; }
-        else upd[board] = 0;
-        try { await adb.collection('users').doc(r.uid).set(upd, { merge: true }); await this.adRank(board, st); const mm = $('ad-rk-msg'); if (mm) mm.textContent = `已刪除「${x.name || x.username}」的${label}紀錄`; }
-        catch (e) { if (m) m.textContent = errMsg(e); }
-    },
-    async adList(force) {   // 帳號下拉選單：列出現有帳號（依帳號排序，最多 500 筆）
-        const sel = $('ad-sel'); if (!sel) return; const adb = this.adminDb || db;
-        try {
-            if (force || !this._adUsers) { sel.innerHTML = '<option value="">載入帳號清單中…</option>'; const s = await adb.collection('users').limit(500).get(); this._adUsers = s.docs.map(d => { const x = d.data(); return { uid: d.id, username: x.username || '', name: x.name || '' }; }).sort((a, b) => (a.username || a.name).localeCompare(b.username || b.name)); }
-            const cur = this._adT ? this._adT.uid : '', box = $('ad-sel'); if (!box) return;
-            box.innerHTML = `<option value="">— 選擇現有帳號（共 ${this._adUsers.length} 個）—</option>` + this._adUsers.map(u => `<option value="${esc(u.uid)}" ${u.uid === cur ? 'selected' : ''}>${esc(u.username || '（無帳號）')}　${esc(u.name)}</option>`).join('');
-        } catch (e) { sel.innerHTML = '<option value="">清單載入失敗</option>'; const m = $('ad-umsg'); if (m) m.textContent = errMsg(e); }
-    },
-    async adPick(uid) {
-        const m = $('ad-umsg'); if (!uid) { this._adT = null; const b = $('ad-user'); if (b) b.innerHTML = ''; return; }
-        try { if (m) m.textContent = '載入中…'; await this.adLoad(uid); if (m) m.textContent = ''; const u = (this._adUsers || []).find(x => x.uid === uid), q = $('ad-q'); if (q && u) q.value = u.username; } catch (e) { if (m) m.textContent = errMsg(e); }
-    },
-    async adDelete() {   // 刪除帳號：清除玩家資料、好友、邀請與上線狀態
-        const T = this._adT, adb = this.adminDb || db, m = $('ad-umsg'); if (!T) return; if (!this.adminDb && !this.isAdmin) { toast('只有管理員可以執行這個操作'); return; }
-        const nm = T.d.username || T.d.name || T.uid;
-        if (!confirm(`確定要刪除帳號「${nm}」嗎？\n\n玩家資料、存檔、暗物質、戰機、好友與紀錄都會永久刪除，登入帳號也會在對方下次登入時刪除，無法復原。`)) return;
-        const typed = prompt(`請再輸入要刪除的帳號「${nm}」以確認：`); if (typed === null) return;
-        if (typed.trim().toLowerCase() !== String(nm).toLowerCase()) { if (m) m.textContent = '輸入的帳號不符，已取消刪除'; return; }
-        try {
-            if (m) m.textContent = '刪除中…';
-            await adb.collection('deleted').doc(T.uid).set({ username: T.d.username || '', name: T.d.name || '', at: Date.now() });   // 先留下「已刪除」標記：擋住這個帳號再寫入資料，並讓對方下次登入時連登入帳號一起刪除
-            const U = adb.collection('users').doc(T.uid);
-            for (const sub of ['friends', 'invites']) {
-                const s = await U.collection(sub).get();
-                if (sub === 'friends') await Promise.all(s.docs.map(d => adb.collection('users').doc(d.id).collection('friends').doc(T.uid).delete().catch(() => {})));   // 別人好友清單裡的這個帳號也一起移除
-                await Promise.all(s.docs.map(d => d.ref.delete()));
-            }
-            for (const k of ['from', 'to']) { try { const r = await adb.collection('friendRequests').where(k, '==', T.uid).get(); await Promise.all(r.docs.map(d => d.ref.delete().catch(() => {}))); } catch (e) {} }   // 相關的好友邀請
-            try { await adb.collection('presence').doc(T.uid).delete(); } catch (e) {}
-            try { const r = await adb.collection('bonds').where('members', 'array-contains', T.uid).get(); await Promise.all(r.docs.map(d => d.ref.delete().catch(() => {}))); } catch (e) {}   // 羈絆值紀錄
-            let authGone = false;
-            try {   // 用玩家登入時記下的密碼，在暫時的第二個登入環境把「登入帳號」本身刪掉（瀏覽器只能刪自己）；成功的話名稱立刻可重新註冊
-                const cs = await adb.collection('creds').doc(T.uid).get(), pw = cs.exists ? cs.data().pw : '', un = T.d.username || (cs.exists ? cs.data().u : '');
-                if (pw && un) { let app; try { app = firebase.initializeApp(CFG, 'del' + Date.now()); const a = app.auth(); try { await a.setPersistence(firebase.auth.Auth.Persistence.NONE); } catch (e) {} const cr = await a.signInWithEmailAndPassword(un + MAIL, pw); if (cr.user.uid === T.uid) { await cr.user.delete(); authGone = true; } } finally { try { if (app) await app.delete(); } catch (e) {} } }
-            } catch (e) { console.warn('刪除登入帳號失敗（密碼已變更或沒有紀錄）', e); }
-            try { await adb.collection('creds').doc(T.uid).delete(); } catch (e) {}
-            await U.delete();
-            this._adUsers = (this._adUsers || []).filter(u => u.uid !== T.uid); this._adT = null;
-            const b = $('ad-user'); if (b) b.innerHTML = ''; const q = $('ad-q'); if (q) q.value = '';
-            this.adList(); if (m) m.textContent = `已刪除帳號「${nm}」：玩家資料已清除；` + (authGone ? '登入帳號也已一併刪除，這個名稱現在就可以重新註冊。' : '登入帳號沒能立刻刪除（沒有密碼紀錄或對方已改密碼）：對方下次開啟遊戲或登入時會自動刪除；若有人要用同一個名稱註冊，輸入的密碼和舊密碼相同也會自動清掉舊帳號並完成註冊（想立刻釋出名稱，可到 Firebase → Authentication 手動刪除）。');
-        } catch (e) { if (m) m.textContent = errMsg(e); }
-    },
-    async adFind() {
-        const adb = this.adminDb || db, q = (($('ad-q') || {}).value || '').trim().toLowerCase(), m = $('ad-umsg'); if (!q) return;
-        m.textContent = '搜尋中…'; $('ad-user').innerHTML = '';
-        try {
-            let s = await adb.collection('users').where('username', '==', q).limit(1).get();
-            if (s.empty) s = await adb.collection('users').where('nameLower', '==', q).limit(1).get();
-            if (s.empty) { m.textContent = '找不到這個帳號'; this._adT = null; return; }
-            await this.adLoad(s.docs[0].id); m.textContent = '';
-        } catch (e) { m.textContent = errMsg(e); }
-    },
-    async adLoad(uid) {
-        const adb = this.adminDb || db, d = (await adb.collection('users').doc(uid).get()).data() || {}, b = await adb.collection('banned').doc(uid).get();
-        const save = d.save || this.adDefaultSave(); SHIPS.forEach(S => { save.f = save.f || {}; save.f[S.id] = Object.assign({ own: S.price === 0 }, S.base, save.f[S.id] || {}); });
-        this._adT = { uid, d, save, ban: b.exists ? b.data() : null }; this.adCard();
-    },
-    async adTogglePw() {   // 預設遮蔽；按「顯示密碼」才向資料庫讀取並顯示，再按一次隱藏
-        const T = this._adT, adb = this.adminDb || db, m = $('ad-umsg'); if (!T) return;
-        if (T.pwShow) { T.pwShow = null; this.adCard(); return; }
-        try { const s = await adb.collection('creds').doc(T.uid).get(); if (s.exists && s.data().pw) { T.pwShow = s.data().pw; this.adCard(); } else if (m) m.textContent = '尚無密碼紀錄（該玩家下次登入後才會記錄）'; }
-        catch (e) { if (m) m.textContent = errMsg(e); }
-    },
-    adCard() {
-        const T = this._adT, box = $('ad-user'); if (!T || !box) return; const d = T.d, sv = T.save, K = STAT_KEYS.map(([k, n]) => [k, k === 'cov' ? '覆蓋' : n]);
-        const stp = (fn, v, t) => `<span class="ad-st"><button class="sm" onclick="${fn}(-1)">−</button><b>${v}</b><button class="sm" onclick="${fn}(1)">＋</button></span>`;
-        const GL = [['s', '成語列', 1, 6, '同時收集的成語數'], ['m', '磁吸字塊', 0, MAGNET_MAX, '字塊自動吸附範圍'], ['d', '暗物質回收', 0, 5, '暗物質獲得 +20%／級']];
-        box.innerHTML = `<div style="padding:10px;border:1px solid #334;border-radius:10px;margin-bottom:8px">
-            <h3 style="margin:0 0 4px;color:var(--neon-gold)">${esc(d.name || '')} <small style="color:#aaa">帳號 ${esc(d.username || '')}</small></h3>
-            <div class="muted">最高分 ${d.bestScore || 0}・累積暗物質 ${d.totalDM || 0}・PK ${d.pkWins || 0} 勝 ${d.pkLosses || 0} 敗${T.ban ? '<br><b style="color:var(--neon-red)">★ 黑名單停權中：' + esc(T.ban.reason || '（無原因）') + '</b>' : ''}</div></div>
-            <div class="row" style="gap:6px;margin:6px 0"><b>暗物質</b><input class="inp" id="ad-dm" type="number" min="0" value="${sv.dm || 0}" style="margin:0;width:140px"><button class="sm" onclick="online.adSetDM()">設定</button></div>
-            <div class="row" style="gap:6px;margin:6px 0"><b style="color:#ffd700">銀河幣</b><input class="inp" id="ad-g" type="number" min="0" value="${sv.g || 0}" style="margin:0;width:140px"><button class="sm" onclick="online.adSetG()">設定</button><button class="sm" onclick="online.adAddG(-1000)">−1000</button><button class="sm" onclick="online.adAddG(1000)">＋1000</button></div>
-            <style>.ad-box{margin:8px 0;padding:8px 10px;border:1px solid #334;border-radius:10px;background:rgba(255,255,255,.03)}.ad-box>summary{cursor:pointer;user-select:none}.ad-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px 10px;margin-top:6px}.ad-cell{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 6px;border-radius:6px;background:rgba(0,0,0,.25)}.ad-cell em{font-style:normal;color:#9ab;font-size:.85rem}.ad-st{display:inline-flex;align-items:center;gap:4px}.ad-st b{min-width:3.2em;text-align:center;font-variant-numeric:tabular-nums}.ad-x b{color:#ffd700}.ad-sub{color:var(--neon-gold);font-size:.85rem;margin-top:8px}</style>
-            <div class="ad-box"><b>全體能力（商店項目・不扣暗物質）</b><div class="ad-grid">${GL.map(([k, n, lo, hi, tip]) => `<div class="ad-cell" title="${tip}"><em>${n}</em>${stp(`online.adGlobal.bind(online,'${k}',${lo},${hi})`, (sv[k] || lo) + '/' + hi)}</div>`).join('')}</div><div style="margin-top:6px"><button class="sm" onclick="online.adGlobal('all')">全體能力全部升滿</button></div></div>
-            <div class="ad-box"><b>雙星幣（手動調整）</b> <span style="color:#ffd700">目前：${Number(sv.tc | 0).toLocaleString()}</span><div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">${[-1000, -100, 100, 1000].map(n => `<button class="sm" onclick="online.adTwin(${n})">${n > 0 ? '＋' : '−'}${Math.abs(n)}</button>`).join('')}<input class="inp" id="ad-tc" type="number" min="0" placeholder="直接設定數值" style="width:130px"><button class="sm" onclick="online.adTwinSet()">設定</button><button class="sm" onclick="online.adTwin('clear')">歸零</button></div></div>
-            <div class="row" style="gap:6px;margin:8px 0"><b>戰機（調整不扣暗物質）</b><button class="sm" onclick="online.adShip('*','own',true)">全部擁有</button><button class="sm" onclick="online.adShip('*','max')">全機種升滿</button><button class="sm" onclick="online.adShip('*','maxx')">全機種突破 ${XMAX} 層</button></div>
-            ${SHIPS.map(S => { const f = sv.f[S.id], X = f.x || {}; return `<details class="ad-box" ${this._adOpen === S.id ? 'open' : ''} ontoggle="if(this.open)online._adOpen='${S.id}'"><summary><b style="color:${S.c}">${S.name}</b> <small class="muted">${S.role || ''}</small>${f.own ? ' <small style="color:#38ef7d">已擁有</small>' : ' <small style="color:#789">未擁有</small>'}</summary>
-                <label style="display:block;margin-top:6px"><input type="checkbox" ${f.own ? 'checked' : ''} onchange="online.adShip('${S.id}','own',this.checked)"> 已擁有</label>
-                <div class="ad-sub">能力等級（上限）</div><div class="ad-grid">${K.map(([k, n]) => `<div class="ad-cell"><em>${n}</em>${stp(`online.adShip.bind(online,'${S.id}','${k}')`, f[k] + '/' + S.cap[k])}</div>`).join('')}</div>
-                <div class="ad-sub">銀河幣突破（0～${XMAX} 層）</div><div class="ad-grid ad-x">${K.map(([k, n]) => `<div class="ad-cell"><em>${n}</em>${stp(`online.adShip.bind(online,'${S.id}','x_${k}')`, (X[k] || 0) + '/' + XMAX)}</div>`).join('')}</div>
-                <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="sm" onclick="online.adShip('${S.id}','max')">能力全部升滿</button><button class="sm" onclick="online.adShip('${S.id}','maxx')">突破全滿</button><button class="sm" onclick="online.adShip('${S.id}','clrx')">清除突破</button></div></details>`; }).join('')}
-            <div class="ad-box"><b>好友羈絆值（手動調整）</b><div id="ad-bonds" class="muted" style="margin-top:6px">載入中…</div></div>
-            <div class="row" style="gap:6px;margin:6px 0"><b>密碼</b><span id="ad-pw" style="font-family:monospace;letter-spacing:.1em;min-width:120px">${T.pwShow ? esc(T.pwShow) : '••••••••'}</span><button class="sm" onclick="online.adTogglePw()">${T.pwShow ? '隱藏密碼' : '顯示密碼'}</button></div>
-            <div style="margin:10px 0;padding:8px;border:1px solid #522;border-radius:8px"><b>黑名單／停權</b>
-                ${T.ban ? `<button class="sm" onclick="online.adUnban()">解除停權</button>` : `<textarea class="inp" id="ad-reason" rows="2" maxlength="200" placeholder="輸入被封原因（玩家登入時會看到）"></textarea><button class="sm red" onclick="online.adBan()">加入黑名單</button>`}</div>
-            <button class="sm red" onclick="online.adReset()">重置此帳號（回到全新狀態）</button> <button class="sm red" onclick="online.adDelete()">刪除此帳號</button>`;
-        this.adBondsLoad();
-    },
-    async adBondsLoad(force) {   // 讀出這個玩家的好友與彼此的羈絆值（只讀一次，之後用快取重畫）
-        const T = this._adT; if (!T) return; const adb = this.adminDb || db;
-        if (!T.bonds || force) {
-            try {
-                const [fs, bs] = await Promise.all([adb.collection('users').doc(T.uid).collection('friends').get(), adb.collection('bonds').where('members', 'array-contains', T.uid).get()]);
-                if (this._adT !== T) return;
-                const pm = {}; bs.docs.forEach(x => { const p = ((x.data().members) || []).find(m => m !== T.uid); if (p) pm[p] = x.data().pts | 0; });
-                const rows = fs.docs.map(x => ({ uid: x.id, name: x.data().name || x.id, pts: pm[x.id] | 0 }));
-                Object.keys(pm).forEach(p => { if (!rows.some(r => r.uid === p)) rows.push({ uid: p, name: p + '（已非好友）', pts: pm[p] }); });
-                T.bonds = rows;
-            } catch (e) { const b = $('ad-bonds'); if (b) b.textContent = errMsg(e); return; }
-        }
-        this.adBondsDraw();
-    },
-    adBondsDraw() {
-        const T = this._adT, b = $('ad-bonds'); if (!T || !b || !T.bonds) return;
-        b.innerHTML = T.bonds.length ? T.bonds.map((r, i) => `<div class="row" style="gap:6px;margin:2px 0"><span style="min-width:110px;color:#dde">${esc(r.name)}</span><b style="color:#ffd166;min-width:4.5em">⭐ ${r.pts}</b><input class="inp" id="ad-bi${i}" type="number" min="0" value="${r.pts}" style="margin:0;width:90px"><button class="sm" onclick="online.adBondSet(${i})">設定</button><button class="sm" onclick="online.adBondAdd(${i},-1)">−1</button><button class="sm" onclick="online.adBondAdd(${i},1)">＋1</button></div>`).join('') : '這個玩家還沒有好友';
-    },
-    adBondAdd(i, d) { const r = ((this._adT || {}).bonds || [])[i]; if (r) this.adBondWrite(i, r.pts + d); },
-    adBondSet(i) { const el = $('ad-bi' + i), n = Math.floor(Number(el && el.value)); if (!isFinite(n) || n < 0) return toast('請輸入 0 以上的整數'); this.adBondWrite(i, n); },
-    async adBondWrite(i, v) {
-        const T = this._adT, r = T && (T.bonds || [])[i], adb = this.adminDb || db, m = $('ad-umsg'); if (!r) return;
-        if (!this.adminDb && !this.isAdmin) { toast('只有管理員可以執行這個操作'); return; }
-        v = Math.max(0, Math.min(99999, Math.floor(v))); const ids = [T.uid, r.uid].sort();
-        try { await adb.collection('bonds').doc(ids.join('_')).set({ members: ids, pts: v }, { merge: true }); r.pts = v; if (m) m.textContent = `已把與 ${r.name} 的羈絆值設為 ${v}`; this.adBondsDraw(); }
-        catch (e) { if (m) m.textContent = /permission|insufficient/i.test(String(e && (e.code || e.message))) ? '沒有權限：請把最新的 firestore.rules 貼到 Firebase 主控台並發佈' : errMsg(e); }
-    },
-    async adWrite(extra, okMsg) {
-        const T = this._adT, adb = this.adminDb || db, m = $('ad-umsg'); if (!T) return; if (!this.adminDb && !this.isAdmin) { toast('只有管理員可以執行這個操作'); return; }
-        try {
-            const now = Date.now(), upd = Object.assign({ adminAt: now, updatedAt: now }, extra);
-            await adb.collection('users').doc(T.uid).set(upd, { merge: true }); if (m) m.textContent = okMsg || '已更新'; return true;
-        } catch (e) { if (m) m.textContent = errMsg(e); }
-    },
-    async adSaveSave(msg) { const T = this._adT; if (await this.adWrite({ save: T.save, darkMatter: T.save.dm || 0, galaxy: T.save.g || 0 }, msg)) this.adCard(); },
-    adSetDM() { const v = Math.max(0, Math.floor(+($('ad-dm') || {}).value || 0)); this._adT.save.dm = v; this.adSaveSave(`已把暗物質設為 ${v}`); },
-    adSetG() { const v = Math.max(0, Math.floor(+($('ad-g') || {}).value || 0)); this._adT.save.g = v; this.adSaveSave(`已把銀河幣設為 ${v}`); },
-    adAddG(n) { const v = Math.max(0, Math.floor((this._adT.save.g || 0) + n)); this._adT.save.g = v; this.adSaveSave(`銀河幣已${n >= 0 ? '增加' : '減少'} ${Math.abs(n)}，目前 ${v}`); },
-    adShip(id, k, v) {   // id='*' 代表全部戰機；k：own／max（能力升滿）／maxx（突破全滿）／clrx（清除突破）／能力代號（pen、crit…）／x_能力代號（突破層數）
-        const T = this._adT; if (!T) return;
-        (id === '*' ? SHIPS : [SHIPS.find(x => x.id === id)]).forEach(S => {
-            const f = T.save.f[S.id], keys = STAT_KEYS.map(a => a[0]); f.x = f.x || {};
-            if (k === 'own') f.own = !!v;
-            else if (k === 'max') { f.own = true; keys.forEach(x => f[x] = S.cap[x]); }
-            else if (k === 'maxx') { f.own = true; keys.forEach(x => { f[x] = S.cap[x]; f.x[x] = XMAX; }); }
-            else if (k === 'clrx') f.x = {};
-            else if (k.startsWith('x_')) { const q = k.slice(2); if (f[q] < S.cap[q] && v > 0) f[q] = S.cap[q]; f.x[q] = Math.max(0, Math.min(XMAX, (f.x[q] || 0) + v)); if (f.x[q] > 0) f.own = true; }   // 突破只在能力滿級後才有意義：加突破時順便把該項補到上限
-            else f[k] = Math.max(S.base[k] || 0, Math.min(S.cap[k], (f[k] || 0) + v));
-        });
-        this.adSaveSave('戰機已更新（未扣暗物質）');
-    },
-    adTwin(d) {   // 雙星幣手動調整：d 為增減數量，或 'clear' 歸零
-        const T = this._adT; if (!T) return; const sv = T.save;
-        sv.tc = d === 'clear' ? 0 : Math.max(0, Math.min(999999999, (sv.tc | 0) + d));
-        this.adSaveSave('雙星幣已更新');
-    },
-    adTwinSet() {
-        const T = this._adT, el = $('ad-tc'); if (!T || !el) return; const n = Math.floor(Number(el.value));
-        if (!isFinite(n) || n < 0) return toast('請輸入 0 以上的整數');
-        T.save.tc = Math.min(999999999, n); this.adSaveSave('雙星幣已設定為 ' + T.save.tc);
-    },
-    adGlobal(k, lo, hi, v) {   // 全體能力：成語列（s）、磁吸（m）、暗物質回收（d）
-        const T = this._adT; if (!T) return; const sv = T.save;
-        if (k === 'all') { sv.s = 6; sv.m = MAGNET_MAX; sv.d = 5; }
-        else sv[k] = Math.max(lo, Math.min(hi, (sv[k] === undefined ? lo : sv[k]) + v));
-        this.adSaveSave('全體能力已更新（未扣暗物質）');
-    },
-    async adReset() {
-        const T = this._adT; if (!T || !confirm('確定要把這個帳號重置回全新狀態嗎？（存檔、暗物質、戰機、分數統計都會清空）')) return;
-        const del = firebase.firestore.FieldValue.delete(), z = { save: del, darkMatter: 0, bestScore: 0, totalDM: 0, spentDM: 0, pkWins: 0, pkLosses: 0, bestClearMs: del, clearAt: del, clearKey: del, tutorialDone: false, bsDay: del, bsItem: del };
-        for (let n = 1; n <= 9; n++) { z['s' + n + 'Ms'] = del; z['s' + n + 'Key'] = del; z['s' + n + 'Ship'] = del; z['c' + n + 'Ms'] = del; z['c' + n + 'Key'] = del; z['c' + n + 'Ship'] = del; z['c' + n + 'Mates'] = del; }
-        Object.assign(z, { cl: del, cClearMs: del, cClearKey: del, cClearShip: del, cClearMates: del, totalGalaxy: 0, spentGalaxy: 0, galaxy: 0 });
-        if (await this.adWrite(z, '帳號已重置')) { await this.adLoad(T.uid); }
-    },
-    async adBan() {
-        const T = this._adT, adb = this.adminDb || db, reason = (($('ad-reason') || {}).value || '').trim(); if (!T) return; if (!this.adminDb && !this.isAdmin) { toast('只有管理員可以執行這個操作'); return; }
-        if (!reason && !confirm('沒有填寫停權原因，仍要停權嗎？')) return;
-        try { await adb.collection('banned').doc(T.uid).set({ uid: T.uid, username: T.d.username || '', name: T.d.name || '', reason, at: Date.now() }); T.ban = { reason }; this.adCard(); $('ad-umsg').textContent = '已加入黑名單'; } catch (e) { $('ad-umsg').textContent = errMsg(e); }
-    },
-    async adUnban() {
-        const T = this._adT, adb = this.adminDb || db; if (!T) return; if (!this.adminDb && !this.isAdmin) { toast('只有管理員可以執行這個操作'); return; }
-        try { await adb.collection('banned').doc(T.uid).delete(); T.ban = null; this.adCard(); $('ad-umsg').textContent = '已解除停權'; } catch (e) { $('ad-umsg').textContent = errMsg(e); }
-    },
-    adOpen(tab, id) { this.adView((this.adminDb || db).collection(tab === 'group' ? 'groups' : 'dms').doc(id).collection('messages'), id); },
-    adView(ref, title) {
-        if (this._adUnsub) this._adUnsub(); $('ad-title').textContent = title;
-        this._adUnsub = ref.orderBy('ts', 'desc').limit(100).onSnapshot(s => { const b = $('ad-msgs'); if (!b) return; b.innerHTML = s.docs.map(d => msgHtml(d.data(), false)).reverse().join('') || '<p class="muted">沒有訊息</p>'; b.scrollTop = b.scrollHeight; }, e => { const b = $('ad-msgs'); if (b) b.textContent = errMsg(e); });
-    },
 
     // ===== 圖鑑：成語資料／戰鬥資料／音樂庫 =====
     renderDB(eff, word) { this.renderDex('idiom', eff, word); },
@@ -4945,10 +4702,10 @@ function msgHtml(m, me) { if (m.sys) return `<div class="msg sys s${m.sys}">${es
 
 // ---------- 掛接到遊戲 ----------
 const wrap = (name, fn) => { const o = P[name]; P[name] = function (...a) { return fn.call(this, o, ...a); }; };
-const NEW = new Set(['LOGIN', 'RANK', 'FRIENDS', 'PK', 'COOP', 'NET', 'TWIN', 'DB', 'DB2', 'TUTORIAL', 'ADMIN', 'STATS']);
+const NEW = new Set(['LOGIN', 'RANK', 'FRIENDS', 'PK', 'COOP', 'NET', 'TWIN', 'DB', 'DB2', 'TUTORIAL', 'STATS']);
 wrap('setState', function (o, state) {
     if (this.pkMode && (state === 'GAMEOVER' || state === 'VICTORY')) { online.pkSelfDead(); return; }
-    if (NEW.has(state) && !['LOGIN', 'TUTORIAL', 'DB', 'DB2', 'STATS', 'COOP'].includes(state) && !online.user && !(state === 'ADMIN' && online.adminDb)) { toast('這個功能需要網路並登入'); return; }
+    if (NEW.has(state) && !['LOGIN', 'TUTORIAL', 'DB', 'DB2', 'STATS', 'COOP'].includes(state) && !online.user) { toast('這個功能需要網路並登入'); return; }
     if (NEW.has(state)) { o.call(this, 'LOBBY'); this.gameState = state; online.renderState(state); return; }
     o.call(this, state); online.updateChatVis();
     if (state === 'GAMEOVER') online.finishRun(false); else if (state === 'VICTORY') online.finishRun(true);
@@ -4970,9 +4727,6 @@ wrap('startCast', function (o, idiom, remote) {
 });
 wrap('finishCast', function (o) { const c = this.casting; if (c && c.remote) { this.endCast(); online.pkApply(c.idiom); } else o.call(this); online.pkNext(); });
 wrap('leave', function (o) { if (this.pkMode) { this.closeDlg(); online.pkSelfDead(); return; } o.call(this); });
-const ADMIN_CODE = '06090721';
-wrap('aboutDialog', function (o) { o.call(this); this.aboutOpen = true; online._code = ''; });   // 關於視窗不顯示任何輸入欄：直接按鍵盤輸入管理員密碼即可進入管理員介面
-wrap('closeDlg', function (o) { this.aboutOpen = false; o.call(this); });
 wrap('openSettings', function (o) {
     o.call(this); const box = document.querySelector('#dlg .box'); if (!box) return;
     const last = box.querySelector('.btn-start'), d = document.createElement('div');
@@ -4981,17 +4735,6 @@ wrap('openSettings', function (o) {
 });
 wrap('handleKey', function (o, e) {
     const st = this.gameState;
-    if (this.dlgOpen && this.aboutOpen) {   // 關於頁面：鍵盤輸入暗碼直接進管理員介面
-        const m = /^(Digit|Numpad)(\d)$/.exec(e.code);
-        if (m) {
-            online._code = ((online._code || '') + m[2]).slice(-ADMIN_CODE.length);
-            if (online._code === ADMIN_CODE) {
-                online._code = ''; this.closeDlg();
-                if (online.isAdmin || online.adminDb) this.setState('ADMIN'); else online.adminLogin(ADMIN_CODE);
-                return;
-            }
-        } else if (!/^(Shift|Control|Alt)/.test(e.code)) online._code = '';
-    }
     if (NEW.has(st) && !this.dlgOpen) {
         if (st === 'TUTORIAL') { if (e.code === 'ArrowRight' || e.code === 'Enter') { online.tut >= online._tutLen - 1 ? online.tutDone() : online.renderTutorial(online.tut + 1); } else if (e.code === 'ArrowLeft') online.renderTutorial(online.tut - 1); else if (e.code === 'Escape') online.tutDone(); return; }
         if (e.code === 'Escape' && st !== 'LOGIN') { if ((st === 'PK' && online.pk) || (st === 'COOP' && coop.room)) return; this.setState('LOBBY'); } return;
